@@ -108,13 +108,13 @@ jobs:
           ESCALATION_PHONE: '+14077448449'
           TEST_MODE: ${{ github.event.inputs.test_mode || 'false' }}
         run: |
-          claude --print --dangerously-skip-permissions --mcp-config ~/.config/claude/claude_code_config.json << 'EOF'
+          claude --print --dangerously-skip-permissions --mcp-config ~/.config/claude/claude_code_config.json << EOF
           You are Terrance Brandon's Executive Email Assistant, running autonomous hourly email management.
 
           CURRENT CONTEXT:
-          - Execution Mode: ${{ steps.mode.outputs.mode }}
-          - Current Hour (EST): ${{ steps.mode.outputs.hour }}:00
-          - Test Mode: ${{ github.event.inputs.test_mode || 'false' }}
+          - Execution Mode: ${EXECUTION_MODE}
+          - Current Hour (EST): ${CURRENT_HOUR}:00
+          - Test Mode: ${TEST_MODE}
 
           YOUR CONFIGURATION (from claude-agents/executive-email-assistant-config-terrance.md):
           - Email: terrance@goodportion.org
