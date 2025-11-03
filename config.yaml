@@ -1,0 +1,203 @@
+version: "1.0.0"
+name: "Toggl to Calendar Sync"
+description: "Automatically sync Toggl Track time entries to Google Calendar"
+
+# Sync Configuration
+sync:
+  # Enable/disable sync globally
+  enabled: true
+
+  # Automatically sync new entries
+  auto_sync: true
+
+  # Sync running (incomplete) entries
+  sync_running_entries: false
+
+  # Sync interval for continuous mode (minutes)
+  interval_minutes: 5
+
+  # Maximum entries to sync per run
+  max_entries_per_sync: 100
+
+# Calendar Event Settings
+calendar:
+  # Calendar event title format
+  # Available variables: {description}, {project}, {duration}
+  title_format: "[Time] {description} - {project}"
+
+  # Title format when no project
+  title_format_no_project: "[Time] {description}"
+
+  # Color for time tracking events (1-11)
+  # 1=Lavender, 2=Sage, 3=Grape, 4=Flamingo, 5=Banana,
+  # 6=Tangerine, 7=Peacock, 8=Graphite, 9=Blueberry,
+  # 10=Basil, 11=Tomato
+  default_color_id: 8  # Graphite
+
+  # Add reminders to time entry events
+  add_reminders: false
+
+  # Include Toggl link in event description
+  include_toggl_link: true
+
+  # Include tags in event description
+  include_tags: true
+
+# Filtering
+filters:
+  # Only sync entries with these tags (empty = sync all)
+  include_tags: []
+
+  # Skip entries with these tags
+  exclude_tags: []
+
+  # Only sync entries from these projects (empty = sync all)
+  # Use project names or IDs
+  include_projects: []
+
+  # Skip entries from these projects
+  exclude_projects: []
+
+  # Only sync billable entries
+  billable_only: false
+
+  # Minimum duration to sync (minutes)
+  min_duration_minutes: 0
+
+# Logging
+logging:
+  level: "INFO"  # DEBUG, INFO, WARNING, ERROR
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file: "logs/sync.log"
+  max_bytes: 10485760  # 10MB
+  backup_count: 5
+
+# Cache
+cache:
+  # Enable caching for API responses
+  enabled: true
+
+  # Cache directory
+  directory: "cache"
+
+  # Cache TTL (seconds)
+  ttl: 3600  # 1 hour
+
+# Webhook (for real-time sync)
+webhook:
+  enabled: false
+  port: 8080
+  path: "/toggl-webhook"
+  secret_header: "X-Webhook-Secret"
+
+# Metrics
+metrics:
+  enabled: true
+  file: "logs/metrics.jsonl"
+  track_api_calls: true
+  track_sync_performance: true
+
+# Relationship Tracking Configuration
+relationship_tracking:
+  # Enable/disable relationship tracking reports
+  enabled: true
+
+  # Report schedule (cron format: minute hour day month weekday)
+  # Sunday at 4am EST: 0 4 * * 0
+  schedule:
+    - "0 4 * * 0"   # Sunday 4am EST
+
+  # Timezone for scheduling
+  timezone: "America/New_York"
+
+  # Google Doc ID for tracking document
+  # Get this from the document URL: https://docs.google.com/document/d/[DOCUMENT_ID]/edit
+  tracking_doc_id: "1gRt7mhJGNxB3V2gL4JCOkGDwGNofAPIsYG62lmoBHZ0"
+
+  # Toggl project name for relationship time tracking
+  toggl_project_name: "Love brittany action plan"
+
+  # Email settings
+  email:
+    # Send report to this address
+    recipient: "terrance@goodportion.org"
+
+    # Email subject template
+    subject_template: "Love Brittany Action Plan Report - {date}"
+
+    # Include executive summary
+    include_summary: true
+
+    # Include detailed statistics
+    include_details: true
+
+  # Restaurant discovery page URL
+  # Local development: http://localhost:5000
+  # After deployment, update to your public URL
+  restaurant_page_url: "https://atlanta-date-restaurants.onrender.com"
+
+  # Tracking periods (days)
+  tracking_periods:
+    # Unexpected gifts should be given every X days
+    gift_frequency: 90  # 3 months
+
+    # Letters should be written every X days
+    letter_frequency: 21  # 3 weeks
+
+    # Journal entries should be made every X days
+    journal_frequency: 30  # Monthly
+
+    # Time suggestions should be made every X days
+    suggestion_frequency: 30  # Monthly
+
+    # Goal support actions should be taken every X days
+    goal_support_frequency: 30  # Monthly
+
+  # Date night configuration
+  date_nights:
+    # Number of months ahead to check
+    lookahead_months: 12
+
+    # Calendar search terms for date nights
+    search_terms:
+      - "date night"
+      - "date"
+      - "romantic dinner"
+
+    # Calendar search terms for babysitter bookings
+    babysitter_terms:
+      - "babysitter"
+      - "sitter"
+      - "childcare"
+
+    # Reservation keywords to look for in event descriptions
+    reservation_keywords:
+      - "reservation"
+      - "booked"
+      - "confirmed"
+      - "table"
+      - "reserved"
+      - "booking"
+      - "rsvp"
+
+  # Daily gap tracking configuration
+  daily_gaps:
+    # Days to look back for gap tracking
+    lookback_days: 7
+
+    # Calendar search terms for daily gaps
+    search_terms:
+      - "love action"
+      - "brittany time"
+      - "relationship work"
+
+    # Minimum completion rate before alert (percentage)
+    alert_threshold: 50
+
+  # Alert levels
+  alerts:
+    # Days overdue before critical alert
+    critical_threshold: 7
+
+    # Days until due before warning alert
+    warning_threshold: 3

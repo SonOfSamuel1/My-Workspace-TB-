@@ -1,0 +1,50 @@
+# Environment variables and secrets
+.env
+.env.local
+*.env
+
+# Credentials and tokens (NEVER commit these!)
+credentials/
+*.json
+!config.yaml
+
+# Logs
+logs/
+*.log
+
+# Output files
+output/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Local scheduler configs (specific to this machine)
+com.lovebbrittany.scheduler.plist
+setup_scheduler.sh
+
+# MCP local config
+.mcp.json
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Cache
+cache/
+*.cache

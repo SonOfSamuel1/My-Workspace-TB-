@@ -198,7 +198,16 @@ class RelationshipTracker:
 
         gifts = self._parse_section(doc_data, 'GIFTS')
 
-        if not gifts:
+        # Filter out placeholder/invalid dates
+        valid_gifts = []
+        for gift in gifts:
+            try:
+                datetime.strptime(gift['date'], '%Y-%m-%d')
+                valid_gifts.append(gift)
+            except ValueError:
+                continue
+
+        if not valid_gifts:
             return {
                 'last_gift_date': None,
                 'days_since_last': None,
@@ -209,7 +218,7 @@ class RelationshipTracker:
 
         # Sort gifts by date
         sorted_gifts = sorted(
-            gifts,
+            valid_gifts,
             key=lambda g: datetime.strptime(g['date'], '%Y-%m-%d'),
             reverse=True
         )
@@ -243,7 +252,16 @@ class RelationshipTracker:
 
         letters = self._parse_section(doc_data, 'LETTERS')
 
-        if not letters:
+        # Filter out placeholder/invalid dates
+        valid_letters = []
+        for letter in letters:
+            try:
+                datetime.strptime(letter['date'], '%Y-%m-%d')
+                valid_letters.append(letter)
+            except ValueError:
+                continue
+
+        if not valid_letters:
             return {
                 'last_letter_date': None,
                 'days_since_last': None,
@@ -253,7 +271,7 @@ class RelationshipTracker:
             }
 
         sorted_letters = sorted(
-            letters,
+            valid_letters,
             key=lambda l: datetime.strptime(l['date'], '%Y-%m-%d'),
             reverse=True
         )
@@ -287,7 +305,16 @@ class RelationshipTracker:
 
         reviews = self._parse_section(doc_data, 'ACTION PLAN REVIEWS')
 
-        if not reviews:
+        # Filter out placeholder/invalid dates
+        valid_reviews = []
+        for review in reviews:
+            try:
+                datetime.strptime(review['date'], '%Y-%m-%d')
+                valid_reviews.append(review)
+            except ValueError:
+                continue
+
+        if not valid_reviews:
             return {
                 'last_review_date': None,
                 'days_since_last': None,
@@ -295,7 +322,7 @@ class RelationshipTracker:
             }
 
         sorted_reviews = sorted(
-            reviews,
+            valid_reviews,
             key=lambda r: datetime.strptime(r['date'], '%Y-%m-%d'),
             reverse=True
         )
@@ -355,9 +382,12 @@ class RelationshipTracker:
 
         entries = self.toggl_service.get_time_entries(
             start_date=start_date,
-            end_date=now,
-            project_name=project_name
+            end_date=now
         )
+
+        # Filter entries by project name
+        if project_name:
+            entries = [e for e in entries if e.get('project_name') == project_name]
 
         if not entries:
             return {
@@ -368,7 +398,7 @@ class RelationshipTracker:
                 'recent_entries': []
             }
 
-        total_seconds = sum(e.get('duration', 0) for e in entries)
+        total_seconds = sum(e.get('duration_seconds', 0) for e in entries)
         total_hours = total_seconds / 3600
 
         # Count unique days
@@ -402,7 +432,16 @@ class RelationshipTracker:
 
         entries = self._parse_section(doc_data, 'JOURNAL ENTRIES')
 
-        if not entries:
+        # Filter out placeholder/invalid dates
+        valid_entries = []
+        for entry in entries:
+            try:
+                datetime.strptime(entry['date'], '%Y-%m-%d')
+                valid_entries.append(entry)
+            except ValueError:
+                continue
+
+        if not valid_entries:
             return {
                 'last_entry_date': None,
                 'days_since_last': None,
@@ -411,7 +450,7 @@ class RelationshipTracker:
             }
 
         sorted_entries = sorted(
-            entries,
+            valid_entries,
             key=lambda e: datetime.strptime(e['date'], '%Y-%m-%d'),
             reverse=True
         )
@@ -442,7 +481,16 @@ class RelationshipTracker:
 
         suggestions = self._parse_section(doc_data, 'TIME TOGETHER')
 
-        if not suggestions:
+        # Filter out placeholder/invalid dates
+        valid_suggestions = []
+        for suggestion in suggestions:
+            try:
+                datetime.strptime(suggestion['date'], '%Y-%m-%d')
+                valid_suggestions.append(suggestion)
+            except ValueError:
+                continue
+
+        if not valid_suggestions:
             return {
                 'last_suggestion_date': None,
                 'days_since_last': None,
@@ -451,7 +499,7 @@ class RelationshipTracker:
             }
 
         sorted_suggestions = sorted(
-            suggestions,
+            valid_suggestions,
             key=lambda s: datetime.strptime(s['date'], '%Y-%m-%d'),
             reverse=True
         )
@@ -482,7 +530,18 @@ class RelationshipTracker:
 
         actions = self._parse_section(doc_data, 'GOAL SUPPORT')
 
-        if not actions:
+        # Filter out placeholder/invalid dates
+        valid_actions = []
+        for action in actions:
+            try:
+                # Try to parse the date - this will fail for placeholders like "YYYY-MM-DD"
+                datetime.strptime(action['date'], '%Y-%m-%d')
+                valid_actions.append(action)
+            except ValueError:
+                # Skip invalid/placeholder dates
+                continue
+
+        if not valid_actions:
             return {
                 'last_action_date': None,
                 'days_since_last': None,
@@ -491,7 +550,7 @@ class RelationshipTracker:
             }
 
         sorted_actions = sorted(
-            actions,
+            valid_actions,
             key=lambda a: datetime.strptime(a['date'], '%Y-%m-%d'),
             reverse=True
         )

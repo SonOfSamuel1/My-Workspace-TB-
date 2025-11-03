@@ -20,8 +20,12 @@ from googleapiclient.errors import HttpError
 class CalendarService:
     """Service for interacting with Google Calendar API."""
 
-    # OAuth2 scopes required
-    SCOPES = ['https://www.googleapis.com/auth/calendar']
+    # OAuth2 scopes required for all Google services
+    SCOPES = [
+        'https://www.googleapis.com/auth/calendar',
+        'https://www.googleapis.com/auth/documents.readonly',
+        'https://www.googleapis.com/auth/gmail.send'
+    ]
 
     def __init__(self, env_file: str = '.env'):
         """
