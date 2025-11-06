@@ -49,10 +49,15 @@ This system implements an Executive-Assistant Partnership Framework to autonomou
 
 ## Architecture
 
+### Deployment Options
+
+**Option 1: GitHub Actions** (Free, easier setup)
+**Option 2: AWS Lambda** (More reliable, $2-5/month)
+
 ```
 ┌─────────────────────────────────────────────────┐
-│          GitHub Actions (Free Tier)             │
-│  Scheduled Workflow: Hourly 7 AM - 5 PM EST    │
+│   GitHub Actions OR Amazon EventBridge          │
+│   Scheduled: Hourly 7 AM - 5 PM EST            │
 └─────────────────┬───────────────────────────────┘
                   │
                   ▼
@@ -84,6 +89,15 @@ This system implements an Executive-Assistant Partnership Framework to autonomou
 
 ## Setup Instructions
 
+Choose your deployment method:
+
+- **[GitHub Actions Setup](#github-actions-setup)** - Free, easier setup, good for testing
+- **[AWS Lambda Setup](#aws-lambda-setup)** - More reliable, production-grade, $2-5/month
+
+---
+
+## GitHub Actions Setup
+
 ### Prerequisites
 
 1. **Claude Code Max Subscription** ($100/month)
@@ -91,12 +105,40 @@ This system implements an Executive-Assistant Partnership Framework to autonomou
 3. **Gmail Account** with API access enabled
 4. **Google Cloud Project** with Gmail API enabled
 5. **Twilio Account** (optional, for SMS escalations)
+6. **Node.js** (v20 or later)
+
+### Quick Setup (Recommended)
+
+```bash
+# 1. Clone repository
+git clone https://github.com/YOUR-USERNAME/App--Internal-Business--Autonomous-Email-Assistant.git
+cd App--Internal-Business--Autonomous-Email-Assistant
+
+# 2. Install dependencies
+npm install
+
+# 3. Run automated setup
+npm run setup
+```
+
+The setup script will:
+- Guide you through Gmail MCP authentication
+- Collect your Claude Code OAuth token
+- Set up Twilio credentials (optional)
+- Automatically add all GitHub secrets via Playwright
+
+**For detailed manual setup**, see [docs/SETUP.md](docs/SETUP.md)
+
+---
+
+### Manual Setup
 
 ### Step 1: Clone Repository
 
 ```bash
 git clone https://github.com/YOUR-USERNAME/App--Internal-Business--Autonomous-Email-Assistant.git
 cd App--Internal-Business--Autonomous-Email-Assistant
+npm install
 ```
 
 ### Step 2: Gmail API Setup
@@ -353,20 +395,88 @@ claude --debug --mcp-config ~/.config/claude/claude_code_config.json
 3. Push to GitHub
 4. Test with manual trigger
 
+## AWS Lambda Setup
+
+For a more reliable, production-grade deployment, use AWS Lambda instead of GitHub Actions.
+
+### Prerequisites
+
+1. **Claude Code Max Subscription** ($100/month)
+2. **AWS Account** with appropriate permissions
+3. **AWS CLI** installed and configured ([Install guide](https://aws.amazon.com/cli/))
+4. **Docker** installed and running ([Install guide](https://docs.docker.com/get-docker/))
+5. **Gmail Account** with API access enabled
+6. **Google Cloud Project** with Gmail API enabled
+7. **Twilio Account** (optional, for SMS escalations)
+
+### Quick Setup
+
+```bash
+cd lambda
+./setup-lambda.sh
+```
+
+The script will:
+1. Create ECR repository for Docker image
+2. Build and push Docker container with Claude Code CLI
+3. Create IAM role for Lambda
+4. Deploy Lambda function
+5. Set up EventBridge schedule (hourly 7 AM - 5 PM EST)
+
+### Manual Deployment
+
+If you prefer AWS SAM:
+
+```bash
+cd lambda
+sam build --use-container
+sam deploy --guided
+```
+
+For detailed Lambda setup instructions, see [lambda/README.md](lambda/README.md)
+
+### Cost Estimate
+
+- **Lambda**: ~$1.20/month (compute time)
+- **CloudWatch Logs**: ~$0.50/month
+- **Total**: ~$2-5/month (excluding Claude Code Max subscription)
+
+### Monitoring
+
+```bash
+# View logs in real-time
+aws logs tail /aws/lambda/email-assistant-processor --follow
+
+# Test function manually
+aws lambda invoke \
+  --function-name email-assistant-processor \
+  response.json
+```
+
+---
+
 ## Project Structure
 
 ```
 .
 ├── .github/
 │   └── workflows/
-│       └── hourly-email-management.yml  # Main GitHub Actions workflow
+│       └── hourly-email-management.yml  # GitHub Actions workflow
+├── lambda/
+│   ├── index.js                         # Lambda handler
+│   ├── Dockerfile                       # Container image definition
+│   ├── template.yaml                    # AWS SAM template
+│   ├── setup-lambda.sh                  # Automated setup script
+│   └── README.md                        # Lambda deployment guide
 ├── claude-agents/
-│   ├── executive-email-assistant.md                # Agent specification (19k words)
-│   └── executive-email-assistant-config-terrance.md # User-specific config
+│   ├── executive-email-assistant.md     # Agent specification
+│   └── executive-email-assistant-config-terrance.md # User config
 ├── docs/
-│   └── SETUP.md                          # Detailed setup guide
+│   └── SETUP.md                          # GitHub Actions setup guide
 ├── scripts/
-│   └── create-gmail-labels.js            # Gmail label creation script
+│   ├── create-gmail-labels.js            # Gmail label creation
+│   ├── setup-credentials.sh              # GitHub Actions setup
+│   └── setup-github-secrets.js           # Automated secrets setup
 └── README.md                              # This file
 ```
 
@@ -397,4 +507,4 @@ For issues or questions:
 
 ---
 
-Built with Claude Code Max | Powered by Claude Sonnet 4.5 | Runs on GitHub Actions
+Built with Claude Code Max | Powered by Claude Sonnet 4.5 | Runs on GitHub Actions or AWS Lambda

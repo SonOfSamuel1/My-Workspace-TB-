@@ -1,0 +1,10 @@
+# Ignore unnecessary files during Docker build
+node_modules
+*.log
+.git
+.gitignore
+.DS_Store
+README.md
+deploy.sh
+template.yaml
+*.md

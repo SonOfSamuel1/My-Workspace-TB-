@@ -1,0 +1,13 @@
+{
+  "name": "email-assistant-lambda",
+  "version": "1.0.0",
+  "description": "AWS Lambda function for autonomous email management",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {},
+  "engines": {
+    "node": ">=20.x"
+  }
+}

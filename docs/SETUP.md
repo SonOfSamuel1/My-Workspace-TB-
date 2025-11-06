@@ -19,7 +19,21 @@ This guide will help you set up autonomous hourly email management using Claude 
 
 ---
 
-## Step 1: Extract Claude Code OAuth Tokens
+## Quick Setup (Recommended)
+
+Run the automated setup script:
+
+```bash
+./scripts/setup-credentials.sh
+```
+
+This will guide you through all the steps and use Playwright to automatically set up GitHub secrets.
+
+**OR** follow the manual steps below:
+
+---
+
+## Step 1: Extract Claude Code OAuth Token
 
 You need to get your Claude Code authentication tokens to use your Max subscription in GitHub Actions.
 
@@ -86,10 +100,16 @@ Example: `sk-ant-oat01-LYgbMJvOnqV29qCcZu0RXfu9t...`
 ### Gmail MCP Authentication
 
 **Secret Name:** `GMAIL_OAUTH_CREDENTIALS`
-**Value:** [Paste entire contents of `~/.gmail-mcp/gcp-oauth.keys.json`]
+**Value:** [Base64-encoded contents of `~/.gmail-mcp/gcp-oauth.keys.json`]
+```bash
+cat ~/.gmail-mcp/gcp-oauth.keys.json | base64
+```
 
 **Secret Name:** `GMAIL_CREDENTIALS`
-**Value:** [Paste entire contents of `~/.gmail-mcp/credentials.json`]
+**Value:** [Base64-encoded contents of `~/.gmail-mcp/credentials.json`]
+```bash
+cat ~/.gmail-mcp/credentials.json | base64
+```
 
 ### Twilio for SMS Escalations (Optional but Recommended)
 
