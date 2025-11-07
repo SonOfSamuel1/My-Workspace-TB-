@@ -21,11 +21,14 @@
 ### Email Access
 - **Platform:** Gmail (Google Workspace)
 - **Email Account:** terrance@goodportion.org
-- **Access Method:** App-Specific Password (IMAP/SMTP)
-- **App Password:** jjcg radi ybbi jfyh
+- **Access Method:** OAuth 2.0 via Gmail MCP (Model Context Protocol)
+- **Credentials Storage:**
+  - GitHub Actions: Stored in GitHub Secrets (GMAIL_OAUTH_CREDENTIALS, GMAIL_CREDENTIALS)
+  - AWS Lambda: Stored in AWS Secrets Manager or Lambda environment variables
+  - Local Development: Stored in ~/.gmail-mcp/credentials.json (gitignored)
 - **Permissions:** Full read/write access to email only
-- **Security:** Can be revoked anytime at https://myaccount.google.com/apppasswords
-- **Permissions:** Full read/write access
+- **Security:** OAuth tokens can be revoked anytime via Google Cloud Console
+- **Setup Guide:** See docs/SETUP.md for credential configuration
 
 ### Calendar Access
 - **Level:** Full management

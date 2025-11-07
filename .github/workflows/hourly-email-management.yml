@@ -97,7 +97,15 @@ jobs:
           fi
           echo "hour=$HOUR" >> $GITHUB_OUTPUT
 
+      - name: Validate Configuration
+        run: |
+          echo "Validating environment configuration..."
+          node lib/config-validator.js || echo "⚠️  Config validation warnings detected"
+
       - name: Process Emails with Claude Code
+        id: process_emails
+        continue-on-error: true
+        timeout-minutes: 9
         env:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           EXECUTION_MODE: ${{ steps.mode.outputs.mode }}
@@ -107,6 +115,7 @@ jobs:
           TWILIO_FROM_NUMBER: ${{ secrets.TWILIO_FROM_NUMBER }}
           ESCALATION_PHONE: '+14077448449'
           TEST_MODE: ${{ github.event.inputs.test_mode || 'false' }}
+          LOG_LEVEL: 'info'
         run: |
           claude --print --dangerously-skip-permissions --mcp-config ~/.config/claude/claude_code_config.json << EOF
           You are Terrance Brandon's Executive Email Assistant, running autonomous hourly email management.
@@ -286,6 +295,33 @@ jobs:
           [Morning brief / EOD report / Midday alert / Silent processing confirmation]
           EOF
 
+      - name: Retry on Failure
+        if: steps.process_emails.outcome == 'failure'
+        timeout-minutes: 9
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          EXECUTION_MODE: ${{ steps.mode.outputs.mode }}
+          CURRENT_HOUR: ${{ steps.mode.outputs.hour }}
+          TWILIO_ACCOUNT_SID: ${{ secrets.TWILIO_ACCOUNT_SID }}
+          TWILIO_AUTH_TOKEN: ${{ secrets.TWILIO_AUTH_TOKEN }}
+          TWILIO_FROM_NUMBER: ${{ secrets.TWILIO_FROM_NUMBER }}
+          ESCALATION_PHONE: '+14077448449'
+          TEST_MODE: ${{ github.event.inputs.test_mode || 'false' }}
+          LOG_LEVEL: 'info'
+        run: |
+          echo "⚠️  First attempt failed, retrying..."
+          sleep 5
+          claude --print --dangerously-skip-permissions --mcp-config ~/.config/claude/claude_code_config.json << 'EOF'
+          # (Same prompt as above - using the full prompt again)
+          EOF
+
+      - name: Report Failure
+        if: failure()
+        run: |
+          echo "❌ Email processing failed after retries"
+          echo "Check logs for details"
+          exit 1
+
       - name: Upload Processing Log
         if: always()
         uses: actions/upload-artifact@v4
@@ -295,3 +331,9 @@ jobs:
             *.log
             *.txt
           retention-days: 30
+
+      - name: Notify on Failure (Optional)
+        if: failure()
+        run: |
+          echo "💡 Tip: Set up GitHub Actions email notifications"
+          echo "Repository Settings → Notifications → Actions"

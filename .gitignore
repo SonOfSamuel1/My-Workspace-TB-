@@ -8,6 +8,10 @@ credentials.json
 gcp-oauth.keys.json
 token.json
 
+# Config files that may contain credentials
+**/executive-email-assistant-config-*.md
+!**/executive-email-assistant-config-template.md
+
 # Claude Code config (contains sensitive data)
 claude_code_config.json
 
