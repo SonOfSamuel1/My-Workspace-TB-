@@ -47,6 +47,67 @@ This system implements an Executive-Assistant Partnership Framework to autonomou
 - Board communications
 - Personal matters (health, family)
 
+## Email Agent - Autonomous Action System
+
+NEW! The Email Agent is a dedicated email address that you can CC or directly email to trigger intelligent autonomous actions. It uses OpenRouter reasoning models to understand your requests and can execute complex tasks using tools like Playwright for web automation.
+
+### Key Features
+
+- **Dedicated Email Address**: CC `assistant@yourdomain.com` or email directly
+- **Reasoning Models**: Uses OpenRouter (DeepSeek R1, OpenAI o1, Gemini 2.0)
+- **Autonomous Tools**:
+  - **Playwright**: Navigate websites, fill forms, extract data, take screenshots
+  - **Calendar**: Create events, check availability, manage schedule
+  - **Data Processing**: Analyze text, extract metrics, format data
+- **Safety Checks**: Financial, legal, and sensitive content validation
+- **Approval Workflow**: Auto-approve low-risk actions, request approval for sensitive tasks
+
+### Example Usage
+
+**Email:**
+```
+To: assistant@yourdomain.com
+Subject: Check website status
+
+Navigate to example.com and tell me if it's up and what the main heading says.
+```
+
+**Agent Response:**
+```
+Hi,
+
+I've processed your request.
+
+**What I understood:** Check website status for example.com
+
+**Actions taken:**
+✅ Navigate to example.com
+✅ Extract page data
+
+Website is up. Main heading: "Example Domain"
+
+**Status:** All actions completed successfully.
+
+Best regards,
+Your Email Assistant
+```
+
+### Quick Start
+
+```bash
+# Install dependencies
+npm install
+
+# Configure environment
+echo "AGENT_EMAIL=assistant@yourdomain.com" >> .env
+echo "OPENROUTER_API_KEY=sk-or-v1-..." >> .env
+
+# Test the agent
+npm run agent:test
+```
+
+**For complete setup and usage instructions**, see [EMAIL-AGENT.md](EMAIL-AGENT.md)
+
 ## Architecture
 
 ### Deployment Options
@@ -468,16 +529,30 @@ aws lambda invoke \
 │   ├── template.yaml                    # AWS SAM template
 │   ├── setup-lambda.sh                  # Automated setup script
 │   └── README.md                        # Lambda deployment guide
+├── lib/
+│   ├── email-agent.js                   # Email agent core system
+│   ├── email-agent-setup.js             # Agent initialization
+│   ├── email-autopilot.js               # Autonomous decision making
+│   ├── mobile-api.js                    # Mobile API backend
+│   └── tools/
+│       ├── playwright-tool.js           # Web automation tool
+│       ├── calendar-tool.js             # Calendar management
+│       └── data-tool.js                 # Data processing
+├── config/
+│   └── email-agent-config.js            # Email agent configuration
 ├── claude-agents/
 │   ├── executive-email-assistant.md     # Agent specification
 │   └── executive-email-assistant-config-terrance.md # User config
 ├── docs/
-│   └── SETUP.md                          # GitHub Actions setup guide
+│   └── SETUP.md                         # GitHub Actions setup guide
 ├── scripts/
-│   ├── create-gmail-labels.js            # Gmail label creation
-│   ├── setup-credentials.sh              # GitHub Actions setup
-│   └── setup-github-secrets.js           # Automated secrets setup
-└── README.md                              # This file
+│   ├── create-gmail-labels.js           # Gmail label creation
+│   ├── setup-credentials.sh             # GitHub Actions setup
+│   ├── setup-github-secrets.js          # Automated secrets setup
+│   └── test-agent.js                    # Email agent testing
+├── EMAIL-AGENT.md                       # Email agent documentation
+├── package.json                         # Dependencies
+└── README.md                            # This file
 ```
 
 ## Contributing
