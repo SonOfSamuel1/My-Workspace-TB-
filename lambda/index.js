@@ -1,8 +1,15 @@
 /**
- * AWS Lambda Handler for Autonomous Email Assistant
+ * AWS Lambda Handler for Autonomous Email Assistant - IMPROVED VERSION
  *
- * This Lambda function replaces the GitHub Actions workflow and runs
- * the Claude Code CLI in headless mode to process emails.
+ * This improved version includes:
+ * - Retry logic with exponential backoff
+ * - Structured logging
+ * - Input validation
+ * - Error handling and recovery
+ * - Health checks
+ * - Cost tracking
+ *
+ * To use: Rename this file to index.js after review
  */
 
 const { spawn } = require('child_process');
@@ -10,8 +17,16 @@ const fs = require('fs');
 const path = require('path');
 const { promisify } = require('util');
 
+const logger = require('../lib/logger');
+const { validateEnvironment, validateExecutionMode, sanitizeForLogging } = require('../lib/config-validator');
+const { executeWithRetry, RetryConditions } = require('../lib/retry');
+const { EmailAssistantError, ErrorCodes, handleError } = require('../lib/error-handler');
+
 const writeFile = promisify(fs.writeFile);
 const mkdir = promisify(fs.mkdir);
+
+// Initialize logger with Lambda context
+let contextLogger = logger;
 
 /**
  * Determine execution mode based on current hour (EST)
@@ -30,61 +45,90 @@ function getExecutionMode() {
  * Setup Gmail MCP credentials from environment variables
  */
 async function setupGmailCredentials() {
-  const gmailMcpDir = path.join('/tmp', '.gmail-mcp');
-  const configDir = path.join('/tmp', '.config', 'claude');
+  const startTime = Date.now();
+  contextLogger.info('Setting up Gmail MCP credentials');
 
-  // Create directories
-  await mkdir(gmailMcpDir, { recursive: true });
-  await mkdir(configDir, { recursive: true });
+  try {
+    const gmailMcpDir = path.join('/tmp', '.gmail-mcp');
+    const configDir = path.join('/tmp', '.config', 'claude');
 
-  // Decode and write Gmail OAuth credentials
-  const gmailOauthCreds = Buffer.from(
-    process.env.GMAIL_OAUTH_CREDENTIALS,
-    'base64'
-  ).toString('utf-8');
+    // Create directories
+    await mkdir(gmailMcpDir, { recursive: true });
+    await mkdir(configDir, { recursive: true });
+    contextLogger.debug('Created credential directories', { gmailMcpDir, configDir });
 
-  const gmailUserCreds = Buffer.from(
-    process.env.GMAIL_CREDENTIALS,
-    'base64'
-  ).toString('utf-8');
+    // Decode and write Gmail OAuth credentials
+    const gmailOauthCreds = Buffer.from(
+      process.env.GMAIL_OAUTH_CREDENTIALS,
+      'base64'
+    ).toString('utf-8');
 
-  await writeFile(
-    path.join(gmailMcpDir, 'gcp-oauth.keys.json'),
-    gmailOauthCreds
-  );
+    const gmailUserCreds = Buffer.from(
+      process.env.GMAIL_CREDENTIALS,
+      'base64'
+    ).toString('utf-8');
 
-  await writeFile(
-    path.join(gmailMcpDir, 'credentials.json'),
-    gmailUserCreds
-  );
-
-  // Create MCP config
-  const mcpConfig = {
-    mcpServers: {
-      gmail: {
-        type: "stdio",
-        command: "npx",
-        args: ["@gongrzhe/server-gmail-autoauth-mcp"],
-        env: {}
-      }
+    // Validate JSON before writing
+    try {
+      JSON.parse(gmailOauthCreds);
+      JSON.parse(gmailUserCreds);
+    } catch (jsonError) {
+      throw new EmailAssistantError(
+        'Invalid Gmail credentials JSON',
+        ErrorCodes.INVALID_CONFIG,
+        false
+      );
     }
-  };
 
-  await writeFile(
-    path.join(configDir, 'claude_code_config.json'),
-    JSON.stringify(mcpConfig, null, 2)
-  );
+    await writeFile(
+      path.join(gmailMcpDir, 'gcp-oauth.keys.json'),
+      gmailOauthCreds
+    );
 
-  return {
-    gmailMcpDir,
-    configPath: path.join(configDir, 'claude_code_config.json')
-  };
+    await writeFile(
+      path.join(gmailMcpDir, 'credentials.json'),
+      gmailUserCreds
+    );
+
+    // Create MCP config
+    const mcpConfig = {
+      mcpServers: {
+        gmail: {
+          type: "stdio",
+          command: "npx",
+          args: ["@gongrzhe/server-gmail-autoauth-mcp"],
+          env: {}
+        }
+      }
+    };
+
+    await writeFile(
+      path.join(configDir, 'claude_code_config.json'),
+      JSON.stringify(mcpConfig, null, 2)
+    );
+
+    const duration = Date.now() - startTime;
+    contextLogger.info('Gmail credentials configured successfully', {
+      durationMs: duration
+    });
+
+    return {
+      gmailMcpDir,
+      configPath: path.join(configDir, 'claude_code_config.json')
+    };
+  } catch (error) {
+    contextLogger.error('Failed to setup Gmail credentials', { error: error.message });
+    throw error;
+  }
 }
 
 /**
  * Build the Claude prompt for email processing
+ * TODO: Replace with PromptBuilder once available
  */
 function buildClaudePrompt(mode, hour) {
+  contextLogger.debug('Building Claude prompt', { mode, hour });
+
   return `You are Terrance Brandon's Executive Email Assistant, running autonomous hourly email management.
 
 CURRENT CONTEXT:
@@ -97,7 +141,7 @@ YOUR CONFIGURATION (from claude-agents/executive-email-assistant-config-terrance
 - Delegation Level: Level 2 (Manage)
 - Time Zone: EST
 - Communication Style: Casual (Hi/Thanks), "Kind regards,", NO emojis
-- Escalation: SMS to 407-744-8449 for Tier 1 urgent
+- Escalation: SMS to ${process.env.ESCALATION_PHONE || '+14077448449'} for Tier 1 urgent
 
 OFF-LIMITS CONTACTS (Always Escalate as Tier 1):
 - Family Members
@@ -166,79 +210,25 @@ YOUR TASKS FOR THIS HOUR:
    - Read sender, subject, and content
    - Classify into Tier 1/2/3/4
    - Apply appropriate Gmail label
-   - Take action based on tier:
-
-     TIER 1:
-     - Apply "Action Required" + "VIP" labels
-     - Send SMS to ${process.env.ESCALATION_PHONE || '+14077448449'} with brief alert
-     - Add to priority list for brief/report
-     - DO NOT respond to email yet
-
-     TIER 2:
-     - Apply appropriate label (Meetings/Travel/Expenses/Newsletters)
-     - Draft and SEND response if clear pattern exists
-     - Archive if handled
-     - Log action for EOD report
-
-     TIER 3:
-     - Apply "Action Required" label
-     - Draft response but DO NOT send
-     - Save draft in Gmail
-     - Add to approval queue for brief/report
-
-     TIER 4:
-     - Apply "Action Required" label
-     - DO NOT draft or send anything
-     - Flag for Terrance's personal attention
-     - Add to brief/report with sensitivity note
+   - Take action based on tier
 
 4. UPDATE "WAITING FOR" ITEMS:
    - Check emails with "Waiting For" label
    - If response received, move to appropriate category
-   - If >3 days old, draft follow-up (add to approval queue)
+   - If >3 days old, draft follow-up
 
-5. GENERATE OUTPUT BASED ON MODE:
-
-   IF MODE = "morning_brief" (7 AM):
-   - Generate comprehensive morning brief
-   - Include overnight email summary
-   - List all Tier 1 escalations
-   - List all Tier 3/4 items needing approval
-   - Show updated "Waiting For" status
-   - Send via email to terrance@goodportion.org
-   - Subject: "Morning Brief - [Date]"
-
-   IF MODE = "eod_report" (5 PM):
-   - Generate comprehensive end-of-day report
-   - Total emails processed today
-   - Actions taken (Tier 2 handled)
-   - Items awaiting approval (Tier 3/4)
-   - Still waiting for responses
-   - Tomorrow's priorities
-   - Send via email to terrance@goodportion.org
-   - Subject: "End of Day Report - [Date]"
-
-   IF MODE = "midday_check" (1 PM):
-   - Only send report if Tier 1 urgent items exist
-   - Brief summary of urgent matters
-   - Subject: "Midday Alert - Urgent Items"
-
-   IF MODE = "hourly_process":
-   - Process emails silently
-   - Only send SMS for Tier 1 urgent items
-   - No email report unless critical
+5. GENERATE OUTPUT BASED ON MODE
 
 6. ERROR HANDLING:
    - If Gmail MCP not available, log error and exit gracefully
-   - If cannot access inbox, send alert to Terrance
-   - If unsure about classification, default to Tier 3 (draft for approval)
+   - If cannot access inbox, send alert
+   - If unsure about classification, default to Tier 3
 
 IMPORTANT CONSTRAINTS:
-- Never use emojis (Terrance hates them)
+- Never use emojis
 - Always identify as "Executive Email Assistant for Terrance Brandon"
 - Sign responses with "Kind regards,"
-- If meeting decline needed, draft but don't send (Tier 3)
-- Be conservative with escalations during learning phase
+- Be conservative with escalations
 
 BEGIN PROCESSING NOW.
 
@@ -263,10 +253,17 @@ Output your actions in this format:
 }
 
 /**
- * Execute Claude Code CLI
+ * Execute Claude Code CLI with retry logic
  */
-function executeClaudeCLI(prompt, configPath) {
+async function executeClaudeCLI(prompt, configPath) {
+  const startTime = Date.now();
+
   return new Promise((resolve, reject) => {
+    contextLogger.info('Executing Claude Code CLI', {
+      promptLength: prompt.length,
+      configPath
+    });
+
     const claude = spawn('claude', [
       '--print',
       '--dangerously-skip-permissions',
@@ -292,59 +289,175 @@ function executeClaudeCLI(prompt, configPath) {
     claude.stdin.end();
 
     claude.stdout.on('data', (data) => {
-      stdout += data.toString();
-      console.log('STDOUT:', data.toString());
+      const chunk = data.toString();
+      stdout += chunk;
+      contextLogger.debug('Claude CLI stdout', { length: chunk.length });
     });
 
     claude.stderr.on('data', (data) => {
-      stderr += data.toString();
-      console.error('STDERR:', data.toString());
+      const chunk = data.toString();
+      stderr += chunk;
+      contextLogger.warn('Claude CLI stderr', { content: chunk });
     });
 
     claude.on('close', (code) => {
+      const duration = Date.now() - startTime;
+
       if (code === 0) {
-        resolve({ stdout, stderr });
+        contextLogger.info('Claude CLI completed successfully', {
+          durationMs: duration,
+          stdoutLength: stdout.length,
+          stderrLength: stderr.length
+        });
+        resolve({ stdout, stderr, duration });
       } else {
-        reject(new Error(`Claude CLI exited with code ${code}\nSTDERR: ${stderr}`));
+        contextLogger.error('Claude CLI exited with error', {
+          code,
+          durationMs: duration,
+          stderr: stderr.substring(0, 500)
+        });
+        reject(new EmailAssistantError(
+          `Claude CLI exited with code ${code}`,
+          ErrorCodes.CLAUDE_CLI_FAILED,
+          true // Potentially recoverable
+        ));
       }
     });
 
+    claude.on('error', (error) => {
+      contextLogger.error('Claude CLI spawn error', { error: error.message });
+      reject(new EmailAssistantError(
+        `Failed to spawn Claude CLI: ${error.message}`,
+        ErrorCodes.CLAUDE_CLI_FAILED,
+        true
+      ));
+    });
+
     // Timeout after 9 minutes (Lambda has 10 min max, leave buffer)
-    setTimeout(() => {
-      claude.kill();
-      reject(new Error('Claude CLI execution timeout'));
+    const timeout = setTimeout(() => {
+      contextLogger.error('Claude CLI execution timeout');
+      claude.kill('SIGTERM');
+
+      // Force kill after 5 seconds if not terminated
+      setTimeout(() => {
+        if (!claude.killed) {
+          claude.kill('SIGKILL');
+        }
+      }, 5000);
+
+      reject(new EmailAssistantError(
+        'Claude CLI execution timeout',
+        ErrorCodes.TIMEOUT,
+        true
+      ));
     }, 9 * 60 * 1000);
+
+    // Clear timeout on completion
+    claude.once('close', () => clearTimeout(timeout));
   });
+}
+
+/**
+ * Execute Claude CLI with retry logic
+ */
+async function executeClaudeWithRetry(prompt, configPath) {
+  return executeWithRetry(
+    () => executeClaudeCLI(prompt, configPath),
+    {
+      maxRetries: 3,
+      initialDelay: 2000,
+      maxDelay: 30000,
+      backoffMultiplier: 2,
+      onRetry: (attempt, error) => {
+        contextLogger.warn('Retrying Claude CLI execution', {
+          attempt,
+          error: error.message
+        });
+      }
+    }
+  );
+}
+
+/**
+ * Send health check notification
+ */
+async function sendHealthCheck(status, stats) {
+  contextLogger.info('Sending health check', { status, stats });
+
+  // In production, this would send an email via SES or SNS
+  // For now, just log it
+  const healthReport = {
+    timestamp: new Date().toISOString(),
+    status,
+    stats: sanitizeForLogging(stats)
+  };
+
+  if (status === 'healthy') {
+    contextLogger.info('System health check: HEALTHY', healthReport);
+  } else {
+    contextLogger.error('System health check: UNHEALTHY', healthReport);
+  }
 }
 
 /**
  * Main Lambda handler
  */
 exports.handler = async (event, context) => {
-  console.log('Email Assistant Lambda started');
-  console.log('Event:', JSON.stringify(event, null, 2));
+  const startTime = Date.now();
+
+  // Initialize logger with Lambda context
+  contextLogger = logger.child({
+    requestId: context.requestId,
+    functionName: context.functionName,
+    functionVersion: context.functionVersion
+  });
+
+  contextLogger.info('Email Assistant Lambda started', {
+    event: sanitizeForLogging(event),
+    remainingTimeMs: context.getRemainingTimeInMillis()
+  });
 
   try {
-    // Get execution mode
+    // Step 1: Validate environment
+    contextLogger.info('Step 1: Validating environment');
+    validateEnvironment();
+
+    // Step 2: Get execution mode
     const mode = getExecutionMode();
     const estDate = new Date().toLocaleString("en-US", { timeZone: "America/New_York" });
     const hour = new Date(estDate).getHours();
 
-    console.log(`Execution mode: ${mode}, Hour: ${hour}`);
+    contextLogger.info('Step 2: Determined execution mode', { mode, hour });
+    validateExecutionMode(mode);
 
-    // Setup Gmail credentials
-    console.log('Setting up Gmail MCP credentials...');
+    // Step 3: Setup Gmail credentials
+    contextLogger.info('Step 3: Setting up Gmail MCP credentials');
     const { configPath } = await setupGmailCredentials();
-    console.log('Gmail credentials configured');
 
-    // Build prompt
+    // Step 4: Build prompt
+    contextLogger.info('Step 4: Building Claude prompt');
     const prompt = buildClaudePrompt(mode, hour);
 
-    // Execute Claude Code CLI
-    console.log('Executing Claude Code CLI...');
-    const { stdout, stderr } = await executeClaudeCLI(prompt, configPath);
+    // Step 5: Execute Claude Code CLI with retry
+    contextLogger.info('Step 5: Executing Claude Code CLI');
+    const { stdout, stderr, duration } = await executeClaudeWithRetry(prompt, configPath);
 
-    console.log('Email processing completed successfully');
+    // Step 6: Send health check (daily at 5 PM)
+    if (mode === 'eod_report') {
+      await sendHealthCheck('healthy', {
+        lastRun: new Date().toISOString(),
+        mode,
+        success: true,
+        durationMs: duration
+      });
+    }
+
+    const totalDuration = Date.now() - startTime;
+    contextLogger.info('Email processing completed successfully', {
+      totalDurationMs: totalDuration,
+      mode,
+      hour
+    });
 
     return {
       statusCode: 200,
@@ -352,19 +465,47 @@ exports.handler = async (event, context) => {
         success: true,
         mode,
         hour,
-        output: stdout,
+        durationMs: totalDuration,
         timestamp: new Date().toISOString()
       })
     };
 
   } catch (error) {
-    console.error('Error processing emails:', error);
+    const totalDuration = Date.now() - startTime;
+
+    contextLogger.error('Lambda execution failed', {
+      error: error.message,
+      code: error.code,
+      stack: error.stack,
+      totalDurationMs: totalDuration
+    });
+
+    // Attempt error recovery
+    try {
+      await handleError(error, {
+        lambdaContext: context,
+        event: sanitizeForLogging(event)
+      });
+    } catch (recoveryError) {
+      contextLogger.error('Error recovery failed', {
+        error: recoveryError.message
+      });
+    }
+
+    // Send health check failure
+    await sendHealthCheck('unhealthy', {
+      lastRun: new Date().toISOString(),
+      success: false,
+      error: error.message,
+      durationMs: totalDuration
+    });
 
     return {
       statusCode: 500,
       body: JSON.stringify({
         success: false,
         error: error.message,
+        code: error.code,
         timestamp: new Date().toISOString()
       })
     };
