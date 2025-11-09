@@ -407,4 +407,142 @@ export const emailRouter = createTRPCRouter({
         },
       })
     }),
+
+  // Get email thread/conversation
+  getThread: protectedProcedure
+    .input(z.object({ emailId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      // First, get the email to find its thread ID
+      const email = await ctx.prisma.email.findFirst({
+        where: {
+          id: input.emailId,
+        },
+        include: {
+          agent: {
+            select: {
+              userId: true,
+            },
+          },
+        },
+      })
+
+      if (!email || email.agent.userId !== ctx.session.user.id) {
+        throw new Error('Email not found')
+      }
+
+      if (!email.gmailThreadId) {
+        // No thread, return just this email
+        return [email]
+      }
+
+      // Get all emails in the thread
+      const threadEmails = await ctx.prisma.email.findMany({
+        where: {
+          gmailThreadId: email.gmailThreadId,
+          agent: {
+            userId: ctx.session.user.id,
+          },
+        },
+        orderBy: {
+          receivedAt: 'asc', // Chronological order
+        },
+        include: {
+          agent: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+        },
+      })
+
+      return threadEmails
+    }),
+
+  // List threads with participant info
+  listThreads: protectedProcedure
+    .input(
+      z.object({
+        agentId: z.string().optional(),
+        limit: z.number().min(1).max(100).default(50),
+        cursor: z.string().optional(),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      const where: any = {
+        agent: {
+          userId: ctx.session.user.id,
+        },
+        gmailThreadId: {
+          not: null,
+        },
+      }
+
+      if (input.agentId) {
+        where.agentId = input.agentId
+      }
+
+      // Get emails grouped by thread (get latest email from each thread)
+      const emails = await ctx.prisma.email.findMany({
+        where,
+        take: input.limit + 1,
+        cursor: input.cursor ? { id: input.cursor } : undefined,
+        orderBy: {
+          receivedAt: 'desc',
+        },
+        include: {
+          agent: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+        },
+        distinct: ['gmailThreadId'],
+      })
+
+      let nextCursor: typeof input.cursor | undefined = undefined
+      if (emails.length > input.limit) {
+        const nextItem = emails.pop()
+        nextCursor = nextItem!.id
+      }
+
+      // For each thread, get count and participants
+      const threadsWithInfo = await Promise.all(
+        emails.map(async (email) => {
+          const threadEmails = await ctx.prisma.email.findMany({
+            where: {
+              gmailThreadId: email.gmailThreadId,
+              agent: {
+                userId: ctx.session.user.id,
+              },
+            },
+            select: {
+              from: true,
+              to: true,
+              cc: true,
+            },
+          })
+
+          // Extract unique participants
+          const participants = new Set<string>()
+          threadEmails.forEach((e) => {
+            if (e.from) participants.add(e.from)
+            if (e.to) e.to.split(',').forEach((p) => participants.add(p.trim()))
+            if (e.cc) e.cc.split(',').forEach((p) => participants.add(p.trim()))
+          })
+
+          return {
+            ...email,
+            threadCount: threadEmails.length,
+            participants: Array.from(participants),
+          }
+        })
+      )
+
+      return {
+        threads: threadsWithInfo,
+        nextCursor,
+      }
+    }),
 })
