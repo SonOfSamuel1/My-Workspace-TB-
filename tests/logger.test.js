@@ -2,7 +2,7 @@
  * Tests for Logger utility
  */
 
-const Logger = require('../lib/logger');
+const { Logger } = require('../lib/logger');
 
 describe('Logger', () => {
   let logger;

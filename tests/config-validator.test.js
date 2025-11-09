@@ -26,30 +26,50 @@ describe('validateEnvironment', () => {
   test('fails when required vars are missing', () => {
     delete process.env.CLAUDE_CODE_OAUTH_TOKEN;
 
-    expect(() => validateEnvironment()).toThrow(ValidationError);
-    expect(() => validateEnvironment()).toThrow('CLAUDE_CODE_OAUTH_TOKEN');
+    try {
+      validateEnvironment();
+      fail('Should have thrown ValidationError');
+    } catch (error) {
+      expect(error).toBeInstanceOf(ValidationError);
+      expect(error.errors.some(e => e.includes('CLAUDE_CODE_OAUTH_TOKEN'))).toBe(true);
+    }
   });
 
   test('validates OAuth token format', () => {
     process.env.CLAUDE_CODE_OAUTH_TOKEN = 'invalid-token';
 
-    expect(() => validateEnvironment()).toThrow(ValidationError);
-    expect(() => validateEnvironment()).toThrow('invalid format');
+    try {
+      validateEnvironment();
+      fail('Should have thrown ValidationError');
+    } catch (error) {
+      expect(error).toBeInstanceOf(ValidationError);
+      expect(error.errors.some(e => e.includes('invalid format'))).toBe(true);
+    }
   });
 
   test('validates phone number format', () => {
     process.env.ESCALATION_PHONE = 'not-a-phone';
 
-    expect(() => validateEnvironment()).toThrow(ValidationError);
-    expect(() => validateEnvironment()).toThrow('+1234567890');
+    try {
+      validateEnvironment();
+      fail('Should have thrown ValidationError');
+    } catch (error) {
+      expect(error).toBeInstanceOf(ValidationError);
+      expect(error.errors.some(e => e.includes('+1234567890'))).toBe(true);
+    }
   });
 
   test('validates Twilio config completeness', () => {
     process.env.TWILIO_ACCOUNT_SID = 'ACxxxxx';
     // Missing other Twilio vars
 
-    expect(() => validateEnvironment()).toThrow(ValidationError);
-    expect(() => validateEnvironment()).toThrow('Twilio');
+    try {
+      validateEnvironment();
+      fail('Should have thrown ValidationError');
+    } catch (error) {
+      expect(error).toBeInstanceOf(ValidationError);
+      expect(error.errors.some(e => e.includes('Twilio'))).toBe(true);
+    }
   });
 
   test('validates base64 JSON credentials', () => {

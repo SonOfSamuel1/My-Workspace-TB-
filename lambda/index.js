@@ -17,10 +17,11 @@ const fs = require('fs');
 const path = require('path');
 const { promisify } = require('util');
 
-const logger = require('../lib/logger');
-const { validateEnvironment, validateExecutionMode, sanitizeForLogging } = require('../lib/config-validator');
-const { executeWithRetry, RetryConditions } = require('../lib/retry');
-const { EmailAssistantError, ErrorCodes, handleError } = require('../lib/error-handler');
+const logger = require('./lib/logger');
+const { validateEnvironment, validateExecutionMode, sanitizeForLogging } = require('./lib/config-validator');
+const { executeWithRetry, RetryConditions } = require('./lib/retry');
+const { EmailAssistantError, ErrorCodes, handleError } = require('./lib/error-handler');
+const { selectModel, analyzeEmailComplexity } = require('./lib/model-router');
 
 const writeFile = promisify(fs.writeFile);
 const mkdir = promisify(fs.mkdir);
@@ -126,8 +127,8 @@ async function setupGmailCredentials() {
  * Build the Claude prompt for email processing
  * TODO: Replace with PromptBuilder once available
  */
-function buildClaudePrompt(mode, hour) {
-  contextLogger.debug('Building Claude prompt', { mode, hour });
+function buildClaudePrompt(mode, hour, selectedModel) {
+  contextLogger.debug('Building Claude prompt', { mode, hour, model: selectedModel?.displayName });
 
   return `You are Terrance Brandon's Executive Email Assistant, running autonomous hourly email management.
 
@@ -255,20 +256,23 @@ Output your actions in this format:
 /**
  * Execute Claude Code CLI with retry logic
  */
-async function executeClaudeCLI(prompt, configPath) {
+async function executeClaudeCLI(prompt, configPath, selectedModel) {
   const startTime = Date.now();
 
   return new Promise((resolve, reject) => {
     contextLogger.info('Executing Claude Code CLI', {
       promptLength: prompt.length,
-      configPath
+      configPath,
+      model: selectedModel?.displayName,
+      estimatedCost: `$${selectedModel?.cost.toFixed(4)}`
     });
 
     const claude = spawn('claude', [
       '--print',
       '--dangerously-skip-permissions',
       '--mcp-config',
-      configPath
+      configPath,
+      ...(selectedModel ? ['--model', selectedModel.name] : [])
     ], {
       env: {
         ...process.env,
@@ -277,7 +281,8 @@ async function executeClaudeCLI(prompt, configPath) {
         TWILIO_ACCOUNT_SID: process.env.TWILIO_ACCOUNT_SID,
         TWILIO_AUTH_TOKEN: process.env.TWILIO_AUTH_TOKEN,
         TWILIO_FROM_NUMBER: process.env.TWILIO_FROM_NUMBER,
-        ESCALATION_PHONE: process.env.ESCALATION_PHONE || '+14077448449'
+        ESCALATION_PHONE: process.env.ESCALATION_PHONE || '+14077448449',
+        OPENROUTER_MODEL: selectedModel?.name || ''
       }
     });
 
@@ -360,9 +365,9 @@ async function executeClaudeCLI(prompt, configPath) {
 /**
  * Execute Claude CLI with retry logic
  */
-async function executeClaudeWithRetry(prompt, configPath) {
+async function executeClaudeWithRetry(prompt, configPath, selectedModel) {
   return executeWithRetry(
-    () => executeClaudeCLI(prompt, configPath),
+    () => executeClaudeCLI(prompt, configPath, selectedModel),
     {
       maxRetries: 3,
       initialDelay: 2000,
@@ -371,7 +376,8 @@ async function executeClaudeWithRetry(prompt, configPath) {
       onRetry: (attempt, error) => {
         contextLogger.warn('Retrying Claude CLI execution', {
           attempt,
-          error: error.message
+          error: error.message,
+          model: selectedModel?.displayName
         });
       }
     }
@@ -434,13 +440,29 @@ exports.handler = async (event, context) => {
     contextLogger.info('Step 3: Setting up Gmail MCP credentials');
     const { configPath } = await setupGmailCredentials();
 
+    // Step 3.5: Select AI model based on email complexity
+    // For now, use a mock email object. In production, this would analyze actual emails from inbox
+    contextLogger.info('Step 3.5: Selecting AI model');
+    const mockEmail = {
+      id: 'batch',
+      subject: `${mode} - Batch email processing`,
+      body: 'Processing multiple emails in batch',
+      from: 'system@lambda'
+    };
+    const selectedModel = selectModel(mockEmail);
+    contextLogger.info('Model selected', {
+      model: selectedModel.displayName,
+      tier: selectedModel.tier,
+      cost: `$${selectedModel.cost.toFixed(4)}`
+    });
+
     // Step 4: Build prompt
     contextLogger.info('Step 4: Building Claude prompt');
-    const prompt = buildClaudePrompt(mode, hour);
+    const prompt = buildClaudePrompt(mode, hour, selectedModel);
 
     // Step 5: Execute Claude Code CLI with retry
     contextLogger.info('Step 5: Executing Claude Code CLI');
-    const { stdout, stderr, duration } = await executeClaudeWithRetry(prompt, configPath);
+    const { stdout, stderr, duration } = await executeClaudeWithRetry(prompt, configPath, selectedModel);
 
     // Step 6: Send health check (daily at 5 PM)
     if (mode === 'eod_report') {
@@ -466,6 +488,11 @@ exports.handler = async (event, context) => {
         mode,
         hour,
         durationMs: totalDuration,
+        model: {
+          name: selectedModel.displayName,
+          tier: selectedModel.tier,
+          cost: selectedModel.cost
+        },
         timestamp: new Date().toISOString()
       })
     };

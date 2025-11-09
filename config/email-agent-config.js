@@ -21,6 +21,14 @@ module.exports = {
     // - 'google/gemini-2.0-flash-thinking-exp' - Gemini 2.0 with thinking
 
     fallbackModel: 'anthropic/claude-3.5-sonnet', // If reasoning model fails
+
+    // Smart model selection (cost optimization)
+    smartModels: {
+      enabled: process.env.SMART_MODELS !== 'false', // Enable by default
+      simple: 'google/gemini-2.0-flash-thinking-exp:free', // $0.0005/call
+      standard: 'deepseek/deepseek-chat', // $0.001/call
+      complex: 'deepseek/deepseek-r1', // $0.002/call
+    },
   },
 
   // Safety settings

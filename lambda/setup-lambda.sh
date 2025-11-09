@@ -148,8 +148,8 @@ echo "Step 2: Build Docker Image"
 echo "========================================="
 echo ""
 
-echo "Building Docker image..."
-docker build -t $ECR_REPO_NAME:latest -f Dockerfile .
+echo "Building Docker image for x86_64 architecture..."
+docker build --platform linux/amd64 -t $ECR_REPO_NAME:latest -f Dockerfile .
 print_success "Docker image built"
 
 echo ""
