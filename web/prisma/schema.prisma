@@ -14,14 +14,20 @@ model User {
   id            String    @id @default(cuid())
   email         String    @unique
   name          String?
+  password      String?   // Hashed password for credentials provider
   emailVerified DateTime?
   image         String?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime? // Soft delete
 
   agents        Agent[]
   accounts      Account[]
   sessions      Session[]
+  auditLogs     AuditLog[]
+
+  @@index([email])
+  @@index([deletedAt])
 }
 
 model Account {
@@ -82,11 +88,17 @@ model Agent {
   // Metadata
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime? // Soft delete
 
   emails          Email[]
   actions         AgentAction[]
+  webhooks        Webhook[]
+  templates       AgentTemplate[]
 
   @@index([userId])
+  @@index([agentEmail])
+  @@index([enabled])
+  @@index([deletedAt])
 }
 
 model Email {
@@ -95,7 +107,7 @@ model Email {
   agent           Agent     @relation(fields: [agentId], references: [id], onDelete: Cascade)
 
   // Gmail Data
-  gmailId         String
+  gmailId         String    @unique
   gmailThreadId   String?
   subject         String
   from            String
@@ -116,6 +128,7 @@ model Email {
   receivedAt      DateTime
   processedAt     DateTime?
   createdAt       DateTime  @default(now())
+  deletedAt       DateTime? // Soft delete
 
   actions         AgentAction[]
 
@@ -123,6 +136,10 @@ model Email {
   @@index([tier])
   @@index([status])
   @@index([receivedAt])
+  @@index([gmailThreadId])
+  @@index([from])
+  @@index([deletedAt])
+  @@index([agentId, receivedAt]) // Composite index for recent emails by agent
 }
 
 model AgentAction {
@@ -155,12 +172,16 @@ model AgentAction {
   // Metadata
   createdAt       DateTime  @default(now())
   completedAt     DateTime?
+  deletedAt       DateTime? // Soft delete
 
   @@index([agentId])
   @@index([emailId])
   @@index([type])
   @@index([status])
   @@index([requiresApproval])
+  @@index([createdAt])
+  @@index([deletedAt])
+  @@index([agentId, createdAt]) // Composite for recent actions by agent
 }
 
 model Analytics {
@@ -191,4 +212,134 @@ model Analytics {
   @@unique([agentId, date])
   @@index([agentId])
   @@index([date])
+  @@index([agentId, date]) // Composite for time-series queries
+}
+
+// Audit Log - Track all user actions for compliance and debugging
+model AuditLog {
+  id              String    @id @default(cuid())
+  userId          String
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Action Details
+  action          String    // create_agent, update_agent, delete_agent, approve_action, etc.
+  resource        String    // agent, email, action, user
+  resourceId      String?   // ID of the affected resource
+
+  // Request Context
+  ipAddress       String?
+  userAgent       String?   @db.Text
+
+  // Changes
+  previousValue   Json?     // Previous state (for updates/deletes)
+  newValue        Json?     // New state (for creates/updates)
+
+  // Metadata
+  createdAt       DateTime  @default(now())
+
+  @@index([userId])
+  @@index([action])
+  @@index([resource])
+  @@index([resourceId])
+  @@index([createdAt])
+  @@index([userId, createdAt]) // Composite for user activity timeline
+}
+
+// Webhooks - Allow external systems to subscribe to events
+model Webhook {
+  id              String    @id @default(cuid())
+  agentId         String
+  agent           Agent     @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  // Webhook Configuration
+  url             String    // Endpoint to call
+  secret          String    // HMAC secret for signature verification
+  events          String[]  // Events to trigger on: email_received, action_completed, etc.
+
+  // Status
+  enabled         Boolean   @default(true)
+  lastTriggeredAt DateTime?
+  failureCount    Int       @default(0)
+
+  // Metadata
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  deliveries      WebhookDelivery[]
+
+  @@index([agentId])
+  @@index([enabled])
+}
+
+// Webhook Delivery Log
+model WebhookDelivery {
+  id              String    @id @default(cuid())
+  webhookId       String
+  webhook         Webhook   @relation(fields: [webhookId], references: [id], onDelete: Cascade)
+
+  // Request
+  event           String    // Event that triggered this delivery
+  payload         Json      // Data sent to webhook
+
+  // Response
+  statusCode      Int?
+  responseBody    String?   @db.Text
+  error           String?   @db.Text
+
+  // Timing
+  attemptedAt     DateTime  @default(now())
+  completedAt     DateTime?
+  duration        Int?      // milliseconds
+
+  @@index([webhookId])
+  @@index([event])
+  @@index([attemptedAt])
+}
+
+// Agent Templates - Reusable agent configurations
+model AgentTemplate {
+  id              String    @id @default(cuid())
+  agentId         String?
+  agent           Agent?    @relation(fields: [agentId], references: [id], onDelete: SetNull)
+
+  // Template Info
+  name            String
+  description     String?   @db.Text
+  category        String?   // executive, customer_support, sales, etc.
+
+  // Configuration
+  config          Json      // Full agent config that can be applied
+
+  // Visibility
+  isPublic        Boolean   @default(false) // Public templates available to all users
+  isOfficial      Boolean   @default(false) // Official templates from the platform
+
+  // Usage Stats
+  usageCount      Int       @default(0)
+
+  // Metadata
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([category])
+  @@index([isPublic])
+  @@index([isOfficial])
+}
+
+// Rate Limiting - Track API usage per user/IP
+model RateLimit {
+  id              String    @id @default(cuid())
+  identifier      String    // User ID, IP address, or API key
+  endpoint        String    // API endpoint being rate limited
+
+  // Limits
+  requestCount    Int       @default(0)
+  windowStart     DateTime  @default(now())
+
+  // Metadata
+  updatedAt       DateTime  @updatedAt
+
+  @@unique([identifier, endpoint])
+  @@index([identifier])
+  @@index([windowStart])
 }

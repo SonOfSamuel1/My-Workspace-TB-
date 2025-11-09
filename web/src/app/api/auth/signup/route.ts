@@ -34,8 +34,7 @@ export async function POST(req: NextRequest) {
       data: {
         name,
         email,
-        // Note: In production, you'd store hashedPassword in a separate password field
-        // For now, we'll use the demo flow which doesn't actually check passwords
+        password: hashedPassword,
       },
     })
 

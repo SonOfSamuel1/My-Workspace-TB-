@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { trpc } from '@/lib/trpc/client'
+import { ThemeSelector } from '@/components/theme-toggle'
 import {
   Settings as SettingsIcon,
   User,
@@ -239,23 +240,7 @@ export default function SettingsPage() {
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="space-y-4">
-                <div>
-                  <Label>Theme</Label>
-                  <div className="grid grid-cols-3 gap-4 mt-2">
-                    <button className="border-2 border-primary rounded-lg p-4 hover:bg-accent transition-colors">
-                      <div className="mb-2 text-sm font-medium">Light</div>
-                      <div className="h-16 bg-white border rounded" />
-                    </button>
-                    <button className="border-2 rounded-lg p-4 hover:bg-accent transition-colors">
-                      <div className="mb-2 text-sm font-medium">Dark</div>
-                      <div className="h-16 bg-gray-900 border rounded" />
-                    </button>
-                    <button className="border-2 rounded-lg p-4 hover:bg-accent transition-colors">
-                      <div className="mb-2 text-sm font-medium">System</div>
-                      <div className="h-16 bg-gradient-to-r from-white to-gray-900 border rounded" />
-                    </button>
-                  </div>
-                </div>
+                <ThemeSelector />
 
                 <div className="flex items-center justify-between">
                   <div>
