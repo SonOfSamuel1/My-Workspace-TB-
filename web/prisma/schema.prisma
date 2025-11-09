@@ -25,6 +25,7 @@ model User {
   accounts      Account[]
   sessions      Session[]
   auditLogs     AuditLog[]
+  savedSearches SavedEmailSearch[]
 
   @@index([email])
   @@index([deletedAt])
@@ -378,4 +379,29 @@ model RateLimit {
   @@unique([identifier, endpoint])
   @@index([identifier])
   @@index([windowStart])
+}
+
+// Saved Email Searches - Store frequently used search filters
+model SavedEmailSearch {
+  id              String    @id @default(cuid())
+  userId          String
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Search Info
+  name            String    // User-defined name for the search
+  description     String?   @db.Text
+
+  // Search Filters (stored as JSON)
+  filters         Json      // { query, agentIds, tiers, statuses, dateFrom, dateTo, hasAttachments }
+
+  // Usage Stats
+  usageCount      Int       @default(0)
+  lastUsedAt      DateTime?
+
+  // Metadata
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([userId])
+  @@index([userId, usageCount]) // For finding popular searches by user
 }
