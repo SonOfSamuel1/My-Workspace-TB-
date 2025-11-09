@@ -94,11 +94,39 @@ model Agent {
   actions         AgentAction[]
   webhooks        Webhook[]
   templates       AgentTemplate[]
+  versions        AgentVersion[]
 
   @@index([userId])
   @@index([agentEmail])
   @@index([enabled])
   @@index([deletedAt])
+}
+
+// Agent Version History - Track configuration changes over time
+model AgentVersion {
+  id              String    @id @default(cuid())
+  agentId         String
+  agent           Agent     @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  // Version Info
+  version         Int       // Incrementing version number (1, 2, 3, ...)
+  config          Json      // Full snapshot of agent config at this version
+
+  // Change Tracking
+  changedBy       String?   // User ID who made the change
+  changeReason    String?   @db.Text // Optional reason for the change
+  changesSummary  String?   @db.Text // Auto-generated summary of what changed
+
+  // Previous Values (for rollback)
+  previousConfig  Json?     // Previous config (for easy diff)
+
+  // Metadata
+  createdAt       DateTime  @default(now())
+
+  @@index([agentId])
+  @@index([agentId, version]) // Composite for version lookups
+  @@index([createdAt])
+  @@unique([agentId, version]) // Ensure unique version numbers per agent
 }
 
 model Email {

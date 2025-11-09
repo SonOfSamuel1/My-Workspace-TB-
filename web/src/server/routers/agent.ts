@@ -1,5 +1,12 @@
 import { z } from 'zod'
 import { createTRPCRouter, protectedProcedure } from '../trpc'
+import {
+  createVersionSnapshot,
+  getVersionHistory,
+  getVersion,
+  rollbackToVersion,
+  compareVersions,
+} from '@/lib/agent-versioning'
 
 export const agentRouter = createTRPCRouter({
   // Get all agents for the current user
@@ -97,10 +104,11 @@ export const agentRouter = createTRPCRouter({
         description: z.string().optional(),
         enabled: z.boolean().optional(),
         config: z.any().optional(),
+        changeReason: z.string().optional(), // Optional reason for the change
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const { id, ...data } = input
+      const { id, changeReason, ...data } = input
 
       // Ensure user owns this agent
       const agent = await ctx.prisma.agent.findFirst({
@@ -112,6 +120,16 @@ export const agentRouter = createTRPCRouter({
 
       if (!agent) {
         throw new Error('Agent not found')
+      }
+
+      // If config is being updated, create a version snapshot
+      if (input.config) {
+        await createVersionSnapshot(
+          id,
+          input.config,
+          ctx.session.user.id,
+          changeReason
+        )
       }
 
       return ctx.prisma.agent.update({
@@ -192,5 +210,114 @@ export const agentRouter = createTRPCRouter({
         tierDistribution,
         recentActivity,
       }
+    }),
+
+  // Get version history for an agent
+  getVersionHistory: protectedProcedure
+    .input(
+      z.object({
+        id: z.string(),
+        limit: z.number().min(1).max(100).default(50),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      // Ensure user owns this agent
+      const agent = await ctx.prisma.agent.findFirst({
+        where: {
+          id: input.id,
+          userId: ctx.session.user.id,
+        },
+      })
+
+      if (!agent) {
+        throw new Error('Agent not found')
+      }
+
+      return getVersionHistory(input.id, input.limit)
+    }),
+
+  // Get a specific version
+  getVersion: protectedProcedure
+    .input(
+      z.object({
+        id: z.string(),
+        version: z.number().int().positive(),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      // Ensure user owns this agent
+      const agent = await ctx.prisma.agent.findFirst({
+        where: {
+          id: input.id,
+          userId: ctx.session.user.id,
+        },
+      })
+
+      if (!agent) {
+        throw new Error('Agent not found')
+      }
+
+      const version = await getVersion(input.id, input.version)
+
+      if (!version) {
+        throw new Error('Version not found')
+      }
+
+      return version
+    }),
+
+  // Compare two versions
+  compareVersions: protectedProcedure
+    .input(
+      z.object({
+        id: z.string(),
+        versionA: z.number().int().positive(),
+        versionB: z.number().int().positive(),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      // Ensure user owns this agent
+      const agent = await ctx.prisma.agent.findFirst({
+        where: {
+          id: input.id,
+          userId: ctx.session.user.id,
+        },
+      })
+
+      if (!agent) {
+        throw new Error('Agent not found')
+      }
+
+      return compareVersions(input.id, input.versionA, input.versionB)
+    }),
+
+  // Rollback to a specific version
+  rollback: protectedProcedure
+    .input(
+      z.object({
+        id: z.string(),
+        version: z.number().int().positive(),
+        reason: z.string().optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      // Ensure user owns this agent
+      const agent = await ctx.prisma.agent.findFirst({
+        where: {
+          id: input.id,
+          userId: ctx.session.user.id,
+        },
+      })
+
+      if (!agent) {
+        throw new Error('Agent not found')
+      }
+
+      return rollbackToVersion(
+        input.id,
+        input.version,
+        ctx.session.user.id,
+        input.reason
+      )
     }),
 })

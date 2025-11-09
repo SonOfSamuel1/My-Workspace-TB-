@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { trpc } from '@/lib/trpc/client'
-import { ArrowLeft, Mail, Settings, Activity, Power, PowerOff } from 'lucide-react'
+import { ArrowLeft, Mail, Settings, Activity, Power, PowerOff, History } from 'lucide-react'
 import { formatRelativeTime, getTierName } from '@/lib/utils'
 
 export default function AgentDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -105,6 +105,12 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
               <Button variant="outline">
                 <Settings className="h-4 w-4 mr-2" />
                 Configure
+              </Button>
+            </Link>
+            <Link href={`/agents/${agent.id}/versions`}>
+              <Button variant="outline">
+                <History className="h-4 w-4 mr-2" />
+                History
               </Button>
             </Link>
           </div>
