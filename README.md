@@ -2,9 +2,40 @@
 
 An intelligent, fully autonomous email management system built with Claude Code Max and GitHub Actions. Monitors Gmail inbox, classifies emails by priority tier, handles routine tasks automatically, and escalates urgent items via SMS.
 
+## 🌐 Web Application
+
+**NEW**: A modern web application is now available for managing your email agents!
+
+- **Location**: `web/` directory
+- **Live Dashboard**: View agent activity in real-time
+- **Approval Queue**: Review and approve draft responses
+- **Analytics**: Charts and metrics for email processing
+- **Agent Management**: Create and configure agents via beautiful UI
+- **Real-time Notifications**: SSE-powered live updates
+
+**Quick Start**:
+```bash
+cd web
+npm install
+cp .env.example .env
+# Edit .env with your database URL
+npm run db:push
+npm run db:seed  # Optional demo data
+npm run dev
+```
+
+**Documentation**:
+- [`web/README.md`](web/README.md) - Full features and setup
+- [`web/DEPLOYMENT.md`](web/DEPLOYMENT.md) - Deployment guide (Vercel/Docker/Self-hosted)
+- [`web/SETUP.md`](web/SETUP.md) - Step-by-step setup instructions
+
 ## Overview
 
 This system implements an Executive-Assistant Partnership Framework to autonomously manage email communications. It runs hourly during business hours (7 AM - 5 PM EST), processes incoming emails, applies intelligent tier-based classification, and takes appropriate actions without manual intervention.
+
+The system now includes both:
+1. **CLI Agent** (this directory) - Runs via GitHub Actions/Lambda
+2. **Web Application** (`web/`) - UI for management and monitoring
 
 ## Features
 
