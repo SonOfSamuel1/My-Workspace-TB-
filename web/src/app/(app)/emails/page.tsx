@@ -8,7 +8,8 @@ import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { trpc } from '@/lib/trpc/client'
 import { formatRelativeTime, getTierName } from '@/lib/utils'
-import { Search, Filter, Mail } from 'lucide-react'
+import { Search, Filter, Mail, ExternalLink } from 'lucide-react'
+import { EmailDetailModal } from '@/components/email-detail-modal'
 
 export default function EmailsPage() {
   const [searchQuery, setSearchQuery] = useState('')
@@ -16,6 +17,8 @@ export default function EmailsPage() {
   const [selectedTier, setSelectedTier] = useState<string>('all')
   const [selectedStatus, setSelectedStatus] = useState<string>('all')
   const [selectedEmail, setSelectedEmail] = useState<string | null>(null)
+  const [modalOpen, setModalOpen] = useState(false)
+  const [modalEmailId, setModalEmailId] = useState<string | null>(null)
 
   const { data: agents } = trpc.agent.list.useQuery()
 
@@ -212,17 +215,32 @@ export default function EmailsPage() {
                 {/* Email Details */}
                 <Card>
                   <CardHeader>
-                    <div className="flex items-center gap-2 mb-2 flex-wrap">
-                      <Badge variant={`tier${selected.tier}` as any}>
-                        {getTierName(selected.tier)}
-                      </Badge>
-                      <Badge variant="outline">{selected.status}</Badge>
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-2 flex-wrap">
+                          <Badge variant={`tier${selected.tier}` as any}>
+                            {getTierName(selected.tier)}
+                          </Badge>
+                          <Badge variant="outline">{selected.status}</Badge>
+                        </div>
+                        <CardTitle>{selected.subject}</CardTitle>
+                        <CardDescription>
+                          From: {selected.from}
+                          {selected.to && ` • To: ${selected.to}`}
+                        </CardDescription>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setModalEmailId(selected.id)
+                          setModalOpen(true)
+                        }}
+                      >
+                        <ExternalLink className="h-4 w-4 mr-2" />
+                        Full Details
+                      </Button>
                     </div>
-                    <CardTitle>{selected.subject}</CardTitle>
-                    <CardDescription>
-                      From: {selected.from}
-                      {selected.to && ` • To: ${selected.to}`}
-                    </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div>
@@ -311,6 +329,13 @@ export default function EmailsPage() {
           </div>
         </div>
       )}
+
+      {/* Email Detail Modal */}
+      <EmailDetailModal
+        emailId={modalEmailId}
+        open={modalOpen}
+        onOpenChange={setModalOpen}
+      />
     </div>
   )
 }

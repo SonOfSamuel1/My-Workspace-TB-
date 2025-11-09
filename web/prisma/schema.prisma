@@ -140,8 +140,16 @@ model Email {
   subject         String
   from            String
   to              String?
+  cc              String?   // Comma-separated list
+  bcc             String?   // Comma-separated list
+  replyTo         String?
   snippet         String?   @db.Text
   body            String?   @db.Text
+  bodyHtml        String?   @db.Text // HTML version of body
+  headers         Json?     // Full email headers as JSON
+  attachments     Json?     // Array of attachment metadata
+  inReplyTo       String?   // Message-ID of email being replied to
+  references      String?   // Message-ID references for threading
 
   // Classification
   tier            Int       // 1-4
