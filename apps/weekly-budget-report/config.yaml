@@ -1,0 +1,72 @@
+version: "1.0.0"
+name: "Weekly YNAB Budget Report"
+description: "Automated weekly budget reports from YNAB transactions"
+
+# Budget Report Configuration
+budget_report:
+  # Enable/disable weekly reports
+  enabled: true
+
+  # Report schedule (cron format: minute hour day month weekday)
+  # Saturday at 7pm EST: 0 19 * * 6
+  schedule:
+    - "0 19 * * 6"   # Saturday 7pm EST
+
+  # Timezone for scheduling
+  timezone: "America/New_York"
+
+  # YNAB Budget ID (get from YNAB URL or API)
+  # Leave empty to use the first budget found
+  budget_id: ""
+
+  # Email settings
+  email:
+    # Send report to this address
+    recipient: ""
+
+    # Email subject template
+    subject_template: "Weekly Budget Report - {date}"
+
+    # Include charts and visualizations
+    include_charts: true
+
+  # Report configuration
+  report:
+    # Number of days to look back for transactions (7 = 1 week)
+    lookback_days: 7
+
+    # Number of weeks to compare for trends (4 = compare to last 4 weeks)
+    trend_weeks: 4
+
+    # Number of top payees to show
+    top_payees_count: 10
+
+    # Number of top categories to show
+    top_categories_count: 10
+
+    # Show all transactions above this amount (in dollars)
+    notable_transaction_threshold: 100
+
+    # Categories to exclude from analysis (e.g., internal transfers, credit card payments)
+    exclude_categories:
+      - "Inflow: Ready to Assign"
+      - "Credit Card Payment"
+
+  # Alert thresholds
+  alerts:
+    # Alert if category spending exceeds budget by this percentage
+    overspending_threshold: 10
+
+    # Alert if total spending exceeds this percentage of budgeted
+    total_spending_threshold: 90
+
+    # Alert if discretionary spending exceeds this percentage
+    discretionary_threshold: 80
+
+# Logging
+logging:
+  level: "INFO"  # DEBUG, INFO, WARNING, ERROR
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file: "logs/budget_report.log"
+  max_bytes: 10485760  # 10MB
+  backup_count: 5
