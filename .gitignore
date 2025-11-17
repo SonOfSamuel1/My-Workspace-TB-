@@ -48,3 +48,11 @@ setup_scheduler.sh
 # Cache
 cache/
 *.cache
+
+# Lambda deployment artifacts
+lambda-deployment.zip
+*.zip
+
+# Test handlers (debugging only)
+test_handler.py
+minimal_handler.py

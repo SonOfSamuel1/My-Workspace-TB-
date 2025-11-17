@@ -71,19 +71,28 @@ def load_credentials_from_parameters():
 
     Lambda ephemeral storage at /tmp can hold credential files.
     """
+    # Create credentials directory in /tmp
+    import os
+    os.makedirs('/tmp/credentials', exist_ok=True)
+
     cred_mapping = {
-        '/love-brittany/calendar-credentials': '/tmp/calendar_credentials.json',
-        '/love-brittany/calendar-token': '/tmp/calendar_token.json',
-        '/love-brittany/gmail-credentials': '/tmp/gmail_credentials.json',
-        '/love-brittany/gmail-token': '/tmp/gmail_token.json'
+        '/love-brittany/credentials': '/tmp/credentials/credentials.json',
+        '/love-brittany/token': '/tmp/credentials/token.pickle'
     }
 
     for param_name, file_path in cred_mapping.items():
         param_value = get_parameter(param_name)
         if param_value and file_path:
             try:
-                with open(file_path, 'w') as f:
-                    f.write(param_value)
+                # Decode base64 for pickle file, write as-is for JSON
+                if file_path.endswith('.pickle'):
+                    import base64
+                    decoded_value = base64.b64decode(param_value)
+                    with open(file_path, 'wb') as f:
+                        f.write(decoded_value)
+                else:
+                    with open(file_path, 'w') as f:
+                        f.write(param_value)
                 logger.info(f"Loaded {param_name} to {file_path}")
             except Exception as e:
                 logger.warning(f"Failed to write {param_name} to {file_path}: {e}")
@@ -130,9 +139,18 @@ def weekly_report_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]
         load_credentials_from_parameters()
         load_api_keys_from_parameters()
 
+        # Set credential paths for Lambda environment
+        os.environ['GOOGLE_CREDENTIALS_FILE'] = '/tmp/credentials/credentials.json'
+        os.environ['GOOGLE_TOKEN_FILE'] = '/tmp/credentials/token.pickle'
+
         # Load configuration
         logger.info("Loading configuration...")
         config = load_config()
+
+        # Override log paths for Lambda (only /tmp is writable)
+        if 'logging' not in config:
+            config['logging'] = {}
+        config['logging']['file'] = '/tmp/relationship.log'
 
         # Setup logging
         setup_logging(config)

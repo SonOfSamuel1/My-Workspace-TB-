@@ -19,10 +19,8 @@ echo ""
 echo -e "${YELLOW}This script will upload your credentials to AWS Parameter Store.${NC}"
 echo ""
 echo "Required files (in credentials/ directory):"
-echo "  - calendar_credentials.json"
-echo "  - calendar_token.json"
-echo "  - gmail_credentials.json"
-echo "  - gmail_token.json"
+echo "  - credentials.json (Google API credentials)"
+echo "  - token.pickle (Google OAuth token)"
 echo ""
 
 read -p "Do you want to continue? (y/n): " continue_setup
@@ -39,60 +37,34 @@ if [ ! -d "credentials" ]; then
     exit 1
 fi
 
-# Upload calendar credentials
-if [ -f "credentials/calendar_credentials.json" ]; then
-    echo "Uploading calendar credentials..."
+# Upload Google credentials
+if [ -f "credentials/credentials.json" ]; then
+    echo "Uploading Google API credentials..."
     aws ssm put-parameter \
-        --name "/love-brittany/calendar-credentials" \
-        --value file://credentials/calendar_credentials.json \
+        --name "/love-brittany/credentials" \
+        --value file://credentials/credentials.json \
         --type "SecureString" \
         --region $AWS_REGION \
         --overwrite \
-        > /dev/null 2>&1 && echo -e "${GREEN}✓ Calendar credentials uploaded${NC}"
+        > /dev/null 2>&1 && echo -e "${GREEN}✓ Google credentials uploaded${NC}"
 else
-    echo -e "${YELLOW}⚠ credentials/calendar_credentials.json not found, skipping...${NC}"
+    echo -e "${YELLOW}⚠ credentials/credentials.json not found, skipping...${NC}"
 fi
 
-# Upload calendar token
-if [ -f "credentials/calendar_token.json" ]; then
-    echo "Uploading calendar token..."
+# Upload Google token (convert pickle to base64 for storage)
+if [ -f "credentials/token.pickle" ]; then
+    echo "Uploading Google OAuth token..."
+    # Base64 encode the pickle file for safe storage
+    TOKEN_BASE64=$(base64 -i credentials/token.pickle)
     aws ssm put-parameter \
-        --name "/love-brittany/calendar-token" \
-        --value file://credentials/calendar_token.json \
+        --name "/love-brittany/token" \
+        --value "$TOKEN_BASE64" \
         --type "SecureString" \
         --region $AWS_REGION \
         --overwrite \
-        > /dev/null 2>&1 && echo -e "${GREEN}✓ Calendar token uploaded${NC}"
+        > /dev/null 2>&1 && echo -e "${GREEN}✓ Google token uploaded${NC}"
 else
-    echo -e "${YELLOW}⚠ credentials/calendar_token.json not found, skipping...${NC}"
-fi
-
-# Upload Gmail credentials
-if [ -f "credentials/gmail_credentials.json" ]; then
-    echo "Uploading Gmail credentials..."
-    aws ssm put-parameter \
-        --name "/love-brittany/gmail-credentials" \
-        --value file://credentials/gmail_credentials.json \
-        --type "SecureString" \
-        --region $AWS_REGION \
-        --overwrite \
-        > /dev/null 2>&1 && echo -e "${GREEN}✓ Gmail credentials uploaded${NC}"
-else
-    echo -e "${YELLOW}⚠ credentials/gmail_credentials.json not found, skipping...${NC}"
-fi
-
-# Upload Gmail token
-if [ -f "credentials/gmail_token.json" ]; then
-    echo "Uploading Gmail token..."
-    aws ssm put-parameter \
-        --name "/love-brittany/gmail-token" \
-        --value file://credentials/gmail_token.json \
-        --type "SecureString" \
-        --region $AWS_REGION \
-        --overwrite \
-        > /dev/null 2>&1 && echo -e "${GREEN}✓ Gmail token uploaded${NC}"
-else
-    echo -e "${YELLOW}⚠ credentials/gmail_token.json not found, skipping...${NC}"
+    echo -e "${YELLOW}⚠ credentials/token.pickle not found, skipping...${NC}"
 fi
 
 # Upload API keys from .env

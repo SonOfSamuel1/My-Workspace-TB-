@@ -204,8 +204,12 @@ def generate_report(config: dict, send_email: bool = True):
         html_content = report_generator.generate_html_report(report_data)
 
         # Save HTML to file for review
-        output_dir = Path('output')
-        output_dir.mkdir(exist_ok=True)
+        # Use /tmp for Lambda environment (only /tmp is writable)
+        if os.getenv('AWS_LAMBDA_FUNCTION_NAME'):
+            output_dir = Path('/tmp')
+        else:
+            output_dir = Path('output')
+            output_dir.mkdir(exist_ok=True)
 
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         output_file = output_dir / f'relationship_report_{timestamp}.html'
