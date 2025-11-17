@@ -1,0 +1,85 @@
+name: Lint
+
+on:
+  push:
+    branches: [main, develop, claude/**]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  lint-typescript:
+    name: Lint TypeScript (MCP Servers)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install dependencies for Todoist server
+        working-directory: servers/todoist-mcp-server
+        run: npm ci
+
+      - name: Install dependencies for YNAB server
+        working-directory: servers/ynab-mcp-server
+        run: npm ci
+
+      - name: Install dependencies for Gmail server
+        working-directory: servers/gmail-mcp-server
+        run: npm ci
+
+      - name: Build all servers
+        run: |
+          cd servers/todoist-mcp-server && npm run build
+          cd ../ynab-mcp-server && npm run build
+          cd ../gmail-mcp-server && npm run build
+
+  lint-python:
+    name: Lint Python (Apps & Utils)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install linting tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install flake8 black isort
+
+      - name: Run flake8
+        run: |
+          flake8 apps/ utils/ --count --select=E9,F63,F7,F82 --show-source --statistics
+          flake8 apps/ utils/ --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+
+      - name: Check formatting with black
+        run: |
+          black --check apps/ utils/
+
+      - name: Check import sorting with isort
+        run: |
+          isort --check-only apps/ utils/
+
+  markdown-lint:
+    name: Lint Markdown
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Lint markdown files
+        uses: DavidAnson/markdownlint-cli2-action@v18
+        with:
+          globs: |
+            **/*.md
+            !**/node_modules/**

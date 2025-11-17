@@ -1,0 +1,21 @@
+{
+  "*.{ts,tsx,js,jsx}": [
+    "prettier --write",
+    "git add"
+  ],
+  "*.{json,md,yml,yaml}": [
+    "prettier --write",
+    "git add"
+  ],
+  "*.py": [
+    "black",
+    "isort --profile black",
+    "flake8 --max-line-length=127 --extend-ignore=E203",
+    "git add"
+  ],
+  "servers/**/*.ts": [
+    "npm run build --workspace=servers/todoist-mcp-server --if-present",
+    "npm run build --workspace=servers/ynab-mcp-server --if-present",
+    "npm run build --workspace=servers/gmail-mcp-server --if-present"
+  ]
+}

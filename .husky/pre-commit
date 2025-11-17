@@ -1,0 +1,10 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+# Run lint-staged for JavaScript/TypeScript files
+npx lint-staged
+
+# Run pre-commit hooks for Python files (if pre-commit is installed)
+if command -v pre-commit &> /dev/null; then
+  pre-commit run --files $(git diff --cached --name-only --diff-filter=ACM)
+fi

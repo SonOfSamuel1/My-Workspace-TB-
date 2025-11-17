@@ -1,0 +1,21 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+# Validate commit message format (optional - enforce conventional commits)
+# Uncomment to enable conventional commit validation
+# npx --no -- commitlint --edit "$1"
+
+# Basic commit message validation
+commit_msg=$(cat "$1")
+
+# Check if commit message is not empty
+if [ -z "$commit_msg" ]; then
+  echo "Error: Commit message cannot be empty"
+  exit 1
+fi
+
+# Check minimum length
+if [ ${#commit_msg} -lt 10 ]; then
+  echo "Error: Commit message too short (minimum 10 characters)"
+  exit 1
+fi
