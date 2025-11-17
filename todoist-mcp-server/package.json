@@ -1,0 +1,32 @@
+{
+  "name": "todoist-mcp-server",
+  "version": "1.0.0",
+  "description": "MCP server for Todoist API integration",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "todoist-mcp-server": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc --watch",
+    "start": "node dist/index.js",
+    "dev": "tsc && node dist/index.js"
+  },
+  "keywords": [
+    "mcp",
+    "todoist",
+    "tasks",
+    "productivity",
+    "model-context-protocol"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.4"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "typescript": "^5.7.2"
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "ynab": {
+      "command": "node",
+      "args": [
+        "dist/index.js"
+      ],
+      "env": {
+        "YNAB_API_KEY": "your_ynab_api_key_here"
+      }
+    }
+  }
+}

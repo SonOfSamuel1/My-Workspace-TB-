@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "todoist": {
+      "command": "node",
+      "args": [
+        "/Users/terrancebrandon/Desktop/Code Projects (Official)/My Workspace/todoist-mcp-server/dist/index.js"
+      ],
+      "env": {
+        "TODOIST_API_TOKEN": "629ef6a1b7fd54b2a08f59c56a2c4dc691b18ae3"
+      }
+    }
+  }
+}
