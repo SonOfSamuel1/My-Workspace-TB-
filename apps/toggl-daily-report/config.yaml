@@ -1,0 +1,73 @@
+version: "1.0.0"
+name: "Toggl Daily Report"
+description: "Daily performance report for Toggl Track time tracking"
+
+# Report Configuration
+report:
+  # Enable/disable daily reports
+  enabled: true
+
+  # Daily goal in hours
+  daily_goal_hours: 8.0
+
+  # Week starts on (Monday=0, Sunday=6)
+  week_start_day: 0  # Monday
+
+  # Include metrics
+  metrics:
+    total_hours: true
+    project_breakdown: true
+    billable_breakdown: true
+    daily_goal_comparison: true
+    week_to_date_summary: true
+
+  # Email settings
+  email:
+    # Send report to this address
+    recipient: "terrance@goodportion.org"
+
+    # Email subject template
+    subject_template: "Toggl Daily Report - {date}"
+
+    # Include visual charts (future enhancement)
+    include_charts: false
+
+# Schedule Configuration
+schedule:
+  # Report delivery time (24-hour format)
+  delivery_hour: 18  # 6:00 PM
+  delivery_minute: 0
+
+  # Timezone for scheduling
+  timezone: "America/New_York"
+
+  # Days to send report (0=Monday, 6=Sunday)
+  # Empty list = all days
+  active_days: [0, 1, 2, 3, 4]  # Monday-Friday only
+
+# Toggl Configuration
+toggl:
+  # Projects to exclude from report (by name)
+  exclude_projects: []
+
+  # Projects to highlight in report
+  highlight_projects: []
+
+  # Include tags in breakdown
+  include_tags: false
+
+  # Minimum entry duration to include (minutes)
+  min_duration_minutes: 1
+
+# Logging
+logging:
+  level: "INFO"  # DEBUG, INFO, WARNING, ERROR
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file: "logs/daily_report.log"
+  max_bytes: 10485760  # 10MB
+  backup_count: 5
+
+# Google API Settings (for Gmail)
+google:
+  credentials_file: "credentials/credentials.json"
+  token_file: "credentials/token.pickle"
