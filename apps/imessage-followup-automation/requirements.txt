@@ -1,0 +1,21 @@
+# iMessage Follow-up Automation - Dependencies
+
+# Core
+python-dotenv==1.0.0
+pyyaml==6.0.1
+pytz==2024.1
+
+# Google APIs (for Gmail sending)
+google-auth==2.23.4
+google-auth-oauthlib==1.1.0
+google-auth-httplib2==0.1.1
+google-api-python-client==2.108.0
+
+# Anthropic Claude API
+anthropic==0.39.0
+
+# Database
+# No external SQLite library needed - built into Python
+
+# Utilities
+python-dateutil==2.8.2

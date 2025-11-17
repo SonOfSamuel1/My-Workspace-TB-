@@ -1,0 +1,119 @@
+version: "1.0.0"
+name: "iMessage Follow-up Automation"
+description: "Automated system to track outstanding iMessages and provide AI-powered follow-up recommendations"
+
+# iMessage Follow-up Configuration
+imessage_followup:
+  # Enable/disable the automation
+  enabled: true
+
+  # Check frequency (hours)
+  # How often to scan for new messages requiring follow-up
+  check_interval_hours: 4
+
+  # Lookback period (hours)
+  # How far back to scan for messages
+  lookback_hours: 48
+
+  # Path to iMessage database
+  # Default macOS location
+  imessage_db_path: "~/Library/Messages/chat.db"
+
+  # Priority contacts (phone numbers or email addresses)
+  # These contacts will always be checked, even if they're not in recent messages
+  priority_contacts:
+    # Example: "+1234567890"
+    # Example: "email@example.com"
+
+  # Exclude specific contacts or keywords
+  exclude_contacts: []
+
+  # Exclude group chats
+  exclude_group_chats: false
+
+  # Analysis settings
+  analysis:
+    # Use Claude API for intelligent message analysis
+    use_ai_analysis: true
+
+    # Claude model to use
+    claude_model: "claude-sonnet-4-5-20250929"
+
+    # Maximum messages to analyze per run
+    max_messages_per_run: 50
+
+    # Criteria for identifying messages needing follow-up
+    criteria:
+      # Messages ending with question marks that you haven't answered
+      unanswered_questions: true
+
+      # Conversations where the last message is from the other person
+      pending_responses: true
+
+      # Messages containing action words (schedule, confirm, send, etc.)
+      action_items: true
+
+      # Messages mentioning dates, times, or deadlines
+      time_sensitive: true
+
+      # Minimum time (hours) since last message to consider for follow-up
+      min_hours_since_message: 12
+
+    # Action recommendation settings
+    recommendations:
+      # Enable AI-powered action recommendations
+      enabled: true
+
+      # Include draft response suggestions
+      suggest_responses: true
+
+      # Include task creation suggestions
+      suggest_tasks: true
+
+      # Include calendar event suggestions
+      suggest_calendar_events: true
+
+  # Email notification settings
+  email:
+    # Email recipient
+    recipient: "terrance@goodportion.org"
+
+    # Email subject template
+    subject_template: "iMessage Follow-up Reminders - {date}"
+
+    # Send daily summary even if no new follow-ups
+    send_daily_summary: false
+
+    # Daily summary time (24-hour format)
+    daily_summary_time: "09:00"
+
+    # Group messages by priority
+    group_by_priority: true
+
+    # Include message preview in email
+    include_message_preview: true
+
+    # Preview length (characters)
+    preview_length: 200
+
+  # State tracking
+  state:
+    # Database file for tracking notified messages
+    database_path: "data/imessage_state.db"
+
+    # Days to keep notification history
+    retention_days: 30
+
+    # Re-notify after X days if not followed up
+    renotify_after_days: 3
+
+  # Timezone for scheduling and timestamps
+  timezone: "America/New_York"
+
+# Logging
+logging:
+  level: "INFO"  # DEBUG, INFO, WARNING, ERROR
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file: "logs/imessage_followup.log"
+  max_bytes: 10485760  # 10MB
+  backup_count: 5

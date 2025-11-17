@@ -17,6 +17,7 @@ My Workspace/
 
 ### Applications (`apps/`)
 - **[love-brittany-tracker](apps/love-brittany-tracker/README.md)** - Relationship tracking automation with bi-weekly reporting
+- **[imessage-followup-automation](apps/imessage-followup-automation/README.md)** - AI-powered iMessage follow-up reminders with email notifications
 
 ### MCP Servers (`servers/`)
 - **[gmail-mcp-server](servers/gmail-mcp-server/README.md)** - Gmail integration for AI assistants
@@ -42,6 +43,7 @@ My Workspace/
 - Google APIs (Calendar, Docs, Gmail)
 - Todoist REST API v2
 - YNAB API
+- Anthropic Claude API
 - Model Context Protocol (MCP)
 
 ### Infrastructure
@@ -119,6 +121,12 @@ Commits follow the pattern:
 ```bash
 cd apps/love-brittany-tracker
 python src/relationship_main.py --generate
+```
+
+### Run iMessage Follow-up Check
+```bash
+cd apps/imessage-followup-automation
+python src/imessage_main.py --check
 ```
 
 ### Build MCP Servers
