@@ -1,0 +1,17 @@
+# Render deployment configuration for Restaurant Discovery App
+# https://render.com
+
+services:
+  - type: web
+    name: atlanta-date-restaurants
+    env: python
+    region: oregon
+    plan: free
+    buildCommand: pip install -r requirements-web.txt
+    startCommand: gunicorn -w 2 -b 0.0.0.0:$PORT src.restaurant_web_app:app
+    healthCheckPath: /
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: PORT
+        value: 10000

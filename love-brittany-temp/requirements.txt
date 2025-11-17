@@ -1,0 +1,37 @@
+# Google Calendar API
+google-api-python-client==2.108.0
+google-auth-httplib2==0.2.0
+google-auth-oauthlib==1.2.0
+
+# HTTP Requests
+requests==2.31.0
+
+# Webhook Server
+Flask==3.0.0
+
+# Configuration
+PyYAML==6.0.1
+python-dotenv==1.0.0
+
+# Date/Time
+python-dateutil==2.8.2
+
+# Logging
+colorlog==6.8.0
+
+# Scheduling
+schedule==1.2.0
+
+# Timezone support
+pytz==2023.3
+
+# Todoist API
+todoist-api-python==2.1.4
+
+# Linear API
+gql==3.5.0
+gql[requests]==3.5.0
+
+# Testing (optional)
+pytest==7.4.3
+pytest-cov==4.1.0

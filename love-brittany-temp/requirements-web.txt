@@ -1,0 +1,11 @@
+# Restaurant Web Application Dependencies
+Flask==3.0.0
+gunicorn==21.2.0
+PyYAML==6.0.1
+pytz==2024.1
+
+# Google APIs (from main requirements)
+google-auth==2.25.2
+google-auth-oauthlib==1.2.0
+google-auth-httplib2==0.2.0
+google-api-python-client==2.111.0
