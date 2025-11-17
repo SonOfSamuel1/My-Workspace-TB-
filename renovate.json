@@ -1,0 +1,110 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    ":enablePreCommit",
+    ":maintainLockFilesWeekly",
+    ":rebaseStalePrs"
+  ],
+  "timezone": "America/New_York",
+  "schedule": [
+    "every weekend"
+  ],
+  "labels": [
+    "dependencies"
+  ],
+  "commitMessagePrefix": "chore(deps):",
+  "prConcurrentLimit": 5,
+  "prHourlyLimit": 2,
+  "semanticCommits": "enabled",
+  "automerge": false,
+  "platformAutomerge": false,
+  "separateMajorMinor": true,
+  "separateMinorPatch": false,
+  "rangeStrategy": "bump",
+  "packageRules": [
+    {
+      "description": "Group all npm dependencies for MCP servers",
+      "matchManagers": ["npm"],
+      "matchPaths": ["servers/**"],
+      "groupName": "MCP Server Dependencies",
+      "automerge": false
+    },
+    {
+      "description": "Group all Python dependencies",
+      "matchManagers": ["pip_requirements"],
+      "matchPaths": ["apps/**", "utils/**"],
+      "groupName": "Python Dependencies",
+      "automerge": false
+    },
+    {
+      "description": "Auto-merge patch updates for non-critical packages",
+      "matchUpdateTypes": ["patch"],
+      "matchCurrentVersion": "!/^0/",
+      "automerge": true,
+      "automergeType": "pr",
+      "platformAutomerge": true
+    },
+    {
+      "description": "Pin dependencies for Python projects",
+      "matchManagers": ["pip_requirements"],
+      "rangeStrategy": "pin"
+    },
+    {
+      "description": "TypeScript and Node.js type packages",
+      "matchPackagePatterns": ["^@types/"],
+      "groupName": "Type Definitions",
+      "automerge": true
+    },
+    {
+      "description": "Testing packages",
+      "matchPackagePatterns": ["^jest", "^vitest", "^pytest", "^@vitest/"],
+      "groupName": "Testing Dependencies",
+      "automerge": false
+    },
+    {
+      "description": "Linting and formatting packages",
+      "matchPackagePatterns": ["^eslint", "^prettier", "^black", "^flake8", "^isort"],
+      "groupName": "Linting and Formatting",
+      "automerge": true
+    },
+    {
+      "description": "GitHub Actions",
+      "matchManagers": ["github-actions"],
+      "groupName": "GitHub Actions",
+      "automerge": true,
+      "pinDigests": true
+    },
+    {
+      "description": "Critical security updates",
+      "matchUpdateTypes": ["patch"],
+      "matchCurrentVersion": "!/^0/",
+      "matchDatasources": ["npm", "pypi"],
+      "labels": ["security"],
+      "automerge": true,
+      "platformAutomerge": true
+    }
+  ],
+  "vulnerabilityAlerts": {
+    "enabled": true,
+    "labels": ["security", "vulnerability"],
+    "automerge": true
+  },
+  "lockFileMaintenance": {
+    "enabled": true,
+    "schedule": ["before 5am on monday"]
+  },
+  "npm": {
+    "minimumReleaseAge": "3 days"
+  },
+  "python": {
+    "minimumReleaseAge": "3 days"
+  },
+  "ignoreDeps": [],
+  "ignorePaths": [
+    "**/node_modules/**",
+    "**/dist/**",
+    "**/.venv/**",
+    "**/venv/**"
+  ]
+}

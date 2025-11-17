@@ -1,0 +1,91 @@
+name: Test Python Apps
+
+on:
+  push:
+    branches: [main, develop, claude/**]
+    paths:
+      - 'apps/**'
+      - 'utils/**'
+      - '.github/workflows/test-python-apps.yml'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'apps/**'
+      - 'utils/**'
+
+jobs:
+  test-love-brittany-tracker:
+    name: Test Love Brittany Tracker
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/love-brittany-tracker
+
+    strategy:
+      matrix:
+        python-version: ['3.9', '3.10', '3.11']
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: 'pip'
+          cache-dependency-path: apps/love-brittany-tracker/requirements.txt
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run tests with pytest
+        run: |
+          pytest --cov=src --cov-report=xml --cov-report=term
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v4
+        if: success() && matrix.python-version == '3.11'
+        with:
+          files: ./apps/love-brittany-tracker/coverage.xml
+          flags: love-brittany-tracker
+
+  test-utils:
+    name: Test Utilities
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: utils
+
+    strategy:
+      matrix:
+        python-version: ['3.9', '3.10', '3.11']
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest pytest-cov requests python-dotenv
+
+      - name: Check Python files
+        run: |
+          python -m py_compile todoist_p2_label_updater.py
+
+      - name: Run tests if they exist
+        run: |
+          if [ -d "tests" ]; then
+            pytest --cov=. --cov-report=xml --cov-report=term
+          else
+            echo "No tests directory found, skipping tests"
+          fi
+        continue-on-error: true
