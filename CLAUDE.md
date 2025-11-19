@@ -17,9 +17,11 @@ My Workspace/
 
 ### Applications (`apps/`)
 - **[love-brittany-tracker](apps/love-brittany-tracker/README.md)** - Relationship tracking automation with bi-weekly reporting
+- **[love-kaelin-tracker](apps/love-kaelin-tracker/README.md)** - Father-daughter development tracking with weekly reporting
 
 ### MCP Servers (`servers/`)
 - **[gmail-mcp-server](servers/gmail-mcp-server/README.md)** - Gmail integration for AI assistants
+- **[google-docs-mcp-server](servers/google-docs-mcp-server/README.md)** - Google Docs integration for creating, reading, and editing documents
 - **[todoist-mcp-server](servers/todoist-mcp-server/README.md)** - Todoist task management integration
 - **[ynab-mcp-server](servers/ynab-mcp-server/README.md)** - YNAB budget and transaction management
 
@@ -119,6 +121,12 @@ Commits follow the pattern:
 ```bash
 cd apps/love-brittany-tracker
 python src/relationship_main.py --generate
+```
+
+### Run Love Kaelin Tracker
+```bash
+cd apps/love-kaelin-tracker
+python src/kaelin_main.py --generate
 ```
 
 ### Build MCP Servers
@@ -238,5 +246,5 @@ GitHub: @SonOfSamuel1
 
 ---
 
-**Last Updated:** 2025-11-16
+**Last Updated:** 2025-11-17
 **Repository Structure Version:** 1.0
