@@ -1,0 +1,30 @@
+{
+  "name": "email-assistant-lambda",
+  "version": "2.0.0",
+  "description": "AWS Lambda function for autonomous email management with reliability improvements",
+  "main": "index.js",
+  "scripts": {
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "deploy": "./deploy.sh",
+    "validate": "node ../lib/config-validator.js"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "@types/jest": "^29.5.8"
+  },
+  "engines": {
+    "node": ">=20.x"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "coverageDirectory": "../coverage",
+    "collectCoverageFrom": [
+      "../lib/**/*.js",
+      "index.js",
+      "!**/*.test.js"
+    ]
+  }
+}

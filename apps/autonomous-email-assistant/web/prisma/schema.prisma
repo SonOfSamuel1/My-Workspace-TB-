@@ -1,0 +1,407 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String?
+  password      String?   // Hashed password for credentials provider
+  emailVerified DateTime?
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime? // Soft delete
+
+  agents        Agent[]
+  accounts      Account[]
+  sessions      Session[]
+  auditLogs     AuditLog[]
+  savedSearches SavedEmailSearch[]
+
+  @@index([email])
+  @@index([deletedAt])
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model Agent {
+  id              String    @id @default(cuid())
+  userId          String
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  name            String
+  agentEmail      String    @unique
+  description     String?
+
+  // Configuration stored as JSON
+  config          Json      // Tier rules, style, schedule, off-limits contacts
+
+  // Gmail Integration
+  gmailConnected  Boolean   @default(false)
+  gmailEmail      String?
+
+  // Agent Status
+  enabled         Boolean   @default(true)
+  lastRunAt       DateTime?
+
+  // Metadata
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime? // Soft delete
+
+  emails          Email[]
+  actions         AgentAction[]
+  webhooks        Webhook[]
+  templates       AgentTemplate[]
+  versions        AgentVersion[]
+
+  @@index([userId])
+  @@index([agentEmail])
+  @@index([enabled])
+  @@index([deletedAt])
+}
+
+// Agent Version History - Track configuration changes over time
+model AgentVersion {
+  id              String    @id @default(cuid())
+  agentId         String
+  agent           Agent     @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  // Version Info
+  version         Int       // Incrementing version number (1, 2, 3, ...)
+  config          Json      // Full snapshot of agent config at this version
+
+  // Change Tracking
+  changedBy       String?   // User ID who made the change
+  changeReason    String?   @db.Text // Optional reason for the change
+  changesSummary  String?   @db.Text // Auto-generated summary of what changed
+
+  // Previous Values (for rollback)
+  previousConfig  Json?     // Previous config (for easy diff)
+
+  // Metadata
+  createdAt       DateTime  @default(now())
+
+  @@index([agentId])
+  @@index([agentId, version]) // Composite for version lookups
+  @@index([createdAt])
+  @@unique([agentId, version]) // Ensure unique version numbers per agent
+}
+
+model Email {
+  id              String    @id @default(cuid())
+  agentId         String
+  agent           Agent     @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  // Gmail Data
+  gmailId         String    @unique
+  gmailThreadId   String?
+  subject         String
+  from            String
+  to              String?
+  cc              String?   // Comma-separated list
+  bcc             String?   // Comma-separated list
+  replyTo         String?
+  snippet         String?   @db.Text
+  body            String?   @db.Text
+  bodyHtml        String?   @db.Text // HTML version of body
+  headers         Json?     // Full email headers as JSON
+  attachments     Json?     // Array of attachment metadata
+  inReplyTo       String?   // Message-ID of email being replied to
+  references      String?   // Message-ID references for threading
+
+  // Classification
+  tier            Int       // 1-4
+  reasoning       String    @db.Text // Claude's classification reasoning
+  confidence      Float?    // 0.0-1.0
+
+  // Status
+  status          String    // processed, pending_approval, escalated, flagged
+  processed       Boolean   @default(false)
+
+  // Timestamps
+  receivedAt      DateTime
+  processedAt     DateTime?
+  createdAt       DateTime  @default(now())
+  deletedAt       DateTime? // Soft delete
+
+  actions         AgentAction[]
+
+  @@index([agentId])
+  @@index([tier])
+  @@index([status])
+  @@index([receivedAt])
+  @@index([gmailThreadId])
+  @@index([from])
+  @@index([deletedAt])
+  @@index([agentId, receivedAt]) // Composite index for recent emails by agent
+}
+
+model AgentAction {
+  id              String    @id @default(cuid())
+  agentId         String
+  agent           Agent     @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  emailId         String?
+  email           Email?    @relation(fields: [emailId], references: [id], onDelete: SetNull)
+
+  // Action Details
+  type            String    // response_sent, draft_created, sms_sent, tool_executed, label_applied
+  data            Json      // Action-specific data (response text, tool params, etc.)
+
+  // Approval Workflow
+  requiresApproval Boolean  @default(false)
+  approved        Boolean?
+  approvedAt      DateTime?
+  approvedBy      String?   // User ID who approved
+
+  // Tool Execution (for Email Agent)
+  toolName        String?   // playwright, calendar, data
+  toolInput       Json?
+  toolOutput      Json?
+
+  // Status
+  status          String    @default("pending") // pending, executing, completed, failed
+  error           String?   @db.Text
+
+  // Metadata
+  createdAt       DateTime  @default(now())
+  completedAt     DateTime?
+  deletedAt       DateTime? // Soft delete
+
+  @@index([agentId])
+  @@index([emailId])
+  @@index([type])
+  @@index([status])
+  @@index([requiresApproval])
+  @@index([createdAt])
+  @@index([deletedAt])
+  @@index([agentId, createdAt]) // Composite for recent actions by agent
+}
+
+model Analytics {
+  id              String    @id @default(cuid())
+  agentId         String
+  date            DateTime  @db.Date
+
+  // Metrics
+  emailsProcessed Int       @default(0)
+  tier1Count      Int       @default(0)
+  tier2Count      Int       @default(0)
+  tier3Count      Int       @default(0)
+  tier4Count      Int       @default(0)
+
+  responsesSent   Int       @default(0)
+  draftsCreated   Int       @default(0)
+  escalations     Int       @default(0)
+
+  avgResponseTime Float?    // in minutes
+
+  // Costs
+  claudeTokens    Int       @default(0)
+  openrouterTokens Int      @default(0)
+  estimatedCost   Float     @default(0)
+
+  createdAt       DateTime  @default(now())
+
+  @@unique([agentId, date])
+  @@index([agentId])
+  @@index([date])
+  @@index([agentId, date]) // Composite for time-series queries
+}
+
+// Audit Log - Track all user actions for compliance and debugging
+model AuditLog {
+  id              String    @id @default(cuid())
+  userId          String
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Action Details
+  action          String    // create_agent, update_agent, delete_agent, approve_action, etc.
+  resource        String    // agent, email, action, user
+  resourceId      String?   // ID of the affected resource
+
+  // Request Context
+  ipAddress       String?
+  userAgent       String?   @db.Text
+
+  // Changes
+  previousValue   Json?     // Previous state (for updates/deletes)
+  newValue        Json?     // New state (for creates/updates)
+
+  // Metadata
+  createdAt       DateTime  @default(now())
+
+  @@index([userId])
+  @@index([action])
+  @@index([resource])
+  @@index([resourceId])
+  @@index([createdAt])
+  @@index([userId, createdAt]) // Composite for user activity timeline
+}
+
+// Webhooks - Allow external systems to subscribe to events
+model Webhook {
+  id              String    @id @default(cuid())
+  agentId         String
+  agent           Agent     @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  // Webhook Configuration
+  url             String    // Endpoint to call
+  secret          String    // HMAC secret for signature verification
+  events          String[]  // Events to trigger on: email_received, action_completed, etc.
+
+  // Status
+  enabled         Boolean   @default(true)
+  lastTriggeredAt DateTime?
+  failureCount    Int       @default(0)
+
+  // Metadata
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  deliveries      WebhookDelivery[]
+
+  @@index([agentId])
+  @@index([enabled])
+}
+
+// Webhook Delivery Log
+model WebhookDelivery {
+  id              String    @id @default(cuid())
+  webhookId       String
+  webhook         Webhook   @relation(fields: [webhookId], references: [id], onDelete: Cascade)
+
+  // Request
+  event           String    // Event that triggered this delivery
+  payload         Json      // Data sent to webhook
+
+  // Response
+  statusCode      Int?
+  responseBody    String?   @db.Text
+  error           String?   @db.Text
+
+  // Timing
+  attemptedAt     DateTime  @default(now())
+  completedAt     DateTime?
+  duration        Int?      // milliseconds
+
+  @@index([webhookId])
+  @@index([event])
+  @@index([attemptedAt])
+}
+
+// Agent Templates - Reusable agent configurations
+model AgentTemplate {
+  id              String    @id @default(cuid())
+  agentId         String?
+  agent           Agent?    @relation(fields: [agentId], references: [id], onDelete: SetNull)
+
+  // Template Info
+  name            String
+  description     String?   @db.Text
+  category        String?   // executive, customer_support, sales, etc.
+
+  // Configuration
+  config          Json      // Full agent config that can be applied
+
+  // Visibility
+  isPublic        Boolean   @default(false) // Public templates available to all users
+  isOfficial      Boolean   @default(false) // Official templates from the platform
+
+  // Usage Stats
+  usageCount      Int       @default(0)
+
+  // Metadata
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([category])
+  @@index([isPublic])
+  @@index([isOfficial])
+}
+
+// Rate Limiting - Track API usage per user/IP
+model RateLimit {
+  id              String    @id @default(cuid())
+  identifier      String    // User ID, IP address, or API key
+  endpoint        String    // API endpoint being rate limited
+
+  // Limits
+  requestCount    Int       @default(0)
+  windowStart     DateTime  @default(now())
+
+  // Metadata
+  updatedAt       DateTime  @updatedAt
+
+  @@unique([identifier, endpoint])
+  @@index([identifier])
+  @@index([windowStart])
+}
+
+// Saved Email Searches - Store frequently used search filters
+model SavedEmailSearch {
+  id              String    @id @default(cuid())
+  userId          String
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Search Info
+  name            String    // User-defined name for the search
+  description     String?   @db.Text
+
+  // Search Filters (stored as JSON)
+  filters         Json      // { query, agentIds, tiers, statuses, dateFrom, dateTo, hasAttachments }
+
+  // Usage Stats
+  usageCount      Int       @default(0)
+  lastUsedAt      DateTime?
+
+  // Metadata
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([userId])
+  @@index([userId, usageCount]) // For finding popular searches by user
+}

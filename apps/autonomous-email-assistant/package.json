@@ -1,0 +1,35 @@
+{
+  "name": "autonomous-email-assistant",
+  "version": "3.0.0",
+  "description": "AI-powered autonomous email management with reasoning and web automation",
+  "main": "index.js",
+  "scripts": {
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "agent:start": "node scripts/start-agent.js",
+    "agent:test": "node scripts/test-agent.js"
+  },
+  "keywords": [
+    "email",
+    "automation",
+    "ai",
+    "assistant",
+    "claude",
+    "openrouter",
+    "playwright"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "playwright": "^1.40.1",
+    "axios": "^1.6.2"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "@types/jest": "^29.5.8"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
