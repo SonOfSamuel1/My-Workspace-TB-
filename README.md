@@ -46,6 +46,7 @@ cd apps/love-brittany-tracker && pip install -r requirements.txt && cd ../..
 ```
 My-Workspace-TB-/
 ├── apps/                          # Full applications
+│   ├── autonomous-email-assistant/ # AI-powered email management system
 │   └── love-brittany-tracker/    # Relationship tracking automation
 ├── servers/                       # MCP server implementations
 │   ├── gmail-mcp-server/         # Gmail integration for AI assistants
@@ -60,6 +61,14 @@ My-Workspace-TB-/
 ## Projects
 
 ### Applications
+
+#### Autonomous Email Assistant
+AI-powered email management system with Claude Code CLI and Gmail MCP integration.
+
+- **Features**: 4-tier email classification, autonomous responses, OpenRouter reasoning models, web automation via Playwright
+- **Modes**: Executive Assistant (hourly processing), Email Agent (autonomous actions)
+- **Deployment**: GitHub Actions, AWS Lambda
+- **Documentation**: [apps/autonomous-email-assistant/README.md](apps/autonomous-email-assistant/README.md)
 
 #### Love Brittany Tracker
 Automated relationship tracking system with bi-weekly HTML reports.
@@ -168,6 +177,7 @@ cd servers/todoist-mcp-server && npm run build
 This monorepo preserves complete history from merged repositories:
 - Original My Workspace repository
 - Love Brittany tracker (merged via git subtree on 2025-11-16)
+- Autonomous Email Assistant (merged via git subtree on 2025-11-18)
 
 View complete history: `git log --all --graph`
 
@@ -199,7 +209,7 @@ GitHub: [@SonOfSamuel1](https://github.com/SonOfSamuel1)
 
 ---
 
-**Last Updated**: 2025-11-17
+**Last Updated**: 2025-11-18
 **Monorepo Version**: 1.0
 
 For detailed technical documentation optimized for AI assistants, see [CLAUDE.md](CLAUDE.md).

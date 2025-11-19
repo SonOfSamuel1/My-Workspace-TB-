@@ -4,7 +4,8 @@
   "description": "Personal development monorepo for applications, MCP servers, and utilities",
   "private": true,
   "workspaces": [
-    "servers/*"
+    "servers/*",
+    "apps/autonomous-email-assistant"
   ],
   "scripts": {
     "build": "npm run build --workspaces --if-present",
@@ -12,6 +13,9 @@
     "test": "npm run test --workspaces --if-present",
     "test:servers": "npm run test --workspace=servers/todoist-mcp-server --workspace=servers/ynab-mcp-server --workspace=servers/gmail-mcp-server",
     "test:coverage": "npm run test:coverage --workspaces --if-present",
+    "email-assistant:test": "npm run test --workspace=autonomous-email-assistant",
+    "email-assistant:agent:start": "npm run agent:start --workspace=autonomous-email-assistant",
+    "email-assistant:agent:test": "npm run agent:test --workspace=autonomous-email-assistant",
     "clean": "npm run clean --workspaces --if-present && rm -rf **/node_modules **/dist",
     "clean:dist": "rm -rf servers/*/dist",
     "clean:modules": "rm -rf **/node_modules",
