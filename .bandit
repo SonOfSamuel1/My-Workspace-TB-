@@ -1,0 +1,24 @@
+[bandit]
+# Bandit configuration for Python security scanning
+exclude_dirs =
+    /tests,
+    /.venv,
+    /venv,
+    /env,
+    /dist,
+    /build,
+    /__pycache__
+
+# Severity level: all, high, medium, low
+level = low
+
+# Confidence level: all, high, medium, low
+confidence = medium
+
+# Tests to skip (comma-separated list)
+skips =
+    B404,  # import subprocess - we use this intentionally
+    B603,  # subprocess without shell=True - we validate inputs
+
+# Tests to run (comma-separated list) - leave empty to run all
+tests =

@@ -3,10 +3,10 @@
     "ynab": {
       "command": "node",
       "args": [
-        "/Users/terrancebrandon/Desktop/Code Projects (Official)/My Workspace/ynab-mcp-server/dist/index.js"
+        "${workspaceFolder}/servers/ynab-mcp-server/dist/index.js"
       ],
       "env": {
-        "YNAB_API_KEY": "hYPZEhxFtOZh0f5BDQMXdqHUsX5yrNgJtUJmyJlkYDs"
+        "YNAB_API_KEY": "${env:YNAB_API_KEY}"
       }
     }
   }

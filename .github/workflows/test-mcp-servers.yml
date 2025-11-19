@@ -1,0 +1,115 @@
+name: Test MCP Servers
+
+on:
+  push:
+    branches: [main, develop, claude/**]
+    paths:
+      - 'servers/**'
+      - '.github/workflows/test-mcp-servers.yml'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'servers/**'
+
+jobs:
+  test-todoist:
+    name: Test Todoist MCP Server
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: servers/todoist-mcp-server
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: servers/todoist-mcp-server/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Run tests
+        run: npm test
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v4
+        if: success()
+        with:
+          files: ./servers/todoist-mcp-server/coverage/coverage-final.json
+          flags: todoist-mcp-server
+
+  test-ynab:
+    name: Test YNAB MCP Server
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: servers/ynab-mcp-server
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: servers/ynab-mcp-server/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Run tests
+        run: npm test
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v4
+        if: success()
+        with:
+          files: ./servers/ynab-mcp-server/coverage/coverage-final.json
+          flags: ynab-mcp-server
+
+  test-gmail:
+    name: Test Gmail MCP Server
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: servers/gmail-mcp-server
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: servers/gmail-mcp-server/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Run tests
+        run: npm test
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v4
+        if: success()
+        with:
+          files: ./servers/gmail-mcp-server/coverage/coverage-final.json
+          flags: gmail-mcp-server

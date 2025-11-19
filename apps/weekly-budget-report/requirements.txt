@@ -1,0 +1,25 @@
+# YNAB API Client
+requests>=2.31.0
+
+# Date and time handling
+python-dateutil>=2.8.2
+pytz>=2023.3
+
+# Configuration
+PyYAML>=6.0
+
+# Google API for Gmail
+google-auth>=2.23.0
+google-auth-oauthlib>=1.1.0
+google-auth-httplib2>=0.1.1
+google-api-python-client>=2.100.0
+
+# HTML email generation
+jinja2>=3.1.2
+
+# Data analysis
+pandas>=2.1.0
+numpy>=1.24.0
+
+# AWS SDK (for Lambda deployment)
+boto3>=1.28.0

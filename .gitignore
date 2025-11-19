@@ -1,0 +1,165 @@
+# My Workspace - Root .gitignore
+# Personal Development Monorepo
+
+# ================================
+# Environment & Secrets
+# ================================
+.env
+.env.local
+.env.*.local
+*.key
+*.pem
+credentials*.json
+**/credentials/
+token.json
+.secrets/
+
+# ================================
+# Node.js & TypeScript
+# ================================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+.pnpm-debug.log*
+
+# Build outputs
+dist/
+build/
+out/
+*.tsbuildinfo
+.turbo/
+
+# Testing
+coverage/
+.nyc_output/
+*.lcov
+
+# ================================
+# Python
+# ================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv/
+virtualenv/
+
+# Python distribution / packaging
+*.egg-info/
+dist/
+build/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg
+MANIFEST
+
+# Python testing
+.pytest_cache/
+.tox/
+.coverage
+.coverage.*
+htmlcov/
+.hypothesis/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# pyenv
+.python-version
+
+# ================================
+# IDEs & Editors
+# ================================
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.code-workspace
+
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# ================================
+# Operating Systems
+# ================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+
+# ================================
+# Logs
+# ================================
+*.log
+logs/
+*.log.*
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ================================
+# AWS & Cloud
+# ================================
+.aws/
+*.zip
+lambda-deployment.zip
+
+# ================================
+# Temporary Files
+# ================================
+*.tmp
+*.temp
+.cache/
+.temp/
+tmp/
+
+# ================================
+# MCP Server Specific
+# ================================
+# Allow .env.example files but not .env
+!.env.example
+!**/.env.example
+
+# ================================
+# Documentation Build Artifacts
+# ================================
+*.pdf
+# Exception: Keep specific PDFs if needed
+# !docs/specific-file.pdf
+
+# ================================
+# Monorepo Specific
+# ================================
+.nx/
+.turbo/
+
+# ================================
+# Misc
+# ================================
+*.bak
+*.backup
+*.orig

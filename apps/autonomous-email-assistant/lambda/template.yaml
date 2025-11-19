@@ -1,0 +1,125 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Autonomous Email Assistant - AWS Lambda Deployment
+
+Parameters:
+  ClaudeCodeOAuthToken:
+    Type: String
+    Description: Claude Code OAuth token (sk-ant-oat01-...)
+    NoEcho: true
+
+  GmailOAuthCredentials:
+    Type: String
+    Description: Base64-encoded Gmail OAuth credentials (gcp-oauth.keys.json)
+    NoEcho: true
+
+  GmailCredentials:
+    Type: String
+    Description: Base64-encoded Gmail user credentials (credentials.json)
+    NoEcho: true
+
+  TwilioAccountSid:
+    Type: String
+    Description: Twilio Account SID (optional, for SMS alerts)
+    Default: ''
+
+  TwilioAuthToken:
+    Type: String
+    Description: Twilio Auth Token (optional, for SMS alerts)
+    Default: ''
+    NoEcho: true
+
+  TwilioFromNumber:
+    Type: String
+    Description: Twilio phone number in format +1234567890 (optional)
+    Default: ''
+
+  EscalationPhone:
+    Type: String
+    Description: Phone number for Tier 1 escalation SMS
+    Default: '+14077448449'
+
+Globals:
+  Function:
+    Timeout: 600  # 10 minutes (max for Lambda)
+    MemorySize: 1024
+    Runtime: nodejs20.x
+    Architectures:
+      - x86_64
+
+Resources:
+  EmailAssistantFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      DockerTag: email-assistant-v1
+      DockerContext: ./
+      Dockerfile: Dockerfile
+    Properties:
+      PackageType: Image
+      FunctionName: email-assistant-processor
+      Description: Processes emails autonomously using Claude Code
+      Environment:
+        Variables:
+          CLAUDE_CODE_OAUTH_TOKEN: !Ref ClaudeCodeOAuthToken
+          GMAIL_OAUTH_CREDENTIALS: !Ref GmailOAuthCredentials
+          GMAIL_CREDENTIALS: !Ref GmailCredentials
+          TWILIO_ACCOUNT_SID: !Ref TwilioAccountSid
+          TWILIO_AUTH_TOKEN: !Ref TwilioAuthToken
+          TWILIO_FROM_NUMBER: !Ref TwilioFromNumber
+          ESCALATION_PHONE: !Ref EscalationPhone
+      Events:
+        # Hourly schedule: 7 AM - 5 PM EST (Monday-Friday)
+        # EST is UTC-5, so 7 AM EST = 12:00 UTC, 5 PM EST = 22:00 UTC
+        HourlySchedule:
+          Type: Schedule
+          Properties:
+            Schedule: cron(0 12-22 ? * MON-FRI *)
+            Description: Run email processing every hour from 7 AM to 5 PM EST on weekdays
+            Enabled: true
+
+  # CloudWatch Logs
+  EmailAssistantLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${EmailAssistantFunction}
+      RetentionInDays: 30
+
+  # IAM Role (auto-created by SAM, but we can customize if needed)
+  EmailAssistantRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: EmailAssistantPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: !GetAtt EmailAssistantLogGroup.Arn
+
+Outputs:
+  EmailAssistantFunctionArn:
+    Description: Email Assistant Lambda Function ARN
+    Value: !GetAtt EmailAssistantFunction.Arn
+    Export:
+      Name: EmailAssistantFunctionArn
+
+  EmailAssistantFunctionName:
+    Description: Email Assistant Lambda Function Name
+    Value: !Ref EmailAssistantFunction
+
+  LogGroupName:
+    Description: CloudWatch Logs Group Name
+    Value: !Ref EmailAssistantLogGroup

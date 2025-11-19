@@ -1,0 +1,14 @@
+FROM public.ecr.aws/lambda/nodejs:20
+
+# Install Claude Code globally
+RUN npm install -g @anthropic-ai/claude-code
+
+# Install Gmail MCP server globally
+RUN npm install -g @gongrzhe/server-gmail-autoauth-mcp
+
+# Copy handler and project files
+COPY lambda_handler.js ${LAMBDA_TASK_ROOT}/
+COPY claude-agents/ ${LAMBDA_TASK_ROOT}/claude-agents/
+
+# Set the Lambda handler
+CMD [ "lambda_handler.handler" ]

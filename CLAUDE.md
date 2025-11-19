@@ -18,6 +18,7 @@ My Workspace/
 ### Applications (`apps/`)
 - **[love-brittany-tracker](apps/love-brittany-tracker/README.md)** - Relationship tracking automation with bi-weekly reporting
 - **[love-kaelin-tracker](apps/love-kaelin-tracker/README.md)** - Father-daughter development tracking with weekly reporting
+- **[weekly-budget-report](apps/weekly-budget-report/README.md)** - Automated weekly YNAB budget reports via email
 
 ### MCP Servers (`servers/`)
 - **[gmail-mcp-server](servers/gmail-mcp-server/README.md)** - Gmail integration for AI assistants
@@ -127,6 +128,12 @@ python src/relationship_main.py --generate
 ```bash
 cd apps/love-kaelin-tracker
 python src/kaelin_main.py --generate
+```
+
+### Run Weekly Budget Report
+```bash
+cd apps/weekly-budget-report
+python src/budget_main.py --generate
 ```
 
 ### Build MCP Servers
