@@ -232,9 +232,13 @@ class BudgetAnalyzer:
             Filtered list of transactions
         """
         filtered = []
+        # Strip timezone info for comparison since YNAB dates are naive
+        start_naive = start_date.replace(tzinfo=None) if start_date.tzinfo else start_date
+        end_naive = end_date.replace(tzinfo=None) if end_date.tzinfo else end_date
+
         for txn in transactions:
             txn_date = datetime.strptime(txn['date'], '%Y-%m-%d')
-            if start_date <= txn_date <= end_date:
+            if start_naive <= txn_date <= end_naive:
                 filtered.append(txn)
         return filtered
 

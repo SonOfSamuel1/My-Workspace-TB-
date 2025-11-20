@@ -1,0 +1,219 @@
+version: "1.0.0"
+name: "Love Kaelin Tracker"
+description: "Father-daughter relationship tracking and development planning system"
+
+# Kaelin Tracking Configuration
+kaelin_tracking:
+  # Enable/disable tracking reports
+  enabled: true
+
+  # Report schedule (cron format: minute hour day month weekday)
+  # Sunday at 5am EST: 0 5 * * 0
+  schedule:
+    - "0 5 * * 0"   # Sunday 5am EST
+
+  # Timezone for scheduling
+  timezone: "America/New_York"
+
+  # Google Doc ID for tracking document
+  # Get this from the document URL: https://docs.google.com/document/d/[DOCUMENT_ID]/edit
+  tracking_doc_id: ""  # TODO: Add your tracking doc ID
+
+  # Toggl project name for time tracking with Kaelin
+  toggl_project_name: "Love Kaelin"
+
+  # Email settings
+  email:
+    # Send report to this address
+    recipient: "terrance@goodportion.org"
+
+    # Email subject template
+    subject_template: "Love Kaelin Development Report - {date}"
+
+    # Include executive summary
+    include_summary: true
+
+    # Include detailed statistics
+    include_details: true
+
+  # Tracking periods and goals
+  tracking_periods:
+    # Rolling average window for play time
+    play_time_rolling_days: 100
+
+    # Minimum days per week target for playing together
+    play_days_per_week_target: 5
+
+    # Target average hours per day playing together
+    play_hours_per_day_target: 2.0
+
+    # Monthly game introduction frequency
+    new_game_frequency_days: 30  # At least once per month
+
+    # Spiritual development planning horizon (months)
+    spiritual_planning_months: 6
+
+    # Minimum field trips per year
+    field_trips_per_year_target: 3
+
+    # Quarterly daddy day planning
+    daddy_day_quarters_ahead: 4
+
+  # Jesus Teachings to Track
+  jesus_teachings:
+    teachings:
+      - "Love God with all your heart"
+      - "Love your neighbor as yourself"
+      - "Blessed are the pure in heart"
+      - "Blessed are the peacemakers"
+      - "Blessed are those who hunger for righteousness"
+      - "The Golden Rule - Do unto others"
+      - "Forgive others"
+      - "Let your light shine"
+      - "Seek first the kingdom of God"
+      - "Ask and it will be given to you"
+      - "Do not worry about tomorrow"
+      - "Judge not, lest you be judged"
+      - "The Good Samaritan - Show mercy"
+      - "The Prodigal Son - God's love and forgiveness"
+      - "I am the Good Shepherd"
+      - "I am the way, the truth, and the life"
+      - "Love one another as I have loved you"
+      - "Go and make disciples"
+      - "The Beatitudes"
+      - "The Lord's Prayer"
+
+  # Development Areas
+  development_areas:
+    # Ivy League preparation categories
+    ivy_league_prep:
+      - "Academic enrichment programs"
+      - "STEM activities and camps"
+      - "Arts and music programs"
+      - "Language learning opportunities"
+      - "Leadership development"
+      - "Community service projects"
+      - "Reading and literacy programs"
+      - "Critical thinking activities"
+
+    # Social development categories
+    social_development:
+      - "Playgroups and playdates"
+      - "Sports teams and activities"
+      - "Dance or gymnastics classes"
+      - "Art classes"
+      - "Music lessons"
+      - "Church youth groups"
+      - "Summer camps"
+      - "Homeschool co-ops"
+
+    # Spiritual development categories
+    spiritual_development:
+      - "Bible story time"
+      - "Prayer practice"
+      - "Church attendance"
+      - "Service projects"
+      - "Christian character building"
+      - "Scripture memorization"
+      - "Worship and praise"
+      - "Godly friendships"
+
+    # Creative activities
+    creative_activities:
+      - "Arts and crafts"
+      - "DIY projects"
+      - "Baking together"
+      - "Science experiments"
+      - "Building projects"
+      - "Gardening"
+      - "Storytelling and writing"
+      - "Music and dance"
+
+  # Calendar Integration
+  calendar:
+    # Calendar search terms for play time events
+    play_time_terms:
+      - "play with kaelin"
+      - "kaelin time"
+      - "daddy daughter time"
+      - "kaelin play"
+
+    # Calendar search terms for daddy days
+    daddy_day_terms:
+      - "daddy day"
+      - "kaelin daddy day"
+      - "special day kaelin"
+
+    # Calendar search terms for field trips
+    field_trip_terms:
+      - "kaelin field trip"
+      - "field trip"
+      - "kaelin outing"
+      - "kaelin adventure"
+
+    # Calendar search terms for teaching sessions
+    teaching_terms:
+      - "kaelin lesson"
+      - "jesus teaching"
+      - "bible story kaelin"
+      - "spiritual teaching"
+
+    # Calendar search terms for contests
+    contest_terms:
+      - "kaelin contest"
+      - "game contest"
+      - "fun challenge"
+
+  # Alert Configuration
+  alerts:
+    # Days without play time before critical alert
+    no_play_critical_days: 3
+
+    # Days without play time before warning
+    no_play_warning_days: 2
+
+    # Rolling average below target percentage (alert threshold)
+    play_average_warning_threshold: 70  # % of target
+
+    # Days overdue for monthly game introduction
+    game_overdue_warning_days: 7
+
+    # Quarters without daddy day planned
+    daddy_day_warning_quarters: 1
+
+    # Number of teachings not yet taught (warning threshold)
+    teaching_warning_threshold: 15  # Out of 20 total
+
+    # Months without field trip
+    field_trip_warning_months: 4
+
+  # Report sections to include
+  report_sections:
+    - "play_time_summary"
+    - "daddy_days_planned"
+    - "jesus_teachings_progress"
+    - "monthly_games"
+    - "ivy_league_programs"
+    - "social_programs"
+    - "spiritual_development"
+    - "christmas_planning"
+    - "crafting_activities"
+    - "imaginative_play"
+    - "field_trips"
+    - "gift_planning"
+    - "fun_contests"
+
+# Logging
+logging:
+  level: "INFO"  # DEBUG, INFO, WARNING, ERROR
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file: "logs/kaelin_tracker.log"
+  max_bytes: 10485760  # 10MB
+  backup_count: 5
+
+# Metrics
+metrics:
+  enabled: true
+  file: "logs/kaelin_metrics.jsonl"
+  track_report_generation: true
+  track_data_collection: true
