@@ -180,7 +180,7 @@ class BudgetReportGenerator:
 </head>
 <body>
     <div class="container">
-        <h1>💰 Weekly Budget Report</h1>
+        <h1>Weekly Budget Report</h1>
         <p><strong>Report Period:</strong> {report_data['period']['start_date']} to {report_data['period']['end_date']}</p>
 
         {self._generate_alerts_section(report_data.get('alerts', []))}
@@ -206,13 +206,12 @@ class BudgetReportGenerator:
         if not alerts:
             return ""
 
-        html = "<h2>🚨 Alerts</h2>"
+        html = "<h2>Alerts</h2>"
         for alert in alerts:
             alert_class = f"alert-{alert['level']}"
-            emoji = "🔴" if alert['level'] == 'critical' else "⚠️"
             html += f"""
             <div class="alert {alert_class}">
-                {emoji} <strong>{alert['category']}:</strong> {alert['message']}
+                <strong>{alert['category']}:</strong> {alert['message']}
             </div>
             """
         return html
@@ -254,7 +253,7 @@ class BudgetReportGenerator:
         overall_pct = budget_comparison.get('overall_percentage_used', 0)
 
         html = f"""
-        <h2>📊 Budget vs Actual</h2>
+        <h2>Budget vs Actual</h2>
         <div style="margin: 20px 0;">
             <p><strong>Overall Budget Performance:</strong></p>
             <div class="progress-bar">
@@ -317,7 +316,7 @@ class BudgetReportGenerator:
             return ""
 
         html = """
-        <h2>📁 Spending by Category</h2>
+        <h2>Spending by Category</h2>
         <table>
             <thead>
                 <tr>
@@ -352,7 +351,7 @@ class BudgetReportGenerator:
             return ""
 
         html = """
-        <h2>🏪 Top Merchants/Payees</h2>
+        <h2>Top Merchants/Payees</h2>
         <table>
             <thead>
                 <tr>
@@ -391,7 +390,7 @@ class BudgetReportGenerator:
         )
 
         html = """
-        <h2>💎 Notable Transactions</h2>
+        <h2>Notable Transactions</h2>
         <table>
             <thead>
                 <tr>
@@ -438,7 +437,7 @@ class BudgetReportGenerator:
             return ""
 
         html = """
-        <h2>🏦 Account Activity</h2>
+        <h2>Account Activity</h2>
         <table>
             <thead>
                 <tr>
