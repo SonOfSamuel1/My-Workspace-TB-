@@ -384,6 +384,12 @@ class BudgetReportGenerator:
         if not notable:
             return ""
 
+        # Dashboard URL for deep linking transactions
+        dashboard_url = self.config.get('budget_report', {}).get(
+            'transaction_dashboard_url',
+            'https://ynab-reviewer.netlify.app'
+        )
+
         html = """
         <h2>💎 Notable Transactions</h2>
         <table>
@@ -403,10 +409,17 @@ class BudgetReportGenerator:
             amount_class = 'positive' if txn['is_inflow'] else 'negative'
             amount_sign = '+' if txn['is_inflow'] else '-'
 
+            # Create deep link to transaction dashboard
+            txn_id = txn.get('id', '')
+            if txn_id and dashboard_url:
+                payee_link = f'<a href="{dashboard_url}/transactions/{txn_id}" style="color: #3498db; text-decoration: none;">{txn["payee"]}</a>'
+            else:
+                payee_link = txn['payee']
+
             html += f"""
                 <tr>
                     <td>{txn['date']}</td>
-                    <td>{txn['payee']}</td>
+                    <td>{payee_link}</td>
                     <td>{txn['category']}</td>
                     <td class="amount {amount_class}">{amount_sign}${txn['amount']:,.2f}</td>
                     <td>{txn['memo']}</td>

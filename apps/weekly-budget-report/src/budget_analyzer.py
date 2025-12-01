@@ -436,6 +436,7 @@ class BudgetAnalyzer:
                     payee_name = txn.get('payee_name', 'Unknown')
 
                 notable.append({
+                    'id': txn['id'],
                     'date': txn['date'],
                     'payee': payee_name,
                     'category': category_name,
