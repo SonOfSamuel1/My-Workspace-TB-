@@ -1,0 +1,14 @@
+# Deployment artifacts
+*.zip
+lambda_package/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+venv/
+.env
+
+# IDE
+.vscode/
+.idea/
