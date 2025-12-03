@@ -1,0 +1,54 @@
+# OneNote to Obsidian Migration Configuration
+# ============================================
+
+migration:
+  # Enable/disable migration
+  enabled: true
+
+  # Path to the Obsidian vault (output location)
+  # Use absolute path or relative to this config file
+  vault_path: "./output/obsidian-vault"
+
+  # Folder name for attachments (images, files) within the vault
+  attachments_folder: "attachments"
+
+  # Create index files for notebooks and sections
+  create_index_files: true
+
+  # Preserve original timestamps on files
+  preserve_timestamps: true
+
+  # Skip pages that already exist in the vault
+  skip_existing: false
+
+  # Download embedded images
+  download_images: true
+
+  # Include YAML frontmatter with metadata
+  include_metadata: true
+
+# Conversion options
+conversion:
+  # Convert internal OneNote links to Obsidian wiki links
+  convert_internal_links: true
+
+  # Handle tables (convert to Markdown tables)
+  convert_tables: true
+
+  # Handle code blocks
+  preserve_code_blocks: true
+
+# Azure AD / Microsoft Graph API settings
+# These can also be set via environment variables (preferred for secrets)
+azure:
+  # Tenant ID - use 'common' for personal accounts, or your org tenant ID
+  tenant_id: "common"
+
+  # Redirect URI for OAuth (for device code flow, this isn't used)
+  # redirect_uri: "http://localhost"
+
+# Logging configuration
+logging:
+  level: INFO
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file: "logs/migration.log"
