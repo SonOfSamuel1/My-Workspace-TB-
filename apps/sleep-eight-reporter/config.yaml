@@ -1,0 +1,40 @@
+# Sleep Eight Daily Reporter Configuration
+# =========================================
+
+sleep_report:
+  # Enable/disable sleep reporting
+  enabled: true
+
+  # Timezone for report timestamps
+  timezone: "America/New_York"
+
+  # Schedule (for reference - actual scheduling is done in AWS EventBridge)
+  schedule:
+    - "0 7 * * *"   # Daily at 7 AM EST
+
+  # Report settings
+  report:
+    # Include insights section
+    include_insights: true
+
+    # Include temperature data
+    include_temperature: true
+
+    # Include biometrics (HR, HRV, breath rate)
+    include_biometrics: true
+
+  # Email settings
+  email:
+    # Subject line template (variables: {date}, {score}, {quality})
+    subject_template: "Sleep Report: {score} ({quality}) - {date}"
+
+  # AWS SES settings
+  ses:
+    region: "us-east-1"
+    sender_email: "brandonhome.appdev@gmail.com"
+
+# Logging configuration
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file: "logs/sleep_report.log"

@@ -1,0 +1,53 @@
+# Environment and credentials
+.env
+*.env
+credentials.json
+token.pickle
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+venv/
+ENV/
+env/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Logs and output
+logs/
+*.log
+output/
+*.html
+
+# Lambda deployment
+lambda_package/
+*.zip
+
+# OS files
+.DS_Store
+Thumbs.db
