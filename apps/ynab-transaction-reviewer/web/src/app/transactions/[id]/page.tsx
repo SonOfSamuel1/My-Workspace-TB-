@@ -84,7 +84,7 @@ export default function TransactionPage({ params }: TransactionPageProps) {
 
           <Button variant="outline" asChild>
             <a
-              href={`https://app.ynab.com/${process.env.NEXT_PUBLIC_YNAB_BUDGET_ID}/accounts/${transaction.account_id}`}
+              href={`https://app.ynab.com/2a373a3b-bc29-46f0-92ab-008f3b0221a9/accounts/${transaction.account_id}`}
               target="_blank"
               rel="noopener noreferrer"
             >

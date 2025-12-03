@@ -16,7 +16,8 @@ import {
   RefreshCw,
 } from 'lucide-react';
 
-const BUDGET_ID = process.env.NEXT_PUBLIC_YNAB_BUDGET_ID;
+// Budget ID hardcoded for personal use - this is a single-user app
+const BUDGET_ID = '2a373a3b-bc29-46f0-92ab-008f3b0221a9';
 
 async function fetchTransactions(): Promise<{
   uncategorized: Transaction[];
