@@ -1,0 +1,109 @@
+# YNAB Transaction Reviewer Configuration
+
+# Schedule settings
+schedule:
+  daily_review_time: "17:00"  # 5 PM daily in 24-hour format
+  timezone: "America/New_York"
+  skip_days: ["Saturday"]     # Days to skip sending emails
+
+  # Special handling for skipped days
+  saturday_handling: "include_in_sunday"  # Options: include_in_sunday, skip_entirely
+
+# Email notification settings
+notifications:
+  recipient_email: "terrancebrandon@me.com"  # Your email address for receiving reviews
+  min_transactions: 1  # Minimum transactions to trigger email (0 = always send)
+  group_by_account: true  # Group transactions by account in email
+  include_pending: true  # Include unapproved transactions
+  empty_report: false  # Send email even when no uncategorized transactions
+
+  # Email formatting
+  max_transactions_per_email: 50  # Limit to prevent huge emails
+  show_confidence_threshold: 60  # Only show suggestions above this confidence
+
+# Transaction scanning settings
+scanning:
+  lookback_days: 3650  # How many days back to scan (3650 = all time)
+  exclude_accounts: []  # Account names to exclude from scanning
+  exclude_categories: []  # Category names that don't need review
+
+  # State management
+  mark_reviewed_after_days: 7  # Auto-mark as reviewed after this many days
+  cleanup_state_after_days: 90  # Remove old state data after this many days
+
+# Smart suggestion settings
+suggestions:
+  enabled: false
+  min_confidence: 60  # Minimum confidence to show suggestion (0-100)
+  max_suggestions: 3  # Maximum suggestions to show per transaction
+
+  # Learning settings
+  min_transactions_for_pattern: 3  # Min transactions needed to learn pattern
+  confidence_boost_per_match: 2  # Increase confidence by this per historical match
+  max_confidence: 95  # Cap confidence at this level
+
+# Merchant intelligence settings
+merchant_intelligence:
+  enabled: false
+  use_historical: false  # Use historical transactions for suggestions
+  lookback_days: 30  # How far back to look for patterns
+
+  # Merchant type detection
+  detect_merchant_type: true  # Try to identify merchant category
+  use_amount_patterns: true  # Use transaction amounts for suggestions
+
+# Split transaction detection
+split_detection:
+  enabled: false
+  min_amount_for_split: 50.00  # Minimum amount to suggest splits
+
+  # Merchant-specific settings
+  amazon_auto_detect: true
+  amazon_split_threshold: 50.00
+
+  costco_auto_detect: true
+  costco_split_threshold: 100.00
+
+  walmart_auto_detect: true
+  walmart_split_threshold: 75.00
+
+  target_auto_detect: true
+  target_split_threshold: 75.00
+
+  restaurant_tip_split: true
+  default_tip_percentage: 0.18  # 18% tip estimate
+
+# Action handler settings (for one-click categorization)
+actions:
+  enabled: false  # Set to true when Lambda is deployed
+  api_gateway_url: ""  # Your API Gateway URL
+  secret_key: ""  # Secret for generating action tokens
+  token_expiry_minutes: 1440  # 24 hours
+
+# AWS deployment settings
+aws:
+  region: "us-east-1"
+  lambda_function_name: "ynab-transaction-reviewer"
+  parameter_store_prefix: "/ynab-reviewer/"
+
+  # EventBridge schedule
+  schedule_rule_name: "ynab-daily-review"
+  schedule_expression: "cron(0 21 ? * SUN,MON,TUE,WED,THU,FRI *)"  # 5 PM ET, skip Saturday
+
+# Logging settings
+logging:
+  level: "INFO"  # DEBUG, INFO, WARNING, ERROR
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+
+  # File logging
+  file_enabled: true
+  file_path: "logs/reviewer.log"
+  file_max_size_mb: 10
+  file_backup_count: 5
+
+# Development settings
+development:
+  dry_run: false  # Don't actually send emails or update YNAB
+  test_email: ""  # Override recipient for testing
+  mock_transactions: false  # Use mock data instead of real YNAB data
+  verbose_output: false  # Extra console output

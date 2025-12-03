@@ -1,0 +1,2996 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Daily Task Review - Wednesday, November 26, 2025</title>
+  
+<style>
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    line-height: 1.6;
+    color: #333;
+    background-color: #f5f7fa;
+  }
+
+  .container {
+    max-width: 680px;
+    margin: 0 auto;
+    background-color: #ffffff;
+  }
+
+  /* Header */
+  .header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 40px 30px;
+    text-align: center;
+  }
+
+  .header h1 {
+    font-size: 28px;
+    font-weight: 600;
+    margin-bottom: 8px;
+  }
+
+  .header .date {
+    font-size: 16px;
+    opacity: 0.9;
+  }
+
+  .header .headline {
+    margin-top: 20px;
+    font-size: 18px;
+    background: rgba(255,255,255,0.15);
+    padding: 12px 20px;
+    border-radius: 8px;
+    display: inline-block;
+  }
+
+  /* Section styling */
+  .section {
+    padding: 30px;
+    border-bottom: 1px solid #eee;
+  }
+
+  .section:last-child {
+    border-bottom: none;
+  }
+
+  .section-title {
+    font-size: 20px;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .section-icon {
+    font-size: 24px;
+  }
+
+  /* Summary cards */
+  .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 15px;
+  }
+
+  .summary-card {
+    background: #f8f9fa;
+    border-radius: 12px;
+    padding: 20px;
+    text-align: center;
+  }
+
+  .summary-card.highlight {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+  }
+
+  .summary-card .number {
+    font-size: 36px;
+    font-weight: 700;
+    line-height: 1;
+  }
+
+  .summary-card .label {
+    font-size: 14px;
+    margin-top: 8px;
+    opacity: 0.8;
+  }
+
+  /* Task cards */
+  .task-card {
+    background: #f8f9fa;
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 15px;
+    border-left: 4px solid #667eea;
+  }
+
+  .task-card.urgent {
+    border-left-color: #e53e3e;
+    background: #fff5f5;
+  }
+
+  .task-card.high {
+    border-left-color: #ed8936;
+    background: #fffaf0;
+  }
+
+  .task-card.overdue {
+    border-left-color: #e53e3e;
+    background: #fff5f5;
+  }
+
+  .task-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 10px;
+  }
+
+  .task-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: #333;
+    flex: 1;
+  }
+
+  .task-priority {
+    font-size: 12px;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 20px;
+    margin-left: 10px;
+  }
+
+  .priority-urgent {
+    background: #e53e3e;
+    color: white;
+  }
+
+  .priority-high {
+    background: #ed8936;
+    color: white;
+  }
+
+  .priority-medium {
+    background: #ecc94b;
+    color: #744210;
+  }
+
+  .task-meta {
+    font-size: 13px;
+    color: #666;
+    margin-bottom: 10px;
+  }
+
+  .task-suggestion {
+    background: white;
+    border-radius: 8px;
+    padding: 15px;
+    margin-top: 15px;
+    border: 1px solid #e2e8f0;
+  }
+
+  .task-suggestion-header {
+    font-size: 13px;
+    font-weight: 600;
+    color: #667eea;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .task-suggestion p {
+    font-size: 14px;
+    color: #555;
+    margin-bottom: 10px;
+  }
+
+  .action-items {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .action-item {
+    font-size: 12px;
+    background: #edf2f7;
+    color: #4a5568;
+    padding: 4px 10px;
+    border-radius: 15px;
+  }
+
+  /* Recommendations */
+  .recommendation {
+    display: flex;
+    gap: 15px;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 10px;
+    margin-bottom: 12px;
+  }
+
+  .recommendation-icon {
+    font-size: 24px;
+    flex-shrink: 0;
+  }
+
+  .recommendation-content h4 {
+    font-size: 15px;
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+
+  .recommendation-content p {
+    font-size: 14px;
+    color: #666;
+  }
+
+  /* Time savings banner */
+  .time-banner {
+    background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+    color: white;
+    padding: 20px;
+    border-radius: 12px;
+    text-align: center;
+    margin-bottom: 20px;
+  }
+
+  .time-banner .time {
+    font-size: 32px;
+    font-weight: 700;
+  }
+
+  .time-banner .label {
+    font-size: 14px;
+    opacity: 0.9;
+    margin-top: 5px;
+  }
+
+  /* Footer */
+  .footer {
+    background: #f8f9fa;
+    padding: 30px;
+    text-align: center;
+  }
+
+  .footer p {
+    font-size: 14px;
+    color: #666;
+    margin-bottom: 8px;
+  }
+
+  .footer .cta-button {
+    display: inline-block;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 12px 30px;
+    border-radius: 25px;
+    text-decoration: none;
+    font-weight: 600;
+    margin-top: 15px;
+  }
+
+  .footer .disclaimer {
+    font-size: 12px;
+    color: #999;
+    margin-top: 20px;
+  }
+
+  /* Progress bar */
+  .progress-container {
+    background: #e2e8f0;
+    border-radius: 10px;
+    height: 12px;
+    overflow: hidden;
+    margin-top: 10px;
+  }
+
+  .progress-bar {
+    height: 100%;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  }
+
+  /* Empty state */
+  .empty-state {
+    text-align: center;
+    padding: 30px;
+    color: #666;
+  }
+
+  .empty-state-icon {
+    font-size: 48px;
+    margin-bottom: 15px;
+  }
+
+  /* Mobile responsive */
+  @media (max-width: 600px) {
+    .header {
+      padding: 30px 20px;
+    }
+
+    .header h1 {
+      font-size: 24px;
+    }
+
+    .section {
+      padding: 20px;
+    }
+
+    .summary-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .task-header {
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .task-priority {
+      margin-left: 0;
+    }
+  }
+</style>
+</head>
+<body>
+  <div class="container">
+    
+<div class="header">
+  <h1>Daily Task Review</h1>
+  <div class="date">Wednesday, November 26, 2025</div>
+  <div class="headline">AI assistance could save approximately 140 hours on these tasks</div>
+</div>
+    
+<div class="section">
+  <h2 class="section-title">
+    <span class="section-icon">&#128202;</span>
+    Quick Summary
+  </h2>
+
+  
+  <div class="time-banner">
+    <div class="time">140h 50m</div>
+    <div class="label">Potential time savings with AI assistance</div>
+  </div>
+  
+
+  <div class="summary-grid">
+    <div class="summary-card">
+      <div class="number">585</div>
+      <div class="label">Total Tasks</div>
+    </div>
+    <div class="summary-card highlight">
+      <div class="number">293</div>
+      <div class="label">AI Can Help</div>
+    </div>
+    <div class="summary-card">
+      <div class="number">292</div>
+      <div class="label">Requires You</div>
+    </div>
+    <div class="summary-card">
+      <div class="number">50%</div>
+      <div class="label">Automatable</div>
+    </div>
+  </div>
+
+  <div class="progress-container" style="margin-top: 20px;">
+    <div class="progress-bar" style="width: 50%;"></div>
+  </div>
+  <p style="text-align: center; font-size: 13px; color: #666; margin-top: 8px;">
+    293 of 585 tasks can be assisted by Claude
+  </p>
+</div>
+    
+<div class="section">
+  <h2 class="section-title">
+    <span class="section-icon">&#129302;</span>
+    AI Can Help With These
+  </h2>
+  <p style="color: #666; margin-bottom: 20px; font-size: 14px;">
+    These tasks are great candidates for AI assistance. Click any task to open in Todoist.
+  </p>
+  
+<div class="task-card urgent">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/6947993008" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      📎 Ask, Seek, Knock: (Daily) Beg God for written list of things I want.
+    </a>
+    <span class="task-priority priority-urgent">Urgent</span>
+  </div>
+  <div class="task-meta">
+    <strong>Action Plan · Love God</strong> &bull; 
+    general &bull;
+    Save ~108 min
+    
+  </div>
+  <div class="task-suggestion">
+    <div class="task-suggestion-header">
+      &#10024; How I Can Help
+    </div>
+    <p>I can help break down this task or provide guidance on approach.</p>
+    <div class="action-items">
+      <span class="action-item">Break down into subtasks</span><span class="action-item">Research best practices</span><span class="action-item">Create action plan</span>
+    </div>
+  </div>
+</div>
+<div class="task-card urgent">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/9732383825" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      AO- Finalize Content for all Modules
+    </a>
+    <span class="task-priority priority-urgent">Urgent</span>
+  </div>
+  <div class="task-meta">
+    <strong>Inbox</strong> &bull; 
+    writing &bull;
+    Save ~27 min
+     &bull; Due: 2 days ago
+  </div>
+  <div class="task-suggestion">
+    <div class="task-suggestion-header">
+      &#10024; How I Can Help
+    </div>
+    <p>I can draft this content or help outline the structure. This task is overdue - I can prioritize getting this done quickly.</p>
+    <div class="action-items">
+      <span class="action-item">Create outline</span><span class="action-item">Draft content</span><span class="action-item">Edit and refine</span><span class="action-item">Format for publication</span>
+    </div>
+  </div>
+</div>
+<div class="task-card urgent">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/7546053153" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      * Sabbath Reminder: Do not seek your own pleasure or talk idly on this day. Seek the things that please God. Let all conversation be purposeful
+    </a>
+    <span class="task-priority priority-urgent">Urgent</span>
+  </div>
+  <div class="task-meta">
+    <strong>Sabbath- My Approved Actions</strong> &bull; 
+    general &bull;
+    Save ~27 min
+     &bull; Due: Friday
+  </div>
+  <div class="task-suggestion">
+    <div class="task-suggestion-header">
+      &#10024; How I Can Help
+    </div>
+    <p>I can help break down this task or provide guidance on approach.</p>
+    <div class="action-items">
+      <span class="action-item">Break down into subtasks</span><span class="action-item">Research best practices</span><span class="action-item">Create action plan</span>
+    </div>
+  </div>
+</div>
+<div class="task-card urgent">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/9739200242" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Create Bible Study for Good Portion Men’s life group
+    </a>
+    <span class="task-priority priority-urgent">Urgent</span>
+  </div>
+  <div class="task-meta">
+    <strong>Personal</strong> &bull; 
+    coding &bull;
+    Save ~27 min
+     &bull; Due: Saturday
+  </div>
+  <div class="task-suggestion">
+    <div class="task-suggestion-header">
+      &#10024; How I Can Help
+    </div>
+    <p>I can help write, review, or debug this code. As an urgent task, I can focus on this first.</p>
+    <div class="action-items">
+      <span class="action-item">Analyze requirements</span><span class="action-item">Write initial code</span><span class="action-item">Add error handling</span><span class="action-item">Create tests</span>
+    </div>
+  </div>
+</div>
+<div class="task-card urgent">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/5377487342" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      * Birthday • Tynise Brandon (Dec 2)
+    </a>
+    <span class="task-priority priority-urgent">Urgent</span>
+  </div>
+  <div class="task-meta">
+    <strong>Card Ministry</strong> &bull; 
+    general &bull;
+    Save ~27 min
+     &bull; Due: Monday
+  </div>
+  <div class="task-suggestion">
+    <div class="task-suggestion-header">
+      &#10024; How I Can Help
+    </div>
+    <p>I can help break down this task or provide guidance on approach.</p>
+    <div class="action-items">
+      <span class="action-item">Break down into subtasks</span><span class="action-item">Research best practices</span><span class="action-item">Create action plan</span>
+    </div>
+  </div>
+</div>
+</div>
+    
+<div class="section">
+  <h2 class="section-title">
+    <span class="section-icon">&#128293;</span>
+    High Priority Tasks
+  </h2>
+  
+<div class="task-card ">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/9428450286" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Call my grandfather to catchup
+    </a>
+    <span class="task-priority priority-urgent">Urgent</span>
+  </div>
+  <div class="task-meta">
+    Personal &bull; 
+    Due: 102 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card ">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/9733119806" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Research best practices for 6-week on, 2-week off homeschool schedule
+    </a>
+    <span class="task-priority priority-urgent">Urgent</span>
+  </div>
+  <div class="task-meta">
+    Husband Action Items &bull; 
+    Due: 11 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card ">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/9740424259" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Purchase Christmas cards to send to family #
+    </a>
+    <span class="task-priority priority-urgent">Urgent</span>
+  </div>
+  <div class="task-meta">
+    Inbox &bull; 
+    Due: 11 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card ">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/9729864303" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      AO- Finalize Webinar Slides
+    </a>
+    <span class="task-priority priority-urgent">Urgent</span>
+  </div>
+  <div class="task-meta">
+    Personal &bull; 
+    Due: 10 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card ">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/9732384573" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      AO- Finalize Deliversbles
+    </a>
+    <span class="task-priority priority-urgent">Urgent</span>
+  </div>
+  <div class="task-meta">
+    Inbox &bull; 
+    Due: 10 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+</div>
+    
+<div class="section">
+  <h2 class="section-title">
+    <span class="section-icon">&#9888;&#65039;</span>
+    Overdue Tasks
+  </h2>
+  <p style="color: #e53e3e; margin-bottom: 20px; font-size: 14px;">
+    These 170 task(s) are past their due date and need attention.
+  </p>
+  
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/9428450286" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Call my grandfather to catchup
+    </a>
+    <span class="task-priority priority-urgent">Urgent</span>
+  </div>
+  <div class="task-meta">
+    Personal &bull; 
+    Due: 102 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/9733119806" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Research best practices for 6-week on, 2-week off homeschool schedule
+    </a>
+    <span class="task-priority priority-urgent">Urgent</span>
+  </div>
+  <div class="task-meta">
+    Husband Action Items &bull; 
+    Due: 11 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/9740424259" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Purchase Christmas cards to send to family #
+    </a>
+    <span class="task-priority priority-urgent">Urgent</span>
+  </div>
+  <div class="task-meta">
+    Inbox &bull; 
+    Due: 11 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/9729864303" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      AO- Finalize Webinar Slides
+    </a>
+    <span class="task-priority priority-urgent">Urgent</span>
+  </div>
+  <div class="task-meta">
+    Personal &bull; 
+    Due: 10 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/9732384573" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      AO- Finalize Deliversbles
+    </a>
+    <span class="task-priority priority-urgent">Urgent</span>
+  </div>
+  <div class="task-meta">
+    Inbox &bull; 
+    Due: 10 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/6978666595" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Brandon Family: Homeless Feeding Event
+    </a>
+    <span class="task-priority priority-urgent">Urgent</span>
+  </div>
+  <div class="task-meta">
+    Action Plan · Love Friends &bull; 
+    Due: 4 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/9477854073" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      WPAI- Add Brittany to payroll
+    </a>
+    <span class="task-priority priority-urgent">Urgent</span>
+  </div>
+  <div class="task-meta">
+    Operations &bull; 
+    Due: 4 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/9759130341" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Build structure where I am not able to bring phone into room at night
+    </a>
+    <span class="task-priority priority-urgent">Urgent</span>
+  </div>
+  <div class="task-meta">
+    Inbox &bull; 
+    Due: 4 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/9732383825" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      AO- Finalize Content for all Modules
+    </a>
+    <span class="task-priority priority-urgent">Urgent</span>
+  </div>
+  <div class="task-meta">
+    Inbox &bull; 
+    Due: 2 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/9358112135" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Study Schedule for Jesus Teachings- Create a schedule where I study and meditate on Jesus&#039;s teachings every week
+    </a>
+    <span class="task-priority priority-high">High</span>
+  </div>
+  <div class="task-meta">
+    Personal &bull; 
+    Due: 106 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/9428451610" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Write out what I want in life and what I think I need from God to obtain it.
+    </a>
+    <span class="task-priority priority-high">High</span>
+  </div>
+  <div class="task-meta">
+    Personal &bull; 
+    Due: 95 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/9358210666" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Call someone to caulk the shower
+    </a>
+    <span class="task-priority priority-high">High</span>
+  </div>
+  <div class="task-meta">
+    Personal &bull; 
+    Due: 74 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/8638670430" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Dentist appointment- Reschedule both appointments. Tooth pull, Invisalign fitting
+    </a>
+    <span class="task-priority priority-high">High</span>
+  </div>
+  <div class="task-meta">
+    Personal &bull; 
+    Due: 67 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/9358970458" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Pray for the Holy Spirit to reveal the world to me as God sees it
+    </a>
+    <span class="task-priority priority-high">High</span>
+  </div>
+  <div class="task-meta">
+    Care For The Least of These &bull; 
+    Due: 67 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/5377477353" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      🖇️ Love Brittany: Regularly purchase an unexpected gift
+    </a>
+    <span class="task-priority priority-high">High</span>
+  </div>
+  <div class="task-meta">
+    Habits &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/6569567407" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Write down a personal mission statement
+    </a>
+    <span class="task-priority priority-high">High</span>
+  </div>
+  <div class="task-meta">
+    Personal &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/6571362251" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Quarterly: Write down 12 week action plan for upcoming quarter
+    </a>
+    <span class="task-priority priority-high">High</span>
+  </div>
+  <div class="task-meta">
+    Habits &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/6972183405" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Once you have your MATT communicate it to the entire company, make revisions, begin implementation, and monitor results.
+    </a>
+    <span class="task-priority priority-high">High</span>
+  </div>
+  <div class="task-meta">
+    Good Portion &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/6978406488" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Document SOP for what leaders are to do when new members a sign up for their group
+    </a>
+    <span class="task-priority priority-high">High</span>
+  </div>
+  <div class="task-meta">
+    Good Portion &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/7525457967" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Create Communtiy Leader Schedule and Outline
+    </a>
+    <span class="task-priority priority-high">High</span>
+  </div>
+  <div class="task-meta">
+    GP- Strategic Activity &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/7542920642" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Take Notes on Annual Planning for GP, and complete annual plan
+    </a>
+    <span class="task-priority priority-high">High</span>
+  </div>
+  <div class="task-meta">
+    GP- Strategic Activity &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/7635839506" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Write out clearly, problems and solutions being solved
+    </a>
+    <span class="task-priority priority-high">High</span>
+  </div>
+  <div class="task-meta">
+    AO- Actions To Launch &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/7635845485" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Get user feedback from group of 10 AEs on Course MVP
+    </a>
+    <span class="task-priority priority-high">High</span>
+  </div>
+  <div class="task-meta">
+    AO- Actions To Launch &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/7674558839" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Create no-cost affiliate program for job seekers, contractors to spend 5hrs a week sending pitch to LinkedIn Lead list
+    </a>
+    <span class="task-priority priority-high">High</span>
+  </div>
+  <div class="task-meta">
+    AO- Other &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/7757193740" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      AO- Create Funnel
+    </a>
+    <span class="task-priority priority-high">High</span>
+  </div>
+  <div class="task-meta">
+    AO- Actions To Launch &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/7757194737" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      AO- Film Squeeze Page
+    </a>
+    <span class="task-priority priority-high">High</span>
+  </div>
+  <div class="task-meta">
+    AO- Actions To Launch &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/7766249719" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Create an email sequence for webinar visitors
+    </a>
+    <span class="task-priority priority-high">High</span>
+  </div>
+  <div class="task-meta">
+    AO- Actions To Launch &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/7789395909" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Write out my brand promise
+    </a>
+    <span class="task-priority priority-high">High</span>
+  </div>
+  <div class="task-meta">
+    AO- Actions To Launch &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/7798999967" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Document the vision and goal of the community
+    </a>
+    <span class="task-priority priority-high">High</span>
+  </div>
+  <div class="task-meta">
+    ATL Christ + Friends &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/7799012827" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Update locations of all events on calendar
+    </a>
+    <span class="task-priority priority-high">High</span>
+  </div>
+  <div class="task-meta">
+    Assistant • Unassigned • Tasks &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/7816342947" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Contribute $16k to 529 Plan for Kaelin
+    </a>
+    <span class="task-priority priority-high">High</span>
+  </div>
+  <div class="task-meta">
+    Personal &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/7839458187" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Contribute 6500 for my Traditional IRA
+    </a>
+    <span class="task-priority priority-high">High</span>
+  </div>
+  <div class="task-meta">
+    Personal &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/7839466573" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Make sure I rollover into my new companies 401k
+    </a>
+    <span class="task-priority priority-high">High</span>
+  </div>
+  <div class="task-meta">
+    Personal &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/7840085458" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Open two Roth IRAs and and rollover funds from traditional IRA
+    </a>
+    <span class="task-priority priority-high">High</span>
+  </div>
+  <div class="task-meta">
+    Personal &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/7898405591" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Open IRA in my name on contribute 6500
+    </a>
+    <span class="task-priority priority-high">High</span>
+  </div>
+  <div class="task-meta">
+    Personal &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/7939438508" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Build Program: Regularly practice telling your story of coming to Jesus
+    </a>
+    <span class="task-priority priority-high">High</span>
+  </div>
+  <div class="task-meta">
+    Personal &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/8052668951" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      GP Event: Gather 8-12 gp members to record all of Jesus teachings in October. Have Fiver edit. Publish for entire following year.
+    </a>
+    <span class="task-priority priority-high">High</span>
+  </div>
+  <div class="task-meta">
+    Good Portion &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/8057193974" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      GP Goal: Discipleship Program Developed
+    </a>
+    <span class="task-priority priority-high">High</span>
+  </div>
+  <div class="task-meta">
+    Good Portion &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/8057194005" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Recruiting Staff/ Volunteers (BDR, Social Media, Donor Relations)
+    </a>
+    <span class="task-priority priority-high">High</span>
+  </div>
+  <div class="task-meta">
+    Good Portion &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/8096546951" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Use kindle direct print for GP workbooks
+    </a>
+    <span class="task-priority priority-high">High</span>
+  </div>
+  <div class="task-meta">
+    GP- Product- Life Group &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/8104530970" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      GP Website- Update contact us form to remove wrong webstier
+    </a>
+    <span class="task-priority priority-high">High</span>
+  </div>
+  <div class="task-meta">
+    Good Portion &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/8158931536" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Build ATL Community Strategy Planning Meeting Agenda
+    </a>
+    <span class="task-priority priority-high">High</span>
+  </div>
+  <div class="task-meta">
+    ATL Christ + Friends &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/8349034938" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Create Meeting Agenda: Strategy Planning Breakfast (ATL Community)
+    </a>
+    <span class="task-priority priority-high">High</span>
+  </div>
+  <div class="task-meta">
+    ATL Christ + Friends &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/8624022151" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Find financial advisor that specializes in equity compensation
+    </a>
+    <span class="task-priority priority-high">High</span>
+  </div>
+  <div class="task-meta">
+    Personal &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/8638162866" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Yafet- text to confirm how things are going
+    </a>
+    <span class="task-priority priority-high">High</span>
+  </div>
+  <div class="task-meta">
+    Personal &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/8644253184" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Brittany- Purchase her a bike
+    </a>
+    <span class="task-priority priority-high">High</span>
+  </div>
+  <div class="task-meta">
+    Personal &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/8646704376" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Asked me to find time to visit his facility for StreetWise
+    </a>
+    <span class="task-priority priority-high">High</span>
+  </div>
+  <div class="task-meta">
+    Personal &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/8700223767" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      GP Product Development- schedule time with each member to do interview on how to make product better or send out survey
+    </a>
+    <span class="task-priority priority-high">High</span>
+  </div>
+  <div class="task-meta">
+    GP- Strategic Activity &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/8718318237" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Create event checklist for pre event and post event activities, set process for ensuring we execute
+    </a>
+    <span class="task-priority priority-high">High</span>
+  </div>
+  <div class="task-meta">
+    Good Portion &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/8736521604" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Contact all GP Contacts who emailed in with OpenPhone number to introduce them to leaders, or confirm interest in signing up for another group.
+    </a>
+    <span class="task-priority priority-high">High</span>
+  </div>
+  <div class="task-meta">
+    Good Portion &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/8789115254" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Ask Scot to send me the presentation from the groups meeting
+    </a>
+    <span class="task-priority priority-high">High</span>
+  </div>
+  <div class="task-meta">
+    Personal &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/8811765796" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      GP- attach workbook to all meeting invites
+    </a>
+    <span class="task-priority priority-high">High</span>
+  </div>
+  <div class="task-meta">
+    GP- Community Leader Role &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/8815246923" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      [12Stone Groups - Men&#039;s Group - Hamilton Mill Details](https://my.12stone.church/groups/17857)
+    </a>
+    <span class="task-priority priority-high">High</span>
+  </div>
+  <div class="task-meta">
+    Development Plan · Terrance Brandon &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/8834994378" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Daily Study Habit- put in place to memorize the teachings of Christ
+    </a>
+    <span class="task-priority priority-high">High</span>
+  </div>
+  <div class="task-meta">
+    Development Plan · Terrance Brandon &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/8862444132" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      [Academic program | iCanStudy](https://programs.icanstudy.com/academic-7?utm_source=youtube&amp;utm_medium=justin&amp;utm_content=channeldescription)
+    </a>
+    <span class="task-priority priority-high">High</span>
+  </div>
+  <div class="task-meta">
+    Development Plan · Terrance Brandon &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/8903456212" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Sign up for 12Stone men’s life group that meets in mornings
+    </a>
+    <span class="task-priority priority-high">High</span>
+  </div>
+  <div class="task-meta">
+    Development Plan · Terrance Brandon &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/8929837563" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      My anniversary- order high quality photo album of wedding pictures
+    </a>
+    <span class="task-priority priority-high">High</span>
+  </div>
+  <div class="task-meta">
+    Personal &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/9164338492" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Hey! My group can’t take on any new people, can you close the group when you get a chance por favor
+    </a>
+    <span class="task-priority priority-high">High</span>
+  </div>
+  <div class="task-meta">
+    GP- Community Leader Role &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/9224498121" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      12Stone- Text John which would be best for lunch (Invite to our house)
+    </a>
+    <span class="task-priority priority-high">High</span>
+  </div>
+  <div class="task-meta">
+    Personal &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/9237018198" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Have Brittany take test to know herself better- Strengths Finder, Myers-Briggs type, Enneagram number
+    </a>
+    <span class="task-priority priority-high">High</span>
+  </div>
+  <div class="task-meta">
+    Action Plan · Love Brittany &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/9306535002" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Take steps to get started with Smartlead.ai
+    </a>
+    <span class="task-priority priority-high">High</span>
+  </div>
+  <div class="task-meta">
+    AO- Actions To Launch &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/9344835200" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Schedule solitude retreat for Brittany to spend time with God
+    </a>
+    <span class="task-priority priority-high">High</span>
+  </div>
+  <div class="task-meta">
+    Action Plan · Love Brittany &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/9349184024" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Complete wedding album upload
+    </a>
+    <span class="task-priority priority-high">High</span>
+  </div>
+  <div class="task-meta">
+    Action Plan · Love Brittany &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/9363375262" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Least of these- give to widows on go fund me
+    </a>
+    <span class="task-priority priority-high">High</span>
+  </div>
+  <div class="task-meta">
+    Care For The Least of These &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/9407421975" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Active Offer- start warming up emails to start prospecting after two weeks
+    </a>
+    <span class="task-priority priority-high">High</span>
+  </div>
+  <div class="task-meta">
+    Post Sierra Action Plan &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/9409388797" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Return of Company Property: You acknowledge and agree that, as a conditionprecedent to receive the separation compensation outlined above, you must return all property ordata of the Company of any type whatsoever that has been in your possession or control.
+    </a>
+    <span class="task-priority priority-high">High</span>
+  </div>
+  <div class="task-meta">
+    Post Sierra Action Plan &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/9413822131" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Create detailed earnings analysis report as free offer for prospects
+    </a>
+    <span class="task-priority priority-high">High</span>
+  </div>
+  <div class="task-meta">
+    AO- Actions To Launch &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/9420000933" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      AO- Reach out to social proof candidates asking if I can interview them for webpage
+    </a>
+    <span class="task-priority priority-high">High</span>
+  </div>
+  <div class="task-meta">
+    AO- Actions To Launch &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/9428393949" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Create a google calendar for Active Offer work actions
+    </a>
+    <span class="task-priority priority-high">High</span>
+  </div>
+  <div class="task-meta">
+    AO- Actions To Launch &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/9484652230" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Healthcare- put Brittany on payroll and select to pay premium
+    </a>
+    <span class="task-priority priority-high">High</span>
+  </div>
+  <div class="task-meta">
+    Operations &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/7421392243" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Text cousin AJ to see how he’s doing
+    </a>
+    <span class="task-priority priority-high">High</span>
+  </div>
+  <div class="task-meta">
+    Action Plan · Love Friends &bull; 
+    Due: 39 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/9671208039" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Love people- take new neighbors cookies
+    </a>
+    <span class="task-priority priority-high">High</span>
+  </div>
+  <div class="task-meta">
+    Personal &bull; 
+    Due: 32 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/9021931319" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      12Stone- Make sure I give $40k by end of 2025
+    </a>
+    <span class="task-priority priority-high">High</span>
+  </div>
+  <div class="task-meta">
+    Personal &bull; 
+    Due: 26 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/9485194315" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      AO- Follow steps to update org to S-Corp status
+    </a>
+    <span class="task-priority priority-high">High</span>
+  </div>
+  <div class="task-meta">
+    Personal 2 &bull; 
+    Due: 14 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/9492678904" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Take a GitHub overview course for beginners
+    </a>
+    <span class="task-priority priority-high">High</span>
+  </div>
+  <div class="task-meta">
+    Personal 2 &bull; 
+    Due: 14 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/9494764441" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Brittany- encourage her to join a small group, I will provide time this afternoon
+    </a>
+    <span class="task-priority priority-high">High</span>
+  </div>
+  <div class="task-meta">
+    Personal 2 &bull; 
+    Due: 14 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/9564990870" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Upload delta travel documents
+    </a>
+    <span class="task-priority priority-high">High</span>
+  </div>
+  <div class="task-meta">
+    Personal 2 &bull; 
+    Due: 14 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/9678141961" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Love Kaelin- Print out awesome chart in Claude
+    </a>
+    <span class="task-priority priority-high">High</span>
+  </div>
+  <div class="task-meta">
+    Personal 2 &bull; 
+    Due: 14 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/9685716354" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Bus Dev- Complete the Thirty-Nine-Step Product Launch Checklist
+    </a>
+    <span class="task-priority priority-high">High</span>
+  </div>
+  <div class="task-meta">
+    Personal 2 &bull; 
+    Due: 14 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/9715446512" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Email Claude to inform Claude web is gone
+    </a>
+    <span class="task-priority priority-high">High</span>
+  </div>
+  <div class="task-meta">
+    Personal 2 &bull; 
+    Due: 14 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/6889166752" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      🖇️ Love Brittany: Write Love letter in her book
+    </a>
+    <span class="task-priority priority-high">High</span>
+  </div>
+  <div class="task-meta">
+    Action Plan · Love Brittany &bull; 
+    Due: 10 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/6928134380" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      🖇️ Daddy Day Prep: Make it exciting, Give Kaelin Update.
+    </a>
+    <span class="task-priority priority-high">High</span>
+  </div>
+  <div class="task-meta">
+    Personal &bull; 
+    Due: 10 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/7405340794" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      AP · Love Brittany: Ensure 1 Relax Day is scheduled for the next three months.
+    </a>
+    <span class="task-priority priority-high">High</span>
+  </div>
+  <div class="task-meta">
+    Assistant • Unassigned • Routine &bull; 
+    Due: 10 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/6903636688" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      🖇️ Love Brittany: Make sure we have dinner reservations for the next 3 months
+    </a>
+    <span class="task-priority priority-high">High</span>
+  </div>
+  <div class="task-meta">
+    Assistant • Unassigned • Tasks &bull; 
+    Due: 10 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/9733119877" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Look into adding piano lessons for Kaylin
+    </a>
+    <span class="task-priority priority-high">High</span>
+  </div>
+  <div class="task-meta">
+    Wife Action Items &bull; 
+    Due: 7 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/9733119828" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Look into educational activities for Kaylin during homeschool breaks
+    </a>
+    <span class="task-priority priority-high">High</span>
+  </div>
+  <div class="task-meta">
+    Husband Action Items &bull; 
+    Due: 5 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/6911427807" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      🖇️ Ensure Brandon Children Spiritual Lesson Plan built out for next 12 weeks
+    </a>
+    <span class="task-priority priority-high">High</span>
+  </div>
+  <div class="task-meta">
+    Good Father &bull; 
+    Due: 3 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/9563423034" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Download obsidian plugins
+    </a>
+    <span class="task-priority priority-medium">Medium</span>
+  </div>
+  <div class="task-meta">
+    Inbox &bull; 
+    Due: 68 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/9455505880" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Reinstate tiller budgeting app, make rule for brittany and I to review before any discretionary purchase. Also every purchase as to be logged before purchase.
+    </a>
+    <span class="task-priority priority-medium">Medium</span>
+  </div>
+  <div class="task-meta">
+    Family Meeting &bull; 
+    Due: 53 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/6906969634" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      🖇️ GP Monthly Leaders Sync: Create agenda and deck.
+    </a>
+    <span class="task-priority priority-medium">Medium</span>
+  </div>
+  <div class="task-meta">
+    Good Portion &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/6966469840" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      📎 Trash Day: (Mon) Take the trash out to be picked up in the morning.
+    </a>
+    <span class="task-priority priority-medium">Medium</span>
+  </div>
+  <div class="task-meta">
+    Habits &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/6968604259" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      📎 Trash Can Return: Bring Trash Can to side of the house
+    </a>
+    <span class="task-priority priority-medium">Medium</span>
+  </div>
+  <div class="task-meta">
+    Habits &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/7065881185" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      GP: Implement a daily prayer call for laborers (all members can join)
+    </a>
+    <span class="task-priority priority-medium">Medium</span>
+  </div>
+  <div class="task-meta">
+    Good Portion &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/7689443960" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Create a scholarship program for all of my nieces and nephews
+    </a>
+    <span class="task-priority priority-medium">Medium</span>
+  </div>
+  <div class="task-meta">
+    Personal &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/7696132461" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Create a Life game called “Purpose Mastery Pro”
+    </a>
+    <span class="task-priority priority-medium">Medium</span>
+  </div>
+  <div class="task-meta">
+    Personal &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/7779516894" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Get a therapist
+    </a>
+    <span class="task-priority priority-medium">Medium</span>
+  </div>
+  <div class="task-meta">
+    Assistant • Unassigned • Tasks &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/7826224750" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Complete script build out
+    </a>
+    <span class="task-priority priority-medium">Medium</span>
+  </div>
+  <div class="task-meta">
+    AO- Actions To Launch &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/7876208309" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Research classes on recruiting people for startups
+    </a>
+    <span class="task-priority priority-medium">Medium</span>
+  </div>
+  <div class="task-meta">
+    Development Plan · Terrance Brandon &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/8003090669" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      [Spring Hydrangea Care - 5 Tips for Happy Hydrangeas](https://youtube.com/watch?v=fCR-x5nrAMc&amp;si=HUjLC5jqHftFdA_d)
+    </a>
+    <span class="task-priority priority-medium">Medium</span>
+  </div>
+  <div class="task-meta">
+    Reference- &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/8099555445" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      [🥇 Dr. Sonya Bellamy - Olansky Dermatology &amp; Aesthetics](https://www.olanskydermatology.com/dr.-sonya-bellamy)
+    </a>
+    <span class="task-priority priority-medium">Medium</span>
+  </div>
+  <div class="task-meta">
+    Personal &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/8168523505" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Donation- Tax Deductible
+    </a>
+    <span class="task-priority priority-medium">Medium</span>
+  </div>
+  <div class="task-meta">
+    Reference- &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/8184040388" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Host Testimony creation using 12Stone framework
+    </a>
+    <span class="task-priority priority-medium">Medium</span>
+  </div>
+  <div class="task-meta">
+    Personal &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/8191826516" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Find a veterinarian to take Kaylin to
+    </a>
+    <span class="task-priority priority-medium">Medium</span>
+  </div>
+  <div class="task-meta">
+    Family Meeting &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/8215995035" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Open a trust fund
+    </a>
+    <span class="task-priority priority-medium">Medium</span>
+  </div>
+  <div class="task-meta">
+    Personal &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/8232492789" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Brittany Teaching: Ask about her keeping logs for Montessori observations with Kaelin
+    </a>
+    <span class="task-priority priority-medium">Medium</span>
+  </div>
+  <div class="task-meta">
+    Family Meeting &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/8264734769" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Talk to Dos about setting up a regular call to pray for the Holy Spirit
+    </a>
+    <span class="task-priority priority-medium">Medium</span>
+  </div>
+  <div class="task-meta">
+    Good Portion &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/8266727400" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Taty Guidance: Ask mom if she would be open to having a family meeting with a Financial Advisor
+    </a>
+    <span class="task-priority priority-medium">Medium</span>
+  </div>
+  <div class="task-meta">
+    Personal &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/8327647802" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Plan event- GP Men’s- Mike Grady, Schedule Chattahochee River event
+    </a>
+    <span class="task-priority priority-medium">Medium</span>
+  </div>
+  <div class="task-meta">
+    GP- ATL Men’s Group &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/8327648554" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Plan event- GP Men’s- DC event, atlanta go-kart things
+    </a>
+    <span class="task-priority priority-medium">Medium</span>
+  </div>
+  <div class="task-meta">
+    GP- ATL Men’s Group &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/8407761466" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Update google accounts with correct credit card
+    </a>
+    <span class="task-priority priority-medium">Medium</span>
+  </div>
+  <div class="task-meta">
+    Personal Finance Manager (Nida) &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/8530383597" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Invite neighbors from Kaelin’s bday party over to dinner
+    </a>
+    <span class="task-priority priority-medium">Medium</span>
+  </div>
+  <div class="task-meta">
+    Family Meeting &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/8572918644" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Hilton, Cara’s BF- text to check-in
+    </a>
+    <span class="task-priority priority-medium">Medium</span>
+  </div>
+  <div class="task-meta">
+    Personal &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/8611047055" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Updated google workspace to GP
+    </a>
+    <span class="task-priority priority-medium">Medium</span>
+  </div>
+  <div class="task-meta">
+    Personal Finance Manager (Nida) &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/8638429851" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Quarterly: Schedule clothing pick up
+    </a>
+    <span class="task-priority priority-medium">Medium</span>
+  </div>
+  <div class="task-meta">
+    Family Meeting &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/8654143750" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      11/18 confirm charge with Brittany
+    </a>
+    <span class="task-priority priority-medium">Medium</span>
+  </div>
+  <div class="task-meta">
+    Personal Finance Manager (Nida) &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/8654229811" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      We need to set the priority for each category on the advisor tab
+    </a>
+    <span class="task-priority priority-medium">Medium</span>
+  </div>
+  <div class="task-meta">
+    Personal Finance Manager (Nida) &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/8654233608" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Review the report when she sends it to me
+    </a>
+    <span class="task-priority priority-medium">Medium</span>
+  </div>
+  <div class="task-meta">
+    Personal Finance Manager (Nida) &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/8715841296" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      GP Events- Update EventBrite form to require phone numbers
+    </a>
+    <span class="task-priority priority-medium">Medium</span>
+  </div>
+  <div class="task-meta">
+    Good Portion &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/8785977107" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Add due dates to all important birthdays and holidays, anniversary
+    </a>
+    <span class="task-priority priority-medium">Medium</span>
+  </div>
+  <div class="task-meta">
+    Personal &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/8822246228" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Activity where we think of a word and then go to the very next association out loud , create habit
+    </a>
+    <span class="task-priority priority-medium">Medium</span>
+  </div>
+  <div class="task-meta">
+    Habits &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/8840122886" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Create flashcard set to learn Atlanta highway
+    </a>
+    <span class="task-priority priority-medium">Medium</span>
+  </div>
+  <div class="task-meta">
+    Anki- Learning Plan &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/8844762760" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Create Anki decks for committing these to memory
+    </a>
+    <span class="task-priority priority-medium">Medium</span>
+  </div>
+  <div class="task-meta">
+    Anki- Learning Plan &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/9022441370" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Schedule GP Men’s Event- Mike has a hike in Douglasville, it has as spring
+    </a>
+    <span class="task-priority priority-medium">Medium</span>
+  </div>
+  <div class="task-meta">
+    GP- ATL Men’s Group &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/9359273690" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Weekly YC Coaching Review: Review document every week
+    </a>
+    <span class="task-priority priority-medium">Medium</span>
+  </div>
+  <div class="task-meta">
+    AO Business &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/9359277319" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      AO- Schedule time to watch people use my product
+    </a>
+    <span class="task-priority priority-medium">Medium</span>
+  </div>
+  <div class="task-meta">
+    AO Business &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/9387330100" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Write what’s going to be on you tombstone today
+    </a>
+    <span class="task-priority priority-medium">Medium</span>
+  </div>
+  <div class="task-meta">
+    Post Sierra Action Plan &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/9408015213" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Use this learning technique with ChatGPT
+    </a>
+    <span class="task-priority priority-medium">Medium</span>
+  </div>
+  <div class="task-meta">
+    Personal &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/9363325547" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Create plan to learn hebrew and greek
+    </a>
+    <span class="task-priority priority-medium">Medium</span>
+  </div>
+  <div class="task-meta">
+    Personal &bull; 
+    Due: 25 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/7548868505" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Love Kaelin: Play with her for 30mins daily
+    </a>
+    
+  </div>
+  <div class="task-meta">
+    Habits &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/9331694627" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Research auditory training program for my condition
+    </a>
+    
+  </div>
+  <div class="task-meta">
+    More Research &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/9336487960" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Track KPIs: show rate, close rate, deal value 1 hour setup + 15 min
+    </a>
+    
+  </div>
+  <div class="task-meta">
+    AO- Actions To Launch &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/9336488087" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Schedule and link coaching calls 1 hour
+    </a>
+    
+  </div>
+  <div class="task-meta">
+    AO- Actions To Launch &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/9336488445" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Create KPI dashboard (Google Sheets or Notion) 2–3 hours
+    </a>
+    
+  </div>
+  <div class="task-meta">
+    AO- Actions To Launch &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/9407246364" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Create revised timer schedule to Add Sierra work hours to Active Offer
+    </a>
+    
+  </div>
+  <div class="task-meta">
+    Post Sierra Action Plan &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/9407280926" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Sierra- Max 401k 100k
+    </a>
+    
+  </div>
+  <div class="task-meta">
+    Post Sierra Action Plan &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/9486403684" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      [Develop workforce skills for the AI economy - Correlation One](https://www.correlation-one.com/)
+    </a>
+    
+  </div>
+  <div class="task-meta">
+    Inbox &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/9505697617" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Review Pre-course module for Hands-on AI for Leaders
+    </a>
+    
+  </div>
+  <div class="task-meta">
+    Inbox &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/9510759735" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      [Automate company research using ProspectLens and Google Sheets | n8n workflow template](https://n8n.io/workflows/2390-automate-company-research-using-prospectlens-and-google-sheets/)
+    </a>
+    
+  </div>
+  <div class="task-meta">
+    Inbox &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/9510764450" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      [Automate Sales Call Research and Follow-Ups with GPT-4, Tavily, Google Sheets | n8n workflow template](https://n8n.io/workflows/7491-automate-sales-call-research-and-follow-ups-with-gpt-4-tavily-google-sheets/)
+    </a>
+    
+  </div>
+  <div class="task-meta">
+    Inbox &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/9510769719" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      [Generate Prospect Research &amp; Connection Strategy Reports with Claude AI | n8n workflow template](https://n8n.io/workflows/6484-generate-prospect-research-and-connection-strategy-reports-with-claude-ai/)
+    </a>
+    
+  </div>
+  <div class="task-meta">
+    Inbox &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/9510774519" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      [Intelligent B2B Lead Generation Workflow using Scrapeless and Claude | n8n workflow template](https://n8n.io/workflows/5297-intelligent-b2b-lead-generation-workflow-using-scrapeless-and-claude/)
+    </a>
+    
+  </div>
+  <div class="task-meta">
+    Inbox &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/9510972516" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      [Discover 738 Automation Workflows from the n8n&#039;s Community](https://n8n.io/workflows/categories/sales/)
+    </a>
+    
+  </div>
+  <div class="task-meta">
+    Inbox &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/9511076956" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      [AI Fitness Coach Strava Data Analysis and Personalized Training Insights | n8n workflow template](https://n8n.io/workflows/2790-ai-fitness-coach-strava-data-analysis-and-personalized-training-insights/)
+    </a>
+    
+  </div>
+  <div class="task-meta">
+    Inbox &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/9511118023" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      [Automate Your LinkedIn Content Creation with AI – No Login Required🔥 - nils&#039;s Ko-fi Shop](https://ko-fi.com/s/2c176ea8e9)
+    </a>
+    
+  </div>
+  <div class="task-meta">
+    Inbox &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/9511141186" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      [Built a frontend my sales prospect tool : r/n8n](https://www.reddit.com/r/n8n/comments/1lgodbj/built_a_frontend_my_sales_prospect_tool/)
+    </a>
+    
+  </div>
+  <div class="task-meta">
+    Inbox &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/9511430004" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      [AI Prospect Researcher +ISCP only need Company Name and Domain | n8n workflow template](https://n8n.io/workflows/4882-ai-prospect-researcher-iscp-only-need-company-name-and-domain/)
+    </a>
+    
+  </div>
+  <div class="task-meta">
+    Inbox &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/9511437252" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      [AI-Driven Competitor &amp; Market Intelligence with GPT 4 &amp; Apify | n8n workflow template](https://n8n.io/workflows/6672-ai-driven-competitor-and-market-intelligence-with-gpt-4-and-apify/)
+    </a>
+    
+  </div>
+  <div class="task-meta">
+    Inbox &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/9511442732" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      [Automated Investor Intelligence: CrunchBase to Google Sheets Data Harvester | n8n workflow template](https://n8n.io/workflows/4731-automated-investor-intelligence-crunchbase-to-google-sheets-data-harvester/)
+    </a>
+    
+  </div>
+  <div class="task-meta">
+    Inbox &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/9511465139" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      [🎯 Precision Prospecting: Automate LinkedIn Lead Gen with Bright Data | n8n workflow template](https://n8n.io/workflows/4873-precision-prospecting-automate-linkedin-lead-gen-with-bright-data/)
+    </a>
+    
+  </div>
+  <div class="task-meta">
+    Inbox &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/9511470667" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      [Automated LinkedIn Lead Generation &amp; DM Outreach with Airtable, and Unipile. | n8n workflow template](https://n8n.io/workflows/7311-automated-linkedin-lead-generation-and-dm-outreach-with-airtable-and-unipile/)
+    </a>
+    
+  </div>
+  <div class="task-meta">
+    Inbox &bull; 
+    Due: 46 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/9655543421" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Call Britney
+    </a>
+    
+  </div>
+  <div class="task-meta">
+    Inbox &bull; 
+    Due: 38 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/9655603694" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Cut down the tree in the backyard
+    </a>
+    
+  </div>
+  <div class="task-meta">
+    Inbox &bull; 
+    Due: 38 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/9669087627" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Test overall functionality
+    </a>
+    
+  </div>
+  <div class="task-meta">
+    Inbox &bull; 
+    Due: 34 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/9669087626" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Test Google Drive integration
+    </a>
+    
+  </div>
+  <div class="task-meta">
+    Inbox &bull; 
+    Due: 34 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/9674158389" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      App Idea- Awaiting replies emails
+    </a>
+    
+  </div>
+  <div class="task-meta">
+    linear &bull; 
+    Due: 32 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/9676725290" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      [(65) git worktree claude code - YouTube](https://www.youtube.com/results?search_query=git+worktree+claude+code)
+    </a>
+    
+  </div>
+  <div class="task-meta">
+    More Research &bull; 
+    Due: 31 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/9679329903" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Text Grady about Matt 20, those idle need to go into the vineyard
+    </a>
+    
+  </div>
+  <div class="task-meta">
+    Inbox &bull; 
+    Due: 30 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/9682111936" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      App Idea- earning report agent, finds earnings report for all account, add to calendar, post highlights in slack and account doc, sends email summary to AE, provides AE with f/u email drafts to send key stakeholders
+    </a>
+    
+  </div>
+  <div class="task-meta">
+    linear &bull; 
+    Due: 30 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/9748225834" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Terrance Brandon will send money to mom for the four-bedroom booking.
+    </a>
+    
+  </div>
+  <div class="task-meta">
+    Inbox &bull; 
+    Due: 9 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/9749957119" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Schedule Design: Create weekly 30min time blocks for building my inventory of messages and scripture, 30min of working on the business &quot;of my life&quot; (creating processes), 30mins for Good Portion
+    </a>
+    
+  </div>
+  <div class="task-meta">
+    Inbox &bull; 
+    Due: 6 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/9753035919" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Create a dedicated block of time to take action on Brandon Family action items, and to think through upcoming agenda
+    </a>
+    
+  </div>
+  <div class="task-meta">
+    Inbox &bull; 
+    Due: 6 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/7181561776" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      * Reminder: Have Faith- Find a favorable path to your situation that is possible due to the goodness of God’s power and character, and then take action on it.
+    </a>
+    
+  </div>
+  <div class="task-meta">
+    Personal &bull; 
+    Due: 4 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/9743119797" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Enter into calendar- [The group will schedule a group fast with their families to pray for clarity and guidance on the big decision regarding the land and properties.](https://mail.google.com/mail/u/0/#sent)
+    </a>
+    
+  </div>
+  <div class="task-meta">
+    Inbox &bull; 
+    Due: 4 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/9744687659" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Call Publix to plan a tour of the grocery store
+    </a>
+    
+  </div>
+  <div class="task-meta">
+    Action Plan · Love Kaelin &bull; 
+    Due: 4 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/7647022383" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Family Meeting: (Every Monday) review completed actions in todoist since we last met
+    </a>
+    
+  </div>
+  <div class="task-meta">
+    Family Meeting &bull; 
+    Due: 3 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/9757965491" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Send email to Maureen requesting property survey and pricing information
+    </a>
+    
+  </div>
+  <div class="task-meta">
+    Inbox &bull; 
+    Due: 3 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/9757965537" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Review property details and AI analysis for viability as investment/development
+    </a>
+    
+  </div>
+  <div class="task-meta">
+    Inbox &bull; 
+    Due: 3 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/9757965571" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Document individual motivations, goals, and limits for project involvement
+    </a>
+    
+  </div>
+  <div class="task-meta">
+    Inbox &bull; 
+    Due: 3 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/6913174308" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      🖇️ Family Meeting: (Mon) Enter all Action Items in Todoist and email Brittany to confirm when complete:
+    </a>
+    
+  </div>
+  <div class="task-meta">
+    Assistant • Unassigned • Routine &bull; 
+    Due: 2 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+<div class="task-card overdue">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/9733119838" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Schedule Kaylin&#039;s dental checkup
+    </a>
+    
+  </div>
+  <div class="task-meta">
+    Wife Action Items &bull; 
+    Due: 2 days ago
+     &bull; <strong style="color: #e53e3e;">OVERDUE</strong>
+  </div>
+</div>
+</div>
+    
+<div class="section">
+  <h2 class="section-title">
+    <span class="section-icon">&#128197;</span>
+    Coming Up This Week
+  </h2>
+  
+<div class="task-card ">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/7808679451" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      AO- Film video webinar
+    </a>
+    <span class="task-priority priority-urgent">Urgent</span>
+  </div>
+  <div class="task-meta">
+    AO- Actions To Launch &bull; 
+    Due: Today
+    
+  </div>
+</div>
+<div class="task-card ">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/9695036440" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Tell Brittany- Christmas at 12Stone , invite Jeff and kids to a service
+    </a>
+    <span class="task-priority priority-urgent">Urgent</span>
+  </div>
+  <div class="task-meta">
+    Personal &bull; 
+    Due: Today
+    
+  </div>
+</div>
+<div class="task-card ">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/7546053153" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      * Sabbath Reminder: Do not seek your own pleasure or talk idly on this day. Seek the things that please God. Let all conversation be purposeful
+    </a>
+    <span class="task-priority priority-urgent">Urgent</span>
+  </div>
+  <div class="task-meta">
+    Sabbath- My Approved Actions &bull; 
+    Due: Friday
+    
+  </div>
+</div>
+<div class="task-card ">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/8783752235" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      Sorting/ Organizing MOC about God [Sabbath- My Approved Actions.md](obsidian://open?vault=Terrance&#039;s%202nd%20Vault&amp;file=Permanent%20Notes%2FSabbath-%20My%20Approved%20Actions.md)
+    </a>
+    <span class="task-priority priority-urgent">Urgent</span>
+  </div>
+  <div class="task-meta">
+    Sabbath- My Approved Actions &bull; 
+    Due: Friday
+    
+  </div>
+</div>
+<div class="task-card ">
+  <div class="task-header">
+    <a href="https://app.todoist.com/app/task/6897141410" target="_blank" class="task-title" style="color: inherit; text-decoration: none;">
+      📎 Group Meeting Prep: Send out reminder text 3hrs prior
+    </a>
+    <span class="task-priority priority-urgent">Urgent</span>
+  </div>
+  <div class="task-meta">
+    Ideal Week- Good Portion &bull; 
+    Due: Saturday
+    
+  </div>
+</div>
+  
+  <p style="text-align: center; color: #666; font-size: 14px; margin-top: 15px;">
+    + 24 more tasks this week
+  </p>
+</div>
+    
+<div class="section">
+  <h2 class="section-title">
+    <span class="section-icon">&#128161;</span>
+    Recommendations
+  </h2>
+  
+  <div class="recommendation">
+    <div class="recommendation-icon">&#127919;</div>
+    <div class="recommendation-content">
+      <h4>Start with Highest Impact</h4>
+      <p>Begin with &quot;📎 Ask, Seek, Knock: (Daily) Beg God for written list of things I want.&quot; - null</p>
+    </div>
+  </div>
+  
+  <div class="recommendation">
+    <div class="recommendation-icon">&#128230;</div>
+    <div class="recommendation-content">
+      <h4>Batch general Tasks</h4>
+      <p>42 general tasks can be done together for efficiency</p>
+    </div>
+  </div>
+  
+  <div class="recommendation">
+    <div class="recommendation-icon">&#128230;</div>
+    <div class="recommendation-content">
+      <h4>Batch writing Tasks</h4>
+      <p>33 writing tasks can be done together for efficiency</p>
+    </div>
+  </div>
+  
+  <div class="recommendation">
+    <div class="recommendation-icon">&#128230;</div>
+    <div class="recommendation-content">
+      <h4>Batch coding Tasks</h4>
+      <p>97 coding tasks can be done together for efficiency</p>
+    </div>
+  </div>
+  
+  <div class="recommendation">
+    <div class="recommendation-icon">&#128230;</div>
+    <div class="recommendation-content">
+      <h4>Batch communication Tasks</h4>
+      <p>35 communication tasks can be done together for efficiency</p>
+    </div>
+  </div>
+  
+  <div class="recommendation">
+    <div class="recommendation-icon">&#128230;</div>
+    <div class="recommendation-content">
+      <h4>Batch planning Tasks</h4>
+      <p>6 planning tasks can be done together for efficiency</p>
+    </div>
+  </div>
+  
+  <div class="recommendation">
+    <div class="recommendation-icon">&#128230;</div>
+    <div class="recommendation-content">
+      <h4>Batch admin Tasks</h4>
+      <p>43 admin tasks can be done together for efficiency</p>
+    </div>
+  </div>
+  
+  <div class="recommendation">
+    <div class="recommendation-icon">&#128230;</div>
+    <div class="recommendation-content">
+      <h4>Batch research Tasks</h4>
+      <p>33 research tasks can be done together for efficiency</p>
+    </div>
+  </div>
+  
+  <div class="recommendation">
+    <div class="recommendation-icon">&#128230;</div>
+    <div class="recommendation-content">
+      <h4>Batch analysis Tasks</h4>
+      <p>3 analysis tasks can be done together for efficiency</p>
+    </div>
+  </div>
+  
+  <div class="recommendation">
+    <div class="recommendation-icon">&#128680;</div>
+    <div class="recommendation-content">
+      <h4>Address Overdue Tasks</h4>
+      <p>170 task(s) are overdue and need immediate attention</p>
+    </div>
+  </div>
+  
+</div>
+    
+<div class="footer">
+  <p>Ready to tackle your tasks?</p>
+  <a href="https://todoist.com/app/today" class="cta-button">
+    Open Todoist
+  </a>
+  <p class="disclaimer">
+    Generated by Daily Todoist Reviewer at Nov 26, 2025, 10:17 PM EST<br>
+    Reply to this email to ask Claude for help with any task.
+  </p>
+</div>
+  </div>
+</body>
+</html>

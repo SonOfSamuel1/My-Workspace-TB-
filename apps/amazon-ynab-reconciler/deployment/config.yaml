@@ -1,0 +1,107 @@
+# Amazon-YNAB Reconciliation Configuration
+
+reconciliation:
+  # Number of days to look back for transactions
+  lookback_days: 30
+
+  # Minimum confidence score (0-100) to consider a match
+  match_threshold: 80
+
+  # Date tolerance for matching (days)
+  date_tolerance_days: 2
+
+  # Amount tolerance for matching (cents)
+  amount_tolerance_cents: 50
+
+  # Track previously reconciled transactions to avoid duplicates
+  enable_state_tracking: false
+  state_file: '../logs/reconciliation_state.json'
+
+amazon:
+  # Amazon order history URL
+  order_history_url: 'https://www.amazon.com/gp/your-account/order-history'
+
+  # Maximum number of pages to scrape
+  max_pages: 10
+
+  # Wait time between page navigations (milliseconds)
+  navigation_delay: 2000
+
+  # Browser settings for Playwright
+  browser:
+    headless: true
+    viewport_width: 1280
+    viewport_height: 720
+    timeout: 30000
+
+  # Selectors for Amazon elements (may need updates)
+  selectors:
+    order_cards: '[data-component="order-card"]'
+    order_date: '.order-info .value'
+    order_total: '.grand-total-price'
+    order_items: '.shipment-item'
+    item_name: '.item-title'
+    item_category: '.item-category'
+    item_link: 'a[href*="/dp/"]'
+    next_page: '.a-pagination .a-last:not(.a-disabled)'
+
+ynab:
+  # Budget name to use
+  budget_name: "Terrance Brandon's Plan"
+
+  # Account names to search for transactions
+  account_names:
+    - 'Amazon Business Prime Card – 3008'
+    - 'Amazon Business Prime Card – 1010'
+    - 'Chase Reserve CC – 1516'
+    - 'SimplyCash® Plus Card – 4008'
+    - 'Apple Card'
+
+  # Only process uncleared transactions
+  only_uncleared: true
+
+  # Memo format for reconciled transactions
+  memo_format: '[Amazon: {category}] | {item_name} | {item_link}'
+
+  # Preserve existing memo content
+  preserve_existing_memo: true
+
+email:
+  # Enable email reports
+  enabled: true
+
+  # Email recipient (if not set, will use account owner email)
+  recipient: null
+
+  # Email subject format
+  subject: 'Amazon-YNAB Reconciliation Report - {date}'
+
+  # Include detailed transaction list in email
+  include_details: true
+
+  # Only send email if there are matches or errors
+  only_on_activity: false
+
+aws:
+  # Lambda configuration
+  lambda:
+    memory: 3008  # MB (3GB for Playwright)
+    timeout: 300  # seconds (5 minutes)
+
+  # Parameter Store paths
+  parameter_store:
+    amazon_credentials: '/amazon-reconciler/amazon-credentials'
+    ynab_api_key: '/amazon-reconciler/ynab-api-key'
+    gmail_credentials: '/amazon-reconciler/gmail-credentials'
+
+  # EventBridge schedule
+  schedule:
+    enabled: true
+    expression: 'cron(0 7 * * ? *)'  # Daily at 2 AM ET (7 AM UTC)
+
+logging:
+  level: INFO
+  format: '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+  file: '../logs/reconciler.log'
+  max_bytes: 10485760  # 10MB
+  backup_count: 5

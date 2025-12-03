@@ -1,0 +1,11 @@
+# Twilio Configuration
+# Account credentials
+TWILIO_ACCOUNT_SID=
+TWILIO_AUTH_TOKEN=8722de967f7770e0244c0c9036e774ff
+
+# Phone numbers
+TWILIO_PHONE_NUMBER=
+MY_PERSONAL_NUMBER=
+
+# Email
+TWILIO_EMAIL=twilio.everglade@mymailgpt.com

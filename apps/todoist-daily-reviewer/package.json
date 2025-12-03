@@ -1,0 +1,25 @@
+{
+  "name": "todoist-daily-reviewer",
+  "version": "1.0.0",
+  "description": "Daily AI-powered Todoist task review with beautiful email reports",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js",
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
+    "test:local": "node scripts/test-local.js",
+    "deploy": "bash scripts/deploy.sh"
+  },
+  "dependencies": {
+    "@aws-sdk/client-ses": "^3.0.0",
+    "dotenv": "^17.2.3",
+    "googleapis": "^144.0.0",
+    "googleapis-common": "^8.0.1"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0"
+  },
+  "engines": {
+    "node": ">=20.x"
+  }
+}

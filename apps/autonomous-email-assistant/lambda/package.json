@@ -10,7 +10,10 @@
     "deploy": "./deploy.sh",
     "validate": "node ../lib/config-validator.js"
   },
-  "dependencies": {},
+  "dependencies": {
+    "aws-sdk": "^2.1692.0",
+    "googleapis": "^144.0.0"
+  },
   "devDependencies": {
     "jest": "^29.7.0",
     "@types/jest": "^29.5.8"

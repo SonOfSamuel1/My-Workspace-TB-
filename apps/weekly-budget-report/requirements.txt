@@ -7,6 +7,7 @@ pytz>=2023.3
 
 # Configuration
 PyYAML>=6.0
+python-dotenv>=1.0.0
 
 # Google API for Gmail
 google-auth>=2.23.0
@@ -14,12 +15,14 @@ google-auth-oauthlib>=1.1.0
 google-auth-httplib2>=0.1.1
 google-api-python-client>=2.100.0
 
-# HTML email generation
+# HTML email generation / templating
 jinja2>=3.1.2
-
-# Data analysis
-pandas>=2.1.0
-numpy>=1.24.0
 
 # AWS SDK (for Lambda deployment)
 boto3>=1.28.0
+
+# Testing
+pytest>=7.4.0
+pytest-cov>=4.1.0
+pytest-mock>=3.11.0
+responses>=0.23.0

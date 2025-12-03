@@ -2,12 +2,13 @@
 Budget Analyzer
 
 Analyzes YNAB transactions and budget data to generate insights
-for the weekly budget report.
+for the weekly budget report, including Tiller-style annual budget tracking.
 """
 import logging
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional, Any, Tuple
 from collections import defaultdict
+from calendar import monthrange
 import pytz
 
 
@@ -494,3 +495,433 @@ class BudgetAnalyzer:
         result.sort(key=lambda x: x['outflow'], reverse=True)
 
         return result
+
+    # =========================================================================
+    # Annual Budget Analysis Methods (Tiller-Style Dashboard)
+    # =========================================================================
+
+    def calculate_annual_budget(
+        self,
+        annual_budget_data: Dict[str, Dict],
+        year: int
+    ) -> Dict[str, Any]:
+        """Calculate annual budget totals and summaries.
+
+        Args:
+            annual_budget_data: Aggregated annual budget from YNAB service
+            year: The year being analyzed
+
+        Returns:
+            Dictionary with annual budget summary:
+            {
+                'year': int,
+                'total_budgeted': float,
+                'total_spent': float,
+                'total_remaining': float,
+                'categories': List of category summaries
+            }
+        """
+        self.logger.info(f"Calculating annual budget for {year}...")
+
+        total_budgeted = 0
+        total_spent = 0
+        categories = []
+
+        exclude_categories = self.report_config.get('exclude_categories', [])
+
+        for cat_id, cat_data in annual_budget_data.items():
+            cat_name = cat_data['name']
+
+            # Skip excluded categories
+            if cat_name in exclude_categories:
+                continue
+
+            annual_budgeted = cat_data['annual_budgeted']
+            annual_spent = cat_data['annual_activity']
+
+            # Only include categories with a budget
+            if annual_budgeted > 0:
+                total_budgeted += annual_budgeted
+                total_spent += annual_spent
+
+                categories.append({
+                    'category_id': cat_id,
+                    'name': cat_name,
+                    'annual_budgeted': annual_budgeted,
+                    'annual_spent': annual_spent,
+                    'remaining': annual_budgeted - annual_spent,
+                    'percentage_used': (annual_spent / annual_budgeted * 100) if annual_budgeted > 0 else 0,
+                    'monthly_breakdown': cat_data.get('monthly_breakdown', {})
+                })
+
+        # Sort by annual spent (descending)
+        categories.sort(key=lambda x: x['annual_spent'], reverse=True)
+
+        return {
+            'year': year,
+            'total_budgeted': total_budgeted,
+            'total_spent': total_spent,
+            'total_remaining': total_budgeted - total_spent,
+            'overall_percentage_used': (total_spent / total_budgeted * 100) if total_budgeted > 0 else 0,
+            'categories': categories
+        }
+
+    def calculate_ytd_spending(
+        self,
+        transactions: List[Dict],
+        categories: List[Dict],
+        year: int
+    ) -> Dict[str, Any]:
+        """Calculate year-to-date spending by category.
+
+        Args:
+            transactions: List of transactions for the year
+            categories: Category groups from YNAB
+            year: The year being analyzed
+
+        Returns:
+            Dictionary with YTD spending summary
+        """
+        self.logger.info(f"Calculating YTD spending for {year}...")
+
+        category_map = self._build_category_map(categories)
+        exclude_categories = self.report_config.get('exclude_categories', [])
+
+        # Calculate days elapsed in year
+        now = datetime.now()
+        year_start = datetime(year, 1, 1)
+
+        if year == now.year:
+            days_elapsed = (now - year_start).days + 1
+            days_in_year = 366 if (year % 4 == 0 and (year % 100 != 0 or year % 400 == 0)) else 365
+            days_remaining = days_in_year - days_elapsed
+        else:
+            days_elapsed = 365
+            days_remaining = 0
+            days_in_year = 365
+
+        # Aggregate spending by category
+        ytd_by_category = defaultdict(lambda: {'spent': 0, 'count': 0})
+        total_income = 0
+        total_expenses = 0
+
+        for txn in transactions:
+            # Skip transfers
+            if txn.get('transfer_account_id'):
+                continue
+
+            amount = txn['amount'] / 1000.0  # Convert to dollars
+
+            category_id = txn.get('category_id')
+            if category_id and category_id in category_map:
+                cat_name = category_map[category_id]['name']
+                if cat_name in exclude_categories:
+                    continue
+            else:
+                cat_name = 'Uncategorized'
+
+            if amount > 0:
+                total_income += amount
+            else:
+                total_expenses += abs(amount)
+                ytd_by_category[cat_name]['spent'] += abs(amount)
+                ytd_by_category[cat_name]['count'] += 1
+
+        # Calculate monthly averages
+        months_elapsed = now.month if year == now.year else 12
+        avg_monthly_income = total_income / months_elapsed if months_elapsed > 0 else 0
+        avg_monthly_expenses = total_expenses / months_elapsed if months_elapsed > 0 else 0
+
+        # Convert to list and sort
+        category_list = [
+            {
+                'category': name,
+                'ytd_spent': data['spent'],
+                'transaction_count': data['count'],
+                'monthly_average': data['spent'] / months_elapsed if months_elapsed > 0 else 0
+            }
+            for name, data in ytd_by_category.items()
+        ]
+        category_list.sort(key=lambda x: x['ytd_spent'], reverse=True)
+
+        return {
+            'year': year,
+            'days_elapsed': days_elapsed,
+            'days_remaining': days_remaining,
+            'months_elapsed': months_elapsed,
+            'total_income': total_income,
+            'total_expenses': total_expenses,
+            'net_savings': total_income - total_expenses,
+            'savings_rate': ((total_income - total_expenses) / total_income * 100) if total_income > 0 else 0,
+            'avg_monthly_income': avg_monthly_income,
+            'avg_monthly_expenses': avg_monthly_expenses,
+            'categories': category_list
+        }
+
+    def calculate_monthly_breakdown(
+        self,
+        transactions: List[Dict],
+        categories: List[Dict],
+        year: int
+    ) -> Dict[str, Dict]:
+        """Calculate spending breakdown by month for each category.
+
+        Args:
+            transactions: List of transactions for the year
+            categories: Category groups from YNAB
+            year: The year being analyzed
+
+        Returns:
+            Dictionary mapping category name to monthly breakdown
+        """
+        self.logger.info(f"Calculating monthly breakdown for {year}...")
+
+        category_map = self._build_category_map(categories)
+        month_names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                       'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+        # Initialize breakdown structure
+        breakdown = defaultdict(lambda: {m: 0 for m in month_names})
+
+        exclude_categories = self.report_config.get('exclude_categories', [])
+
+        for txn in transactions:
+            # Skip transfers and inflows
+            if txn.get('transfer_account_id') or txn['amount'] > 0:
+                continue
+
+            # Parse month from date
+            txn_date = datetime.strptime(txn['date'], '%Y-%m-%d')
+            month_name = month_names[txn_date.month - 1]
+
+            # Get category name
+            category_id = txn.get('category_id')
+            if category_id and category_id in category_map:
+                cat_name = category_map[category_id]['name']
+                if cat_name in exclude_categories:
+                    continue
+            else:
+                cat_name = 'Uncategorized'
+
+            amount = abs(txn['amount'] / 1000.0)
+            breakdown[cat_name][month_name] += amount
+
+        return dict(breakdown)
+
+    def project_year_end_spending(
+        self,
+        annual_budget: Dict[str, Any],
+        ytd_spending: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Project year-end spending based on current pace.
+
+        Args:
+            annual_budget: Annual budget summary
+            ytd_spending: YTD spending summary
+
+        Returns:
+            Dictionary with projections for each category
+        """
+        self.logger.info("Calculating year-end projections...")
+
+        days_elapsed = ytd_spending['days_elapsed']
+        days_remaining = ytd_spending['days_remaining']
+        total_days = days_elapsed + days_remaining
+
+        if days_elapsed == 0:
+            return {'categories': [], 'summary': {}}
+
+        projections = []
+        total_projected_spending = 0
+        total_annual_budget = annual_budget['total_budgeted']
+
+        for category in annual_budget['categories']:
+            cat_name = category['name']
+            annual_budgeted = category['annual_budgeted']
+            current_spent = category['annual_spent']
+
+            # Calculate daily spending rate
+            daily_rate = current_spent / days_elapsed
+
+            # Project to year end
+            projected_spending = daily_rate * total_days
+            projected_remaining = annual_budgeted - projected_spending
+
+            # Determine pace status
+            expected_pct_elapsed = (days_elapsed / total_days) * 100
+            actual_pct_used = category['percentage_used']
+            pace_ratio = actual_pct_used / expected_pct_elapsed if expected_pct_elapsed > 0 else 0
+
+            pace_status = self._determine_pace_status(pace_ratio)
+
+            projections.append({
+                'category': cat_name,
+                'annual_budget': annual_budgeted,
+                'ytd_spent': current_spent,
+                'daily_rate': daily_rate,
+                'projected_spending': projected_spending,
+                'projected_remaining': projected_remaining,
+                'projected_over_under': projected_remaining,  # Positive = under, negative = over
+                'pace_ratio': pace_ratio,
+                'pace_status': pace_status,
+                'expected_pct_elapsed': expected_pct_elapsed,
+                'actual_pct_used': actual_pct_used
+            })
+
+            total_projected_spending += projected_spending
+
+        # Sort by projected over/under (most over budget first)
+        projections.sort(key=lambda x: x['projected_remaining'])
+
+        # Summary stats
+        return {
+            'categories': projections,
+            'summary': {
+                'total_annual_budget': total_annual_budget,
+                'total_projected_spending': total_projected_spending,
+                'projected_surplus_deficit': total_annual_budget - total_projected_spending,
+                'days_elapsed': days_elapsed,
+                'days_remaining': days_remaining,
+                'pct_year_elapsed': (days_elapsed / total_days) * 100
+            }
+        }
+
+    def _determine_pace_status(self, pace_ratio: float) -> str:
+        """Determine pace status based on ratio of actual vs expected spending.
+
+        Args:
+            pace_ratio: Ratio of actual % used to expected % elapsed
+
+        Returns:
+            Status string: 'on_track', 'warning', 'danger', or 'under_budget'
+        """
+        annual_config = self.config.get('annual_budget', {})
+        warning_threshold = annual_config.get('pace_warning_threshold', 0.8)
+        danger_threshold = annual_config.get('pace_danger_threshold', 1.0)
+
+        if pace_ratio >= danger_threshold:
+            return 'danger'  # Over pace - will exceed budget
+        elif pace_ratio >= warning_threshold:
+            return 'warning'  # Approaching budget
+        elif pace_ratio < 0.5:
+            return 'under_budget'  # Significantly under
+        else:
+            return 'on_track'  # Within expected range
+
+    def calculate_annual_remaining(
+        self,
+        annual_budget: Dict[str, Any],
+        ytd_spending: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Calculate remaining budget for the year.
+
+        Args:
+            annual_budget: Annual budget summary
+            ytd_spending: YTD spending summary
+
+        Returns:
+            Dictionary with remaining budget analysis
+        """
+        self.logger.info("Calculating annual remaining budget...")
+
+        days_remaining = ytd_spending['days_remaining']
+        remaining_analysis = []
+
+        for category in annual_budget['categories']:
+            cat_name = category['name']
+            remaining = category['remaining']
+
+            # Calculate daily budget remaining
+            daily_remaining = remaining / days_remaining if days_remaining > 0 else 0
+
+            remaining_analysis.append({
+                'category': cat_name,
+                'annual_budget': category['annual_budgeted'],
+                'spent': category['annual_spent'],
+                'remaining': remaining,
+                'daily_remaining': daily_remaining,
+                'is_over_budget': remaining < 0
+            })
+
+        # Sort by remaining (lowest first to highlight problem areas)
+        remaining_analysis.sort(key=lambda x: x['remaining'])
+
+        return {
+            'categories': remaining_analysis,
+            'total_remaining': annual_budget['total_remaining'],
+            'days_remaining': days_remaining
+        }
+
+    def generate_annual_alerts(
+        self,
+        annual_budget: Dict[str, Any],
+        projections: Dict[str, Any]
+    ) -> List[Dict[str, str]]:
+        """Generate alerts based on annual budget performance.
+
+        Args:
+            annual_budget: Annual budget summary
+            projections: Year-end projections
+
+        Returns:
+            List of alert dictionaries
+        """
+        alerts = []
+        pct_year_elapsed = projections['summary'].get('pct_year_elapsed', 0)
+
+        for projection in projections.get('categories', []):
+            cat_name = projection['category']
+            pace_status = projection['pace_status']
+            actual_pct = projection['actual_pct_used']
+            projected_over = -projection['projected_remaining']  # Negative remaining = over budget
+
+            if pace_status == 'danger':
+                if projected_over > 0:
+                    alerts.append({
+                        'level': 'critical',
+                        'category': cat_name,
+                        'message': f'{actual_pct:.0f}% of annual budget used with {100-pct_year_elapsed:.0f}% of year remaining. '
+                                   f'Projected ${projected_over:,.0f} over budget.'
+                    })
+                else:
+                    alerts.append({
+                        'level': 'critical',
+                        'category': cat_name,
+                        'message': f'Spending rate exceeds budget pace ({actual_pct:.0f}% used vs {pct_year_elapsed:.0f}% of year elapsed)'
+                    })
+            elif pace_status == 'warning':
+                alerts.append({
+                    'level': 'warning',
+                    'category': cat_name,
+                    'message': f'Approaching annual budget limit ({actual_pct:.0f}% used with {100-pct_year_elapsed:.0f}% of year remaining)'
+                })
+
+        # Overall budget alert
+        overall_pct = annual_budget.get('overall_percentage_used', 0)
+        if overall_pct > pct_year_elapsed * 1.1:  # 10% over pace
+            projected_deficit = projections['summary'].get('projected_surplus_deficit', 0)
+            if projected_deficit < 0:
+                alerts.append({
+                    'level': 'critical',
+                    'category': 'Overall Annual Budget',
+                    'message': f'On pace to exceed annual budget by ${abs(projected_deficit):,.0f}'
+                })
+
+        return alerts
+
+    def get_pace_indicator(self, pace_status: str) -> Tuple[str, str]:
+        """Get pace indicator symbol and color class.
+
+        Args:
+            pace_status: Status string from _determine_pace_status
+
+        Returns:
+            Tuple of (symbol, css_class)
+        """
+        indicators = {
+            'danger': ('X', 'pace-danger'),
+            'warning': ('!', 'pace-warning'),
+            'on_track': ('OK', 'pace-ok'),
+            'under_budget': ('OK', 'pace-under')
+        }
+        return indicators.get(pace_status, ('?', 'pace-unknown'))

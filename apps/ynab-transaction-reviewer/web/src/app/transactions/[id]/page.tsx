@@ -1,0 +1,107 @@
+'use client';
+
+import { use } from 'react';
+import { useTransaction, useCategories, useUpdateTransaction, useApproveTransaction } from '@/hooks/useTransaction';
+import { TransactionEditor } from '@/components/TransactionEditor';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import type { TransactionUpdate } from '@/lib/types';
+import { ArrowLeft, Loader2, AlertCircle, ExternalLink } from 'lucide-react';
+import Link from 'next/link';
+
+interface TransactionPageProps {
+  params: Promise<{ id: string }>;
+}
+
+export default function TransactionPage({ params }: TransactionPageProps) {
+  const { id } = use(params);
+  const { data: transaction, isLoading: txnLoading, error: txnError } = useTransaction(id);
+  const { data: categories, isLoading: catLoading } = useCategories();
+  const updateMutation = useUpdateTransaction();
+  const approveMutation = useApproveTransaction();
+
+  const isLoading = txnLoading || catLoading;
+
+  const handleSave = async (update: TransactionUpdate) => {
+    await updateMutation.mutateAsync({
+      transactionId: id,
+      update,
+    });
+  };
+
+  const handleApprove = async () => {
+    await approveMutation.mutateAsync(id);
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-muted-foreground">Loading transaction...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (txnError || !transaction) {
+    return (
+      <div className="flex min-h-screen items-center justify-center p-4">
+        <Card className="w-full max-w-md">
+          <CardContent className="flex flex-col items-center gap-4 pt-6">
+            <AlertCircle className="h-12 w-12 text-destructive" />
+            <h2 className="text-xl font-semibold">Transaction Not Found</h2>
+            <p className="text-center text-muted-foreground">
+              {txnError instanceof Error
+                ? txnError.message
+                : 'The transaction you are looking for could not be found.'}
+            </p>
+            <div className="flex gap-2">
+              <Button variant="outline" asChild>
+                <Link href="/">
+                  <ArrowLeft className="mr-2 h-4 w-4" />
+                  Go Home
+                </Link>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-muted/30 py-8 px-4">
+      <div className="mx-auto max-w-2xl">
+        {/* Header */}
+        <div className="mb-6 flex items-center justify-between">
+          <Button variant="ghost" asChild>
+            <Link href="/">
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back
+            </Link>
+          </Button>
+
+          <Button variant="outline" asChild>
+            <a
+              href={`https://app.ynab.com/${process.env.NEXT_PUBLIC_YNAB_BUDGET_ID}/accounts/${transaction.account_id}`}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <ExternalLink className="mr-2 h-4 w-4" />
+              Open in YNAB
+            </a>
+          </Button>
+        </div>
+
+        {/* Transaction Editor */}
+        <TransactionEditor
+          transaction={transaction}
+          categories={categories || []}
+          onSave={handleSave}
+          onApprove={handleApprove}
+        />
+      </div>
+    </div>
+  );
+}

@@ -1,0 +1,72 @@
+service: brandon-family-calendar-report
+
+frameworkVersion: '>=3.0.0'
+
+provider:
+  name: aws
+  runtime: nodejs18.x
+  stage: ${opt:stage, 'prod'}
+  region: ${opt:region, 'us-east-1'}
+  timeout: 60
+  memorySize: 512
+
+  # IAM permissions
+  iam:
+    role:
+      statements:
+        # Allow sending emails via SES
+        - Effect: Allow
+          Action:
+            - ses:SendEmail
+            - ses:SendRawEmail
+          Resource: '*'
+        # Allow reading/writing SSM parameters for OAuth tokens
+        - Effect: Allow
+          Action:
+            - ssm:GetParameter
+            - ssm:PutParameter
+          Resource:
+            - arn:aws:ssm:${self:provider.region}:*:parameter/calendar-report/*
+
+  # Environment variables
+  environment:
+    EMAIL_TO: terrance@goodportion.org,brittanybrandon@mail.com
+    EMAIL_FROM: brandonhome.appdev@gmail.com
+    UNIQUE_EVENTS_CALENDAR_ID: e8b8ac59c51a37cace65afd1eb320b01080d6eda9a67f8437c9360ad6d575a57@group.calendar.google.com
+    BIRTHDAYS_ANNIVERSARIES_CALENDAR_ID: 33c41f9c4db1bb4a5132d46ed878d0e9ee287b4a7967714be4bb4cb0d6693802@group.calendar.google.com
+    MEDICAL_CALENDAR_ID: b7a90e6b97885cfa08b5d3964631dc4a7e880f0c12fff722c503447faab3f4fc@group.calendar.google.com
+    SSM_OAUTH_CREDENTIALS_PATH: /calendar-report/oauth-credentials
+    SSM_OAUTH_TOKEN_PATH: /calendar-report/oauth-token
+    AWS_REGION: us-east-1
+    TIMEZONE: America/New_York
+
+functions:
+  generateReport:
+    handler: index.handler
+    description: Generate and send Brandon Family calendar report
+    events:
+      # Run every Saturday at 7:00 PM ET (11:00 PM UTC during EST)
+      - schedule:
+          rate: cron(0 23 ? * SAT *)
+          description: 'Weekly calendar report - Saturdays at 7pm ET'
+          enabled: true
+      # Run every Wednesday at 5:00 AM ET (10:00 AM UTC during EST)
+      - schedule:
+          rate: cron(0 10 ? * WED *)
+          description: 'Mid-week calendar report - Wednesdays at 5am ET'
+          enabled: true
+
+plugins:
+  - serverless-offline
+
+package:
+  exclude:
+    - .git/**
+    - .env
+    - .env.example
+    - test-local.js
+    - README*.md
+    - CALENDAR-SETUP.md
+    - calendar-report-automation.gs
+    - node_modules/aws-sdk/**
+    - AWS-LAMBDA-DEPLOYMENT.md

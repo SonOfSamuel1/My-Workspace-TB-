@@ -163,3 +163,6 @@ tmp/
 *.bak
 *.backup
 *.orig
+
+# Local Netlify folder
+.netlify

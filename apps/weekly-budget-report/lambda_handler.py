@@ -115,6 +115,12 @@ def load_api_keys_from_parameters():
         os.environ['BUDGET_REPORT_EMAIL'] = email
         logger.info("Loaded BUDGET_REPORT_EMAIL from Parameter Store")
 
+    # Load SES sender email
+    ses_sender = get_parameter('/budget-report/ses-sender-email')
+    if ses_sender:
+        os.environ['SES_SENDER_EMAIL'] = ses_sender
+        logger.info("Loaded SES_SENDER_EMAIL from Parameter Store")
+
     if not ynab_key:
         logger.info("Using API keys from environment variables")
 

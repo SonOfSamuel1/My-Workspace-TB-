@@ -1,0 +1,29 @@
+{
+  "name": "calendar-report-lambda",
+  "version": "1.0.0",
+  "description": "AWS Lambda function for automated calendar reporting",
+  "main": "index.js",
+  "scripts": {
+    "test": "node test-local.js",
+    "deploy": "npm run build && npm run package",
+    "build": "npm install --production",
+    "package": "zip -r function.zip . -x '*.git*' 'test-local.js' 'node_modules/aws-sdk/*'"
+  },
+  "keywords": [
+    "calendar",
+    "automation",
+    "aws-lambda",
+    "google-calendar"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "googleapis": "^128.0.0",
+    "@aws-sdk/client-ses": "^3.645.0",
+    "@aws-sdk/client-ssm": "^3.645.0",
+    "moment-timezone": "^0.5.45"
+  },
+  "devDependencies": {
+    "dotenv": "^16.4.5"
+  }
+}

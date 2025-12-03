@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.todoist-reviewer.poller</string>
+
+    <key>Comment</key>
+    <string>Todoist Review Email Reply Poller - Checks for reply commands every 5 minutes</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/local/bin/node</string>
+        <string>/Users/terrancebrandon/Desktop/Code Projects (Official)/My Workspace/My-Workspace-TB-/apps/todoist-daily-reviewer/scripts/poll-replies.js</string>
+    </array>
+
+    <key>StartInterval</key>
+    <integer>300</integer>
+
+    <key>StandardOutPath</key>
+    <string>/Users/terrancebrandon/Desktop/Code Projects (Official)/My Workspace/My-Workspace-TB-/apps/todoist-daily-reviewer/logs/launchd-poller.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>/Users/terrancebrandon/Desktop/Code Projects (Official)/My Workspace/My-Workspace-TB-/apps/todoist-daily-reviewer/logs/launchd-poller-error.log</string>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin</string>
+        <key>HOME</key>
+        <string>/Users/terrancebrandon</string>
+    </dict>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/terrancebrandon/Desktop/Code Projects (Official)/My Workspace/My-Workspace-TB-/apps/todoist-daily-reviewer</string>
+</dict>
+</plist>

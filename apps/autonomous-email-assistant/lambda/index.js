@@ -23,11 +23,138 @@ const { executeWithRetry, RetryConditions } = require('./lib/retry');
 const { EmailAssistantError, ErrorCodes, handleError } = require('./lib/error-handler');
 const { selectModel, analyzeEmailComplexity } = require('./lib/model-router');
 
+// HTML email generation and sending
+const EmailSummaryGenerator = require('../lib/email-summary-generator');
+const SESEmailSender = require('../lib/ses-email-sender');
+
 const writeFile = promisify(fs.writeFile);
 const mkdir = promisify(fs.mkdir);
 
 // Initialize logger with Lambda context
 let contextLogger = logger;
+
+// Initialize email sender and generator
+const emailGenerator = new EmailSummaryGenerator({
+  dashboardUrl: process.env.DASHBOARD_URL || 'https://email-assistant.yourdomain.com/dashboard',
+  userEmail: process.env.USER_EMAIL || 'terrance@goodportion.org'
+});
+
+const emailSender = new SESEmailSender({
+  region: process.env.AWS_REGION || 'us-east-1',
+  senderEmail: process.env.SES_SENDER_EMAIL || 'brandonhome.appdev@gmail.com'
+});
+
+/**
+ * Parse JSON from Claude's output (handles ```json code blocks)
+ */
+function parseClaudeOutput(stdout) {
+  try {
+    // Extract JSON from markdown code blocks
+    const jsonMatch = stdout.match(/```json\s*([\s\S]*?)\s*```/);
+    if (jsonMatch && jsonMatch[1]) {
+      return JSON.parse(jsonMatch[1].trim());
+    }
+
+    // Try parsing the entire output as JSON (fallback)
+    return JSON.parse(stdout.trim());
+  } catch (error) {
+    contextLogger.warn('Failed to parse JSON from Claude output, using fallback', {
+      error: error.message,
+      outputPreview: stdout.substring(0, 500)
+    });
+
+    // Return a minimal fallback structure
+    return {
+      todayStats: { totalProcessed: 0, escalations: 0, handled: 0, drafts: 0, flagged: 0 },
+      actionsTaken: [],
+      tier1Escalations: [],
+      tier3Pending: [],
+      pendingForTomorrow: [],
+      insights: [],
+      topSenders: [],
+      summary: stdout.substring(0, 1000) // Use raw output as summary
+    };
+  }
+}
+
+/**
+ * Send formatted HTML email report based on execution mode
+ */
+async function sendFormattedReport(mode, processingResults, hour) {
+  const userEmail = process.env.USER_EMAIL || 'terrance@goodportion.org';
+
+  try {
+    let emailContent;
+
+    if (mode === 'morning_brief') {
+      // Morning brief email
+      emailContent = await emailGenerator.generateMorningBrief({
+        overnight: {
+          totalEmails: processingResults.todayStats?.totalProcessed || 0,
+          handled: processingResults.todayStats?.handled || 0,
+          escalations: processingResults.todayStats?.escalations || 0,
+          drafts: processingResults.todayStats?.drafts || 0
+        },
+        tier1Escalations: processingResults.tier1Escalations || [],
+        tier3Pending: processingResults.tier3Pending || [],
+        tier2Handled: processingResults.actionsTaken?.filter(a => a.type === 'handled') || [],
+        stats: {
+          responseTime: processingResults.avgResponseTime,
+          accuracy: processingResults.accuracy
+        },
+        agentActivity: {
+          processed: processingResults.todayStats?.agentProcessed || 0
+        }
+      });
+    } else if (mode === 'eod_report') {
+      // End of day report
+      emailContent = await emailGenerator.generateEODReport({
+        todayStats: processingResults.todayStats || {},
+        actionsTaken: processingResults.actionsTaken || [],
+        pendingForTomorrow: processingResults.pendingForTomorrow || [],
+        costs: processingResults.costs || { total: 0 },
+        insights: processingResults.insights || [],
+        topSenders: processingResults.topSenders || []
+      });
+    } else if (mode === 'midday_check' && processingResults.tier1Escalations?.length > 0) {
+      // Midday urgent items alert
+      emailContent = await emailGenerator.generateMiddayCheck(processingResults.tier1Escalations);
+    } else {
+      // Silent processing mode - no email needed
+      contextLogger.info('Silent processing mode - skipping email report');
+      return null;
+    }
+
+    if (!emailContent) {
+      contextLogger.info('No email content generated (may be intentional for midday with no urgent items)');
+      return null;
+    }
+
+    // Send the email via SES
+    const result = await emailSender.sendHtmlEmail({
+      to: userEmail,
+      subject: emailContent.subject,
+      htmlContent: emailContent.html,
+      textContent: emailContent.plainText
+    });
+
+    contextLogger.info('HTML email report sent successfully', {
+      mode,
+      subject: emailContent.subject,
+      messageId: result.messageId
+    });
+
+    return result;
+  } catch (error) {
+    contextLogger.error('Failed to send HTML email report', {
+      mode,
+      error: error.message
+    });
+
+    // Don't throw - email failure shouldn't fail the whole Lambda
+    return null;
+  }
+}
 
 /**
  * Determine execution mode based on current hour (EST)
@@ -233,24 +360,72 @@ IMPORTANT CONSTRAINTS:
 
 BEGIN PROCESSING NOW.
 
-Output your actions in this format:
+CRITICAL: Output your results as a JSON object wrapped in \`\`\`json code blocks.
+This JSON will be parsed programmatically to generate HTML email reports.
 
-## EMAIL PROCESSING SUMMARY
-- Emails checked: [#]
-- New emails found: [#]
-- Tier 1 (escalated): [#]
-- Tier 2 (handled): [#]
-- Tier 3 (drafted): [#]
-- Tier 4 (flagged): [#]
+\`\`\`json
+{
+  "todayStats": {
+    "totalProcessed": 0,
+    "escalations": 0,
+    "handled": 0,
+    "drafts": 0,
+    "flagged": 0,
+    "agentProcessed": 0
+  },
+  "actionsTaken": [
+    {
+      "timestamp": "ISO timestamp",
+      "emailId": "Gmail message ID",
+      "subject": "Email subject",
+      "from": "sender@email.com",
+      "type": "escalated|handled|drafted|archived|flagged"
+    }
+  ],
+  "tier1Escalations": [
+    {
+      "id": "Gmail message ID",
+      "from": "sender@email.com",
+      "subject": "Email subject",
+      "timestamp": "ISO timestamp",
+      "preview": "First 100 chars of email body",
+      "reason": "Why this was escalated"
+    }
+  ],
+  "tier3Pending": [
+    {
+      "id": "Gmail message ID",
+      "from": "sender@email.com",
+      "subject": "Email subject",
+      "timestamp": "ISO timestamp",
+      "draftPreview": "First 100 chars of draft response"
+    }
+  ],
+  "pendingForTomorrow": [
+    {
+      "subject": "Email subject",
+      "from": "sender@email.com",
+      "followUpDate": "ISO date if scheduled"
+    }
+  ],
+  "insights": [
+    {
+      "type": "pattern|performance|cost|recommendation|success|warning",
+      "message": "Insight description"
+    }
+  ],
+  "topSenders": [
+    {
+      "email": "sender@email.com",
+      "count": 5,
+      "averageTier": "Tier 2"
+    }
+  ],
+  "summary": "Brief text summary for plain text fallback"
+}
+\`\`\`
 
-## ACTIONS TAKEN
-[List each action taken]
-
-## ESCALATIONS
-[If any Tier 1 items, list them]
-
-## MODE-SPECIFIC OUTPUT
-[Morning brief / EOD report / Midday alert / Silent processing confirmation]`;
+Fill in actual values from your email processing. Use empty arrays [] if no items for a category.`;
 }
 
 /**
@@ -271,8 +446,7 @@ async function executeClaudeCLI(prompt, configPath, selectedModel) {
       '--print',
       '--dangerously-skip-permissions',
       '--mcp-config',
-      configPath,
-      ...(selectedModel ? ['--model', selectedModel.name] : [])
+      configPath
     ], {
       env: {
         ...process.env,
@@ -464,13 +638,30 @@ exports.handler = async (event, context) => {
     contextLogger.info('Step 5: Executing Claude Code CLI');
     const { stdout, stderr, duration } = await executeClaudeWithRetry(prompt, configPath, selectedModel);
 
+    // Step 5.5: Parse Claude's JSON output
+    contextLogger.info('Step 5.5: Parsing Claude output as JSON');
+    const processingResults = parseClaudeOutput(stdout);
+    contextLogger.info('Parsed processing results', {
+      emailsProcessed: processingResults.todayStats?.totalProcessed || 0,
+      escalations: processingResults.tier1Escalations?.length || 0,
+      insights: processingResults.insights?.length || 0
+    });
+
+    // Step 5.6: Send formatted HTML email report (for morning_brief, eod_report, midday_check modes)
+    contextLogger.info('Step 5.6: Sending formatted HTML email report');
+    const emailResult = await sendFormattedReport(mode, processingResults, hour);
+    if (emailResult) {
+      contextLogger.info('HTML email sent', { messageId: emailResult.messageId });
+    }
+
     // Step 6: Send health check (daily at 5 PM)
     if (mode === 'eod_report') {
       await sendHealthCheck('healthy', {
         lastRun: new Date().toISOString(),
         mode,
         success: true,
-        durationMs: duration
+        durationMs: duration,
+        emailSent: !!emailResult
       });
     }
 
@@ -478,7 +669,8 @@ exports.handler = async (event, context) => {
     contextLogger.info('Email processing completed successfully', {
       totalDurationMs: totalDuration,
       mode,
-      hour
+      hour,
+      htmlEmailSent: !!emailResult
     });
 
     return {
@@ -493,6 +685,13 @@ exports.handler = async (event, context) => {
           tier: selectedModel.tier,
           cost: selectedModel.cost
         },
+        processingResults: {
+          totalProcessed: processingResults.todayStats?.totalProcessed || 0,
+          escalations: processingResults.todayStats?.escalations || 0,
+          handled: processingResults.todayStats?.handled || 0,
+          drafts: processingResults.todayStats?.drafts || 0
+        },
+        htmlEmailSent: !!emailResult,
         timestamp: new Date().toISOString()
       })
     };

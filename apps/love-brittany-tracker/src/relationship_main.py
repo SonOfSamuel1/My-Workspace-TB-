@@ -24,7 +24,22 @@ from toggl_service import TogglService
 from docs_service import DocsService
 from relationship_tracker import RelationshipTracker
 from relationship_report import RelationshipReportGenerator
-from email_sender import EmailSender
+
+# Import SES email sender (preferred for automated emails)
+try:
+    from ses_email_sender import SESEmailSender
+    HAS_SES = True
+except ImportError:
+    SESEmailSender = None
+    HAS_SES = False
+
+# Fallback to Gmail sender
+try:
+    from email_sender import EmailSender as GmailEmailSender
+    HAS_GMAIL = True
+except ImportError:
+    GmailEmailSender = None
+    HAS_GMAIL = False
 
 
 def setup_logging(config: dict):
@@ -235,11 +250,23 @@ def generate_report(config: dict, send_email: bool = True):
 
             logger.info(f"Sending email to {recipient}...")
 
-            # Initialize email sender
-            email_sender = EmailSender(
-                credentials_path=os.getenv('GOOGLE_CREDENTIALS_FILE', 'credentials/credentials.json'),
-                token_path=os.getenv('GOOGLE_TOKEN_FILE', 'credentials/token.pickle')
-            )
+            # Initialize email sender based on available service
+            if HAS_SES:
+                logger.info("Using AWS SES for email delivery")
+                email_sender = SESEmailSender(
+                    region=os.getenv('AWS_REGION', 'us-east-1'),
+                    sender_email=os.getenv('SES_SENDER_EMAIL', 'brandonhome.appdev@gmail.com')
+                )
+            elif HAS_GMAIL:
+                logger.info("Using Gmail API for email delivery")
+                email_sender = GmailEmailSender(
+                    credentials_path=os.getenv('GOOGLE_CREDENTIALS_FILE', 'credentials/credentials.json'),
+                    token_path=os.getenv('GOOGLE_TOKEN_FILE', 'credentials/token.pickle')
+                )
+            else:
+                logger.error("No email sender available")
+                print("\n❌ No email sender configured")
+                return
 
             # Generate subject
             now = datetime.now(pytz.timezone(tracking_config.get('timezone', 'America/New_York')))
@@ -352,13 +379,26 @@ def validate_setup():
             return False
 
         # Test Email service
-        print("📧 Testing Gmail connection...")
-        email_sender = EmailSender(credentials_file, token_file)
-        if email_sender.validate_credentials():
-            print("✅ Gmail connection successful")
+        if HAS_SES:
+            print("📧 Testing AWS SES connection...")
+            email_sender = SESEmailSender(
+                region=os.getenv('AWS_REGION', 'us-east-1'),
+                sender_email=os.getenv('SES_SENDER_EMAIL', 'brandonhome.appdev@gmail.com')
+            )
+            if email_sender.validate_credentials():
+                print("✅ AWS SES connection successful")
+            else:
+                print("⚠️  AWS SES connection failed")
+        elif HAS_GMAIL:
+            print("📧 Testing Gmail connection...")
+            email_sender = GmailEmailSender(credentials_file, token_file)
+            if email_sender.validate_credentials():
+                print("✅ Gmail connection successful")
+            else:
+                print("❌ Gmail connection failed")
+                return False
         else:
-            print("❌ Gmail connection failed")
-            return False
+            print("⚠️  No email sender available")
 
         print("\n" + "="*60)
         print("✅ ALL VALIDATIONS PASSED!")

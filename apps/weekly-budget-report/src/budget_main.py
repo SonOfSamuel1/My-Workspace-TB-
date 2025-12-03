@@ -3,7 +3,8 @@
 Main entry point for Weekly YNAB Budget Report
 
 This script orchestrates the budget reporting system,
-generating comprehensive reports on spending and budget performance.
+generating comprehensive reports on spending and budget performance,
+including Tiller-style annual budget tracking.
 """
 import os
 import sys
@@ -18,16 +19,38 @@ import pytz
 sys.path.insert(0, str(Path(__file__).parent.parent))
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / 'love-brittany-tracker' / 'src'))
 
+# Use python-dotenv for proper .env loading
+try:
+    from dotenv import load_dotenv
+    HAS_DOTENV = True
+except ImportError:
+    HAS_DOTENV = False
+
 from ynab_service import YNABService
 from budget_analyzer import BudgetAnalyzer
 from budget_report import BudgetReportGenerator
 
-# Import email sender from Love Brittany tracker shared services
+# Import SES email sender (preferred for automated emails)
 try:
-    from email_sender import EmailSender
+    from ses_email_sender import SESEmailSender
+    HAS_SES = True
 except ImportError:
-    EmailSender = None
-    logging.warning("EmailSender not available - email functionality disabled")
+    SESEmailSender = None
+    HAS_SES = False
+    logging.warning("SESEmailSender not available - SES email functionality disabled")
+
+# Fallback to Gmail sender from Love Brittany tracker shared services
+try:
+    from email_sender import EmailSender as GmailEmailSender
+    HAS_GMAIL = True
+except ImportError:
+    GmailEmailSender = None
+    HAS_GMAIL = False
+
+# Determine which email sender to use
+EmailSender = SESEmailSender if HAS_SES else GmailEmailSender
+if not EmailSender:
+    logging.warning("No email sender available - email functionality disabled")
 
 
 def setup_logging(config: dict):
@@ -78,12 +101,26 @@ def load_environment():
         )
         return
 
+    # Use python-dotenv if available (preferred)
+    if HAS_DOTENV:
+        load_dotenv(env_path)
+        logging.info("Environment loaded using python-dotenv")
+        return
+
+    # Fallback to manual parsing
+    logging.info("python-dotenv not available, using manual .env parsing")
     with open(env_path) as f:
         for line in f:
             line = line.strip()
             if line and not line.startswith('#') and '=' in line:
                 key, value = line.split('=', 1)
-                os.environ[key.strip()] = value.strip()
+                # Remove quotes if present
+                value = value.strip()
+                if value.startswith('"') and value.endswith('"'):
+                    value = value[1:-1]
+                elif value.startswith("'") and value.endswith("'"):
+                    value = value[1:-1]
+                os.environ[key.strip()] = value
 
 
 def validate_configuration(config: dict) -> bool:
@@ -249,13 +286,27 @@ def generate_report(config: dict, send_email: bool = True):
 
             logger.info(f"Sending email to {recipient}...")
 
-            # Initialize email sender
-            email_sender = EmailSender(
-                credentials_path=os.getenv('GOOGLE_CREDENTIALS_FILE',
-                                          '../../shared/credentials/credentials.json'),
-                token_path=os.getenv('GOOGLE_TOKEN_FILE',
-                                    '../../shared/credentials/token.pickle')
-            )
+            # Initialize email sender based on available service
+            if HAS_SES:
+                # Use AWS SES (preferred for automated emails)
+                logger.info("Using AWS SES for email delivery")
+                email_sender = SESEmailSender(
+                    region=os.getenv('AWS_REGION', 'us-east-1'),
+                    sender_email=os.getenv('SES_SENDER_EMAIL', 'brandonhome.appdev@gmail.com')
+                )
+            elif HAS_GMAIL:
+                # Fallback to Gmail API
+                logger.info("Using Gmail API for email delivery")
+                email_sender = GmailEmailSender(
+                    credentials_path=os.getenv('GOOGLE_CREDENTIALS_FILE',
+                                              '../../shared/credentials/credentials.json'),
+                    token_path=os.getenv('GOOGLE_TOKEN_FILE',
+                                        '../../shared/credentials/token.pickle')
+                )
+            else:
+                logger.error("No email sender available")
+                print("\n❌ No email sender configured")
+                return
 
             # Generate subject
             subject_template = budget_config.get('email', {}).get(
@@ -351,7 +402,23 @@ def validate_setup():
             return False
 
         # Test Email service (if available)
-        if EmailSender:
+        if HAS_SES:
+            print("📧 Testing AWS SES connection...")
+            email_sender = SESEmailSender(
+                region=os.getenv('AWS_REGION', 'us-east-1'),
+                sender_email=os.getenv('SES_SENDER_EMAIL', 'brandonhome.appdev@gmail.com')
+            )
+            if email_sender.validate_credentials():
+                print("✅ AWS SES connection successful")
+                # Check if sender email is verified
+                sender = os.getenv('SES_SENDER_EMAIL', 'TERRANCE@GOODPORTION.ORG')
+                if email_sender.check_email_verified(sender):
+                    print(f"✅ Sender email {sender} is verified")
+                else:
+                    print(f"⚠️  Sender email {sender} not verified in SES")
+            else:
+                print("⚠️  AWS SES connection failed")
+        elif HAS_GMAIL:
             print("📧 Testing Gmail connection...")
             credentials_file = os.getenv('GOOGLE_CREDENTIALS_FILE',
                                         '../../shared/credentials/credentials.json')
@@ -359,7 +426,7 @@ def validate_setup():
                                   '../../shared/credentials/token.pickle')
 
             if os.path.exists(credentials_file):
-                email_sender = EmailSender(credentials_file, token_file)
+                email_sender = GmailEmailSender(credentials_file, token_file)
                 if email_sender.validate_credentials():
                     print("✅ Gmail connection successful")
                 else:
@@ -367,7 +434,7 @@ def validate_setup():
             else:
                 print("⚠️  Gmail credentials not found - email disabled")
         else:
-            print("⚠️  EmailSender not available - email disabled")
+            print("⚠️  No email sender available - email disabled")
 
         print("\n" + "="*60)
         print("✅ ALL VALIDATIONS PASSED!")

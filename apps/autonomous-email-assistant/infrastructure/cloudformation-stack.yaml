@@ -1,0 +1,445 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Email Assistant Infrastructure with DLQ, Monitoring, and Alarms'
+
+Parameters:
+  EnvironmentName:
+    Type: String
+    Default: production
+    AllowedValues:
+      - development
+      - staging
+      - production
+    Description: Environment name for resource naming
+
+  AlertEmail:
+    Type: String
+    Default: terrance@goodportion.org
+    Description: Email address for CloudWatch alarm notifications
+
+  LambdaMemorySize:
+    Type: Number
+    Default: 512
+    MinValue: 128
+    MaxValue: 3008
+    Description: Memory size for Lambda function in MB
+
+  LambdaTimeout:
+    Type: Number
+    Default: 600
+    MinValue: 3
+    MaxValue: 900
+    Description: Lambda function timeout in seconds
+
+Resources:
+  # Dead Letter Queue
+  EmailAssistantDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub 'email-assistant-dlq-${EnvironmentName}'
+      MessageRetentionPeriod: 1209600  # 14 days
+      VisibilityTimeout: 300
+      Tags:
+        - Key: Environment
+          Value: !Ref EnvironmentName
+        - Key: Application
+          Value: EmailAssistant
+
+  # Main Processing Queue (optional, for async processing)
+  EmailProcessingQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub 'email-assistant-queue-${EnvironmentName}'
+      VisibilityTimeout: 900  # 15 minutes (Lambda timeout + buffer)
+      MessageRetentionPeriod: 345600  # 4 days
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt EmailAssistantDLQ.Arn
+        maxReceiveCount: 3
+      Tags:
+        - Key: Environment
+          Value: !Ref EnvironmentName
+        - Key: Application
+          Value: EmailAssistant
+
+  # S3 Bucket for logs and metrics
+  EmailAssistantBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub 'email-assistant-${AWS::AccountId}-${EnvironmentName}'
+      VersioningConfiguration:
+        Status: Enabled
+      LifecycleConfiguration:
+        Rules:
+          - Id: DeleteOldLogs
+            Status: Enabled
+            ExpirationInDays: 90
+            Prefix: logs/
+          - Id: TransitionOldMetrics
+            Status: Enabled
+            Transitions:
+              - TransitionInDays: 30
+                StorageClass: STANDARD_IA
+            Prefix: metrics/
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      Tags:
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
+  # DynamoDB Table for state persistence
+  EmailStateTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub 'email-assistant-state-${EnvironmentName}'
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: pk
+          AttributeType: S
+        - AttributeName: sk
+          AttributeType: S
+        - AttributeName: gsi1pk
+          AttributeType: S
+        - AttributeName: gsi1sk
+          AttributeType: S
+      KeySchema:
+        - AttributeName: pk
+          KeyType: HASH
+        - AttributeName: sk
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: GSI1
+          KeySchema:
+            - AttributeName: gsi1pk
+              KeyType: HASH
+            - AttributeName: gsi1sk
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+      StreamSpecification:
+        StreamViewType: NEW_AND_OLD_IMAGES
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      Tags:
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
+  # Lambda Execution Role
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub 'email-assistant-lambda-role-${EnvironmentName}'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: EmailAssistantPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - sqs:SendMessage
+                  - sqs:GetQueueAttributes
+                Resource:
+                  - !GetAtt EmailAssistantDLQ.Arn
+                  - !GetAtt EmailProcessingQueue.Arn
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:DeleteObject
+                Resource: !Sub '${EmailAssistantBucket.Arn}/*'
+              - Effect: Allow
+                Action:
+                  - dynamodb:GetItem
+                  - dynamodb:PutItem
+                  - dynamodb:UpdateItem
+                  - dynamodb:Query
+                  - dynamodb:Scan
+                  - dynamodb:DeleteItem
+                  - dynamodb:BatchGetItem
+                  - dynamodb:BatchWriteItem
+                Resource:
+                  - !GetAtt EmailStateTable.Arn
+                  - !Sub '${EmailStateTable.Arn}/index/*'
+              - Effect: Allow
+                Action:
+                  - ssm:GetParameter
+                  - ssm:GetParameters
+                Resource: !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/email-assistant/*'
+              - Effect: Allow
+                Action:
+                  - cloudwatch:PutMetricData
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - sns:Publish
+                Resource: !Ref AlertTopic
+
+  # Lambda Function
+  EmailAssistantLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub 'email-assistant-processor-${EnvironmentName}'
+      Runtime: nodejs20.x
+      Handler: index.handler
+      Code:
+        ZipFile: |
+          exports.handler = async (event) => {
+            // Placeholder - will be replaced by actual deployment
+            return { statusCode: 200, body: 'OK' };
+          };
+      MemorySize: !Ref LambdaMemorySize
+      Timeout: !Ref LambdaTimeout
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Environment:
+        Variables:
+          ENVIRONMENT: !Ref EnvironmentName
+          DLQ_URL: !Ref EmailAssistantDLQ
+          PROCESSING_QUEUE_URL: !Ref EmailProcessingQueue
+          STATE_TABLE: !Ref EmailStateTable
+          METRICS_BUCKET: !Ref EmailAssistantBucket
+          ALERT_TOPIC_ARN: !Ref AlertTopic
+          ENABLE_EMAIL_AGENT: 'true'
+      DeadLetterConfig:
+        TargetArn: !GetAtt EmailAssistantDLQ.Arn
+      Tags:
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
+  # EventBridge Rule for scheduled execution
+  ScheduledRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub 'email-assistant-schedule-${EnvironmentName}'
+      Description: Hourly email processing schedule
+      ScheduleExpression: 'cron(0 * * * ? *)'  # Every hour
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt EmailAssistantLambda.Arn
+          Id: EmailAssistantTarget
+          RetryPolicy:
+            MaximumEventAge: 3600
+            MaximumRetryAttempts: 2
+
+  # Permission for EventBridge to invoke Lambda
+  SchedulePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref EmailAssistantLambda
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt ScheduledRule.Arn
+
+  # SNS Topic for alerts
+  AlertTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub 'email-assistant-alerts-${EnvironmentName}'
+      DisplayName: Email Assistant Alerts
+      Subscription:
+        - Endpoint: !Ref AlertEmail
+          Protocol: email
+
+  # CloudWatch Alarms
+  LambdaErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub 'email-assistant-errors-${EnvironmentName}'
+      AlarmDescription: Alert when Lambda errors exceed threshold
+      MetricName: Errors
+      Namespace: AWS/Lambda
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 3
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref EmailAssistantLambda
+      AlarmActions:
+        - !Ref AlertTopic
+
+  LambdaDurationAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub 'email-assistant-duration-${EnvironmentName}'
+      AlarmDescription: Alert when Lambda duration exceeds threshold
+      MetricName: Duration
+      Namespace: AWS/Lambda
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 300000  # 5 minutes
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref EmailAssistantLambda
+      AlarmActions:
+        - !Ref AlertTopic
+
+  DLQDepthAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub 'email-assistant-dlq-depth-${EnvironmentName}'
+      AlarmDescription: Alert when DLQ has messages
+      MetricName: ApproximateNumberOfMessagesVisible
+      Namespace: AWS/SQS
+      Statistic: Maximum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      Dimensions:
+        - Name: QueueName
+          Value: !GetAtt EmailAssistantDLQ.QueueName
+      AlarmActions:
+        - !Ref AlertTopic
+
+  # CloudWatch Dashboard
+  MonitoringDashboard:
+    Type: AWS::CloudWatch::Dashboard
+    Properties:
+      DashboardName: !Sub 'email-assistant-${EnvironmentName}'
+      DashboardBody: !Sub |
+        {
+          "widgets": [
+            {
+              "type": "metric",
+              "properties": {
+                "metrics": [
+                  [ "AWS/Lambda", "Invocations", { "stat": "Sum", "label": "Invocations" } ],
+                  [ ".", "Errors", { "stat": "Sum", "label": "Errors" } ],
+                  [ ".", "Duration", { "stat": "Average", "label": "Avg Duration" } ]
+                ],
+                "view": "timeSeries",
+                "stacked": false,
+                "region": "${AWS::Region}",
+                "title": "Lambda Metrics",
+                "period": 300,
+                "dimensions": {
+                  "FunctionName": "${EmailAssistantLambda}"
+                }
+              }
+            },
+            {
+              "type": "metric",
+              "properties": {
+                "metrics": [
+                  [ "AWS/SQS", "ApproximateNumberOfMessagesVisible", { "label": "Visible Messages" } ],
+                  [ ".", "ApproximateNumberOfMessagesNotVisible", { "label": "In Flight" } ]
+                ],
+                "view": "timeSeries",
+                "stacked": false,
+                "region": "${AWS::Region}",
+                "title": "Queue Metrics",
+                "period": 300,
+                "dimensions": {
+                  "QueueName": "${EmailProcessingQueue.QueueName}"
+                }
+              }
+            },
+            {
+              "type": "metric",
+              "properties": {
+                "metrics": [
+                  [ "AWS/SQS", "ApproximateNumberOfMessagesVisible", { "label": "DLQ Messages" } ]
+                ],
+                "view": "singleValue",
+                "region": "${AWS::Region}",
+                "title": "Dead Letter Queue",
+                "period": 300,
+                "dimensions": {
+                  "QueueName": "${EmailAssistantDLQ.QueueName}"
+                }
+              }
+            },
+            {
+              "type": "metric",
+              "properties": {
+                "metrics": [
+                  [ "AWS/DynamoDB", "UserErrors", { "stat": "Sum" } ],
+                  [ ".", "SystemErrors", { "stat": "Sum" } ],
+                  [ ".", "ConsumedReadCapacityUnits", { "stat": "Sum" } ],
+                  [ ".", "ConsumedWriteCapacityUnits", { "stat": "Sum" } ]
+                ],
+                "view": "timeSeries",
+                "stacked": false,
+                "region": "${AWS::Region}",
+                "title": "DynamoDB Metrics",
+                "period": 300,
+                "dimensions": {
+                  "TableName": "${EmailStateTable}"
+                }
+              }
+            }
+          ]
+        }
+
+  # Log Group for Lambda
+  LambdaLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${EmailAssistantLambda}'
+      RetentionInDays: 30
+
+  # Metric Filter for custom metrics
+  EmailProcessedMetricFilter:
+    Type: AWS::Logs::MetricFilter
+    Properties:
+      LogGroupName: !Ref LambdaLogGroup
+      FilterPattern: '[time, request_id, level = "INFO", message = "Email processing completed", ...]'
+      MetricTransformations:
+        - MetricName: EmailsProcessed
+          MetricNamespace: EmailAssistant
+          MetricValue: '1'
+          DefaultValue: 0
+
+Outputs:
+  LambdaFunctionArn:
+    Description: ARN of the Lambda function
+    Value: !GetAtt EmailAssistantLambda.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-LambdaArn'
+
+  DLQUrl:
+    Description: URL of the Dead Letter Queue
+    Value: !Ref EmailAssistantDLQ
+    Export:
+      Name: !Sub '${AWS::StackName}-DLQUrl'
+
+  ProcessingQueueUrl:
+    Description: URL of the processing queue
+    Value: !Ref EmailProcessingQueue
+    Export:
+      Name: !Sub '${AWS::StackName}-QueueUrl'
+
+  StateTableName:
+    Description: Name of the DynamoDB state table
+    Value: !Ref EmailStateTable
+    Export:
+      Name: !Sub '${AWS::StackName}-StateTable'
+
+  MetricsBucket:
+    Description: S3 bucket for metrics and logs
+    Value: !Ref EmailAssistantBucket
+    Export:
+      Name: !Sub '${AWS::StackName}-MetricsBucket'
+
+  DashboardURL:
+    Description: CloudWatch Dashboard URL
+    Value: !Sub 'https://console.aws.amazon.com/cloudwatch/home?region=${AWS::Region}#dashboards:name=${MonitoringDashboard}'
+
+  AlertTopicArn:
+    Description: SNS Topic ARN for alerts
+    Value: !Ref AlertTopic
+    Export:
+      Name: !Sub '${AWS::StackName}-AlertTopic'

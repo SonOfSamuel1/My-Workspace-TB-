@@ -1,0 +1,14 @@
+# Lambda-specific requirements (production only, no dev tools)
+
+# Core dependencies
+requests>=2.31.0
+PyYAML>=6.0
+python-dateutil>=2.8.2
+
+# Google APIs for Gmail
+google-api-python-client>=2.100.0
+google-auth>=2.23.0
+google-auth-oauthlib>=1.1.0
+google-auth-httplib2>=0.1.1
+
+# Note: boto3 is provided by Lambda runtime, so not needed in package

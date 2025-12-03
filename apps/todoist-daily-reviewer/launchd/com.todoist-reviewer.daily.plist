@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.todoist-reviewer.daily</string>
+
+    <key>Comment</key>
+    <string>Daily Todoist Review - Runs at 5 AM EST (10 UTC) on Sun-Fri</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/terrancebrandon/Desktop/Code Projects (Official)/My Workspace/My-Workspace-TB-/apps/todoist-daily-reviewer/scripts/run-daily.sh</string>
+    </array>
+
+    <key>StartCalendarInterval</key>
+    <array>
+        <!-- Sunday through Friday at 5 AM (skip Saturday) -->
+        <dict>
+            <key>Weekday</key>
+            <integer>0</integer>
+            <key>Hour</key>
+            <integer>5</integer>
+            <key>Minute</key>
+            <integer>0</integer>
+        </dict>
+        <dict>
+            <key>Weekday</key>
+            <integer>1</integer>
+            <key>Hour</key>
+            <integer>5</integer>
+            <key>Minute</key>
+            <integer>0</integer>
+        </dict>
+        <dict>
+            <key>Weekday</key>
+            <integer>2</integer>
+            <key>Hour</key>
+            <integer>5</integer>
+            <key>Minute</key>
+            <integer>0</integer>
+        </dict>
+        <dict>
+            <key>Weekday</key>
+            <integer>3</integer>
+            <key>Hour</key>
+            <integer>5</integer>
+            <key>Minute</key>
+            <integer>0</integer>
+        </dict>
+        <dict>
+            <key>Weekday</key>
+            <integer>4</integer>
+            <key>Hour</key>
+            <integer>5</integer>
+            <key>Minute</key>
+            <integer>0</integer>
+        </dict>
+        <dict>
+            <key>Weekday</key>
+            <integer>5</integer>
+            <key>Hour</key>
+            <integer>5</integer>
+            <key>Minute</key>
+            <integer>0</integer>
+        </dict>
+    </array>
+
+    <key>StandardOutPath</key>
+    <string>/Users/terrancebrandon/Desktop/Code Projects (Official)/My Workspace/My-Workspace-TB-/apps/todoist-daily-reviewer/logs/launchd-daily.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>/Users/terrancebrandon/Desktop/Code Projects (Official)/My Workspace/My-Workspace-TB-/apps/todoist-daily-reviewer/logs/launchd-daily-error.log</string>
+
+    <key>RunAtLoad</key>
+    <false/>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin</string>
+    </dict>
+</dict>
+</plist>

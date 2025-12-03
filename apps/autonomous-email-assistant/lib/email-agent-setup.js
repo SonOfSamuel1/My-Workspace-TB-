@@ -6,6 +6,7 @@
 const logger = require('./logger');
 const emailAgent = require('./email-agent');
 const config = require('../config/email-agent-config');
+const EmailPoller = require('./email-poller');
 
 // Import tools
 const playwrightTool = require('./tools/playwright-tool');
@@ -16,6 +17,7 @@ class EmailAgentSetup {
   constructor() {
     this.initialized = false;
     this.monitoringInterval = null;
+    this.emailPoller = null;
   }
 
   /**
@@ -56,6 +58,15 @@ class EmailAgentSetup {
       // Step 3: Enable agent
       const result = emailAgent.enable();
 
+      // Step 4: Initialize email poller
+      this.emailPoller = new EmailPoller({
+        assistantEmail: config.agentEmail,
+        pollInterval: config.monitoring.pollInterval || 60000,
+        maxResults: config.monitoring.maxEmailsPerPoll || 10,
+        onEmailReceived: this.handleAgentEmail.bind(this),
+        onError: this.handlePollerError.bind(this)
+      });
+
       logger.info('Email agent initialized successfully', {
         agentEmail: result.agentEmail,
         tools: result.capabilities.tools
@@ -81,12 +92,20 @@ class EmailAgentSetup {
       throw new Error('Agent not initialized. Call initialize() first.');
     }
 
+    // Use the new EmailPoller if available
+    if (this.emailPoller) {
+      logger.info('Starting email agent monitoring with EmailPoller');
+      await this.emailPoller.start();
+      return;
+    }
+
+    // Fallback to legacy monitoring
     if (this.monitoringInterval) {
       logger.warn('Monitoring already started');
       return;
     }
 
-    logger.info('Starting email agent monitoring', {
+    logger.info('Starting email agent monitoring (legacy)', {
       agentEmail: config.agentEmail,
       pollInterval: config.monitoring.pollInterval
     });
@@ -179,6 +198,106 @@ class EmailAgentSetup {
   }
 
   /**
+   * Handle email received by poller
+   */
+  async handleAgentEmail(emailData, messageId) {
+    try {
+      logger.info('Handling agent email from poller', {
+        from: emailData.from,
+        subject: emailData.subject,
+        messageId
+      });
+
+      // Process with the email agent
+      const result = await emailAgent.processAgentEmail({
+        id: emailData.id,
+        from: emailData.senderEmail,
+        senderName: emailData.senderName,
+        subject: emailData.subject,
+        body: emailData.body,
+        htmlBody: emailData.htmlBody,
+        attachments: emailData.attachments,
+        threadContext: emailData.threadContext
+      });
+
+      if (result.processed) {
+        logger.info('Agent email processed successfully', {
+          from: emailData.from,
+          actionsPerformed: result.execution?.results?.length || 0
+        });
+
+        // Send response email if available
+        if (result.response) {
+          await this.sendResponseViaPoller(messageId, result.response);
+        }
+      } else if (result.requiresApproval) {
+        logger.info('Action requires approval', {
+          from: emailData.from
+        });
+
+        // Send approval request
+        if (result.approvalRequest) {
+          await this.sendResponseViaPoller(messageId, result.approvalRequest);
+        }
+      }
+
+      return result;
+    } catch (error) {
+      logger.error('Failed to handle agent email', {
+        messageId,
+        error: error.message
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Handle poller error
+   */
+  handlePollerError(error) {
+    logger.error('Email poller error', {
+      error: error.message,
+      stack: error.stack
+    });
+
+    // Could send alert or notification here
+  }
+
+  /**
+   * Send response via poller
+   */
+  async sendResponseViaPoller(originalMessageId, response) {
+    try {
+      if (!this.emailPoller) {
+        logger.error('Email poller not available for sending response');
+        return;
+      }
+
+      logger.info('Sending response via poller', {
+        originalMessageId,
+        subject: response.subject
+      });
+
+      // Format response body
+      let responseBody = response.body;
+
+      // Add agent signature
+      responseBody += '\n\n---\n';
+      responseBody += 'Sent by Email Agent\n';
+      responseBody += `Powered by ${config.openRouter.reasoningModel}\n`;
+
+      await this.emailPoller.sendReply(originalMessageId, responseBody);
+
+      logger.info('Response sent successfully');
+    } catch (error) {
+      logger.error('Failed to send response via poller', {
+        originalMessageId,
+        error: error.message
+      });
+    }
+  }
+
+  /**
    * Send response email
    */
   async sendResponse(response) {
@@ -186,6 +305,12 @@ class EmailAgentSetup {
       to: response.to,
       subject: response.subject
     });
+
+    // Try to use poller if available
+    if (this.emailPoller && response.originalMessageId) {
+      await this.sendResponseViaPoller(response.originalMessageId, response);
+      return;
+    }
 
     // In production: Send via Gmail MCP
     // For now, log the response
@@ -196,6 +321,13 @@ class EmailAgentSetup {
    * Stop monitoring
    */
   stopMonitoring() {
+    // Stop email poller if active
+    if (this.emailPoller && this.emailPoller.isPolling()) {
+      this.emailPoller.stop();
+      logger.info('Email poller stopped');
+    }
+
+    // Stop legacy monitoring if active
     if (this.monitoringInterval) {
       clearInterval(this.monitoringInterval);
       this.monitoringInterval = null;

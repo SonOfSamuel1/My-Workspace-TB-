@@ -1,0 +1,102 @@
+{
+  "email": {
+    "enabled": true,
+    "smtp_server": "smtp.gmail.com",
+    "smtp_port": 587,
+    "from_email": "alerts@goodportion.org",
+    "to_emails": ["terrance@goodportion.org"],
+    "username": "alerts@goodportion.org",
+    "use_tls": true,
+    "subject_prefix": "[MY-WORKSPACE SECURITY]",
+    "throttle": {
+      "max_per_hour": 10,
+      "max_per_day": 50
+    }
+  },
+  "sms": {
+    "enabled": true,
+    "provider": "twilio",
+    "from_number": "+18447242515",
+    "to_numbers": ["+14077448449"],
+    "throttle": {
+      "max_per_5min": 1,
+      "max_per_hour": 5,
+      "max_per_day": 10
+    },
+    "message_prefix": "SECURITY ALERT"
+  },
+  "cloudwatch": {
+    "enabled": true,
+    "region": "us-east-1",
+    "log_group": "/aws/lambda/my-workspace-security",
+    "metric_namespace": "MyWorkspace/Security",
+    "alarm_actions": [],
+    "insufficient_data_actions": [],
+    "ok_actions": []
+  },
+  "severity_levels": {
+    "CRITICAL": {
+      "channels": ["email", "sms", "cloudwatch"],
+      "priority": 1,
+      "auto_escalate": true,
+      "require_acknowledgment": true
+    },
+    "HIGH": {
+      "channels": ["email", "cloudwatch"],
+      "priority": 2,
+      "auto_escalate": false,
+      "require_acknowledgment": false
+    },
+    "MEDIUM": {
+      "channels": ["cloudwatch"],
+      "priority": 3,
+      "auto_escalate": false,
+      "require_acknowledgment": false
+    },
+    "LOW": {
+      "channels": [],
+      "priority": 4,
+      "auto_escalate": false,
+      "require_acknowledgment": false
+    }
+  },
+  "escalation": {
+    "enabled": true,
+    "timeout_minutes": 15,
+    "escalation_chain": [
+      {
+        "level": 1,
+        "contact": "terrance@goodportion.org",
+        "method": "email"
+      },
+      {
+        "level": 2,
+        "contact": "+14077448449",
+        "method": "sms"
+      }
+    ]
+  },
+  "quiet_hours": {
+    "enabled": false,
+    "start": "22:00",
+    "end": "07:00",
+    "timezone": "America/New_York",
+    "override_for_critical": true
+  },
+  "integrations": {
+    "slack": {
+      "enabled": false,
+      "webhook_url": "",
+      "channel": "#security-alerts"
+    },
+    "pagerduty": {
+      "enabled": false,
+      "integration_key": ""
+    }
+  },
+  "audit": {
+    "log_all_alerts": true,
+    "retain_days": 90,
+    "compress_after_days": 30
+  }
+}

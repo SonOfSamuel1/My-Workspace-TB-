@@ -1,25 +1,75 @@
 """
 Budget Report Generator
 
-Generates HTML email reports from budget analysis data.
+Generates HTML email reports from budget analysis data using Jinja2 templates.
 """
 import logging
+import os
 from datetime import datetime
-from typing import Dict, Any
+from pathlib import Path
+from typing import Dict, Any, Optional
 import pytz
+from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 
 class BudgetReportGenerator:
     """Generates HTML email reports from budget data."""
 
-    def __init__(self, config: Dict):
+    def __init__(self, config: Dict, template_dir: Optional[str] = None):
         """Initialize report generator.
 
         Args:
             config: Configuration dictionary
+            template_dir: Optional path to templates directory
         """
         self.logger = logging.getLogger(__name__)
         self.config = config
+
+        # Setup Jinja2 environment
+        if template_dir is None:
+            template_dir = Path(__file__).parent / 'templates'
+        else:
+            template_dir = Path(template_dir)
+
+        self.template_dir = template_dir
+        self.use_templates = template_dir.exists()
+
+        if self.use_templates:
+            self.jinja_env = Environment(
+                loader=FileSystemLoader(str(template_dir)),
+                autoescape=select_autoescape(['html', 'xml']),
+                trim_blocks=True,
+                lstrip_blocks=True
+            )
+            # Add custom filters
+            self.jinja_env.filters['format_currency'] = self._format_currency
+            # Add custom functions
+            self.jinja_env.globals['get_pace_status'] = self._get_pace_status
+            self.logger.info(f"Using Jinja2 templates from {template_dir}")
+        else:
+            self.jinja_env = None
+            self.logger.info("Templates not found, using legacy HTML generation")
+
+    def _format_currency(self, value: float, decimals: int = 2) -> str:
+        """Format a number as currency."""
+        if decimals == 0:
+            return f"${value:,.0f}"
+        return f"${value:,.{decimals}f}"
+
+    def _get_pace_status(self, pct_used: float, days_elapsed: int, total_days: int) -> str:
+        """Determine pace status for template use."""
+        if total_days == 0:
+            return 'ok'
+        expected_pct = (days_elapsed / total_days) * 100
+        pace_ratio = pct_used / expected_pct if expected_pct > 0 else 0
+
+        if pace_ratio >= 1.0:
+            return 'danger'
+        elif pace_ratio >= 0.8:
+            return 'warning'
+        elif pace_ratio < 0.5:
+            return 'under'
+        return 'ok'
 
     def generate_html_report(self, report_data: Dict[str, Any]) -> str:
         """Generate HTML email report.
@@ -32,6 +82,79 @@ class BudgetReportGenerator:
         """
         self.logger.info("Generating HTML budget report...")
 
+        # Use Jinja2 templates if available
+        if self.use_templates:
+            return self._generate_with_templates(report_data)
+
+        # Fall back to legacy HTML generation
+        return self._generate_legacy_html(report_data)
+
+    def generate_annual_report(self, report_data: Dict[str, Any]) -> str:
+        """Generate HTML annual budget report with Tiller-style dashboard.
+
+        Args:
+            report_data: Report data dictionary with analysis results including:
+                - period: Weekly period info
+                - analysis: Weekly transaction analysis
+                - budget_comparison: Weekly budget comparison
+                - alerts: Weekly + annual alerts
+                - annual_budget: Annual budget summary
+                - ytd_spending: Year-to-date spending analysis
+                - projections: Year-end projections
+
+        Returns:
+            HTML string for email body
+        """
+        self.logger.info("Generating annual budget report...")
+
+        if not self.use_templates:
+            self.logger.warning("Templates not available, falling back to weekly report")
+            return self.generate_html_report(report_data)
+
+        template = self.jinja_env.get_template('annual_report.html')
+
+        # Prepare context
+        context = {
+            'title': f"{report_data.get('annual_budget', {}).get('year', '')} Annual Budget Report",
+            'period': report_data.get('period', {}),
+            'summary': report_data.get('analysis', {}).get('summary', {}),
+            'alerts': report_data.get('alerts', []),
+            'budget_comparison': report_data.get('budget_comparison', {}),
+            'category_breakdown': report_data.get('analysis', {}).get('category_breakdown', []),
+            'payee_breakdown': report_data.get('analysis', {}).get('payee_breakdown', []),
+            'notable_transactions': report_data.get('analysis', {}).get('notable_transactions', []),
+            'account_breakdown': report_data.get('analysis', {}).get('account_breakdown', []),
+            'annual_budget': report_data.get('annual_budget', {}),
+            'ytd_spending': report_data.get('ytd_spending', {}),
+            'projections': report_data.get('projections', {}),
+            'current_date': datetime.now().strftime('%B %d, %Y'),
+            'generated_at': datetime.now().strftime('%B %d, %Y at %I:%M %p')
+        }
+
+        return template.render(**context)
+
+    def _generate_with_templates(self, report_data: Dict[str, Any]) -> str:
+        """Generate report using Jinja2 templates."""
+        template = self.jinja_env.get_template('weekly_report.html')
+
+        # Prepare context
+        context = {
+            'title': 'Weekly Budget Report',
+            'period': report_data.get('period', {}),
+            'summary': report_data.get('analysis', {}).get('summary', {}),
+            'alerts': report_data.get('alerts', []),
+            'budget_comparison': report_data.get('budget_comparison', {}),
+            'category_breakdown': report_data.get('analysis', {}).get('category_breakdown', []),
+            'payee_breakdown': report_data.get('analysis', {}).get('payee_breakdown', []),
+            'notable_transactions': report_data.get('analysis', {}).get('notable_transactions', []),
+            'account_breakdown': report_data.get('analysis', {}).get('account_breakdown', []),
+            'generated_at': datetime.now().strftime('%B %d, %Y at %I:%M %p')
+        }
+
+        return template.render(**context)
+
+    def _generate_legacy_html(self, report_data: Dict[str, Any]) -> str:
+        """Generate report using legacy inline HTML (fallback)."""
         html = f"""
 <!DOCTYPE html>
 <html>

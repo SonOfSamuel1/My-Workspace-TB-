@@ -196,3 +196,157 @@ class YNABService:
             Amount in milliunits
         """
         return int(dollars * 1000)
+
+    # =========================================================================
+    # Annual Budget Methods (Tiller-Style Dashboard)
+    # =========================================================================
+
+    def get_annual_transactions(
+        self,
+        budget_id: str,
+        year: int
+    ) -> List[Dict]:
+        """Get all transactions for a specific year.
+
+        Args:
+            budget_id: ID of the budget
+            year: Year to fetch transactions for (e.g., 2025)
+
+        Returns:
+            List of transaction dictionaries for the entire year
+        """
+        self.logger.info(f"Fetching annual transactions for {budget_id}, year {year}...")
+
+        since_date = f"{year}-01-01"
+        transactions = self.get_transactions(budget_id, since_date=since_date)
+
+        # Filter to only include transactions from the specified year
+        year_transactions = [
+            txn for txn in transactions
+            if txn['date'].startswith(str(year))
+        ]
+
+        self.logger.info(f"Found {len(year_transactions)} transactions for {year}")
+        return year_transactions
+
+    def get_monthly_budgets(
+        self,
+        budget_id: str,
+        year: int
+    ) -> Dict[str, Dict]:
+        """Get budget data for each month of the year.
+
+        Args:
+            budget_id: ID of the budget
+            year: Year to fetch budgets for
+
+        Returns:
+            Dictionary mapping month (YYYY-MM-01) to month budget data
+        """
+        self.logger.info(f"Fetching monthly budgets for {budget_id}, year {year}...")
+
+        monthly_budgets = {}
+        current_month = datetime.now().month
+        current_year = datetime.now().year
+
+        # Determine how many months to fetch
+        if year == current_year:
+            months_to_fetch = current_month
+        elif year < current_year:
+            months_to_fetch = 12
+        else:
+            # Future year - no data yet
+            return {}
+
+        for month in range(1, months_to_fetch + 1):
+            month_str = f"{year}-{month:02d}-01"
+            try:
+                month_budget = self.get_month_budget(budget_id, month_str)
+                monthly_budgets[month_str] = month_budget
+            except requests.exceptions.RequestException as e:
+                self.logger.warning(f"Could not fetch budget for {month_str}: {e}")
+                continue
+
+        self.logger.info(f"Fetched {len(monthly_budgets)} monthly budgets for {year}")
+        return monthly_budgets
+
+    def aggregate_annual_budget(
+        self,
+        monthly_budgets: Dict[str, Dict]
+    ) -> Dict[str, Dict]:
+        """Aggregate monthly budgets into annual totals by category.
+
+        Args:
+            monthly_budgets: Dictionary of month -> budget data
+
+        Returns:
+            Dictionary mapping category_id to annual budget info:
+            {
+                'category_id': {
+                    'name': str,
+                    'annual_budgeted': float,
+                    'annual_activity': float,
+                    'monthly_breakdown': {
+                        'Jan': {'budgeted': float, 'activity': float},
+                        ...
+                    }
+                }
+            }
+        """
+        self.logger.info("Aggregating annual budget from monthly data...")
+
+        month_names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                       'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+        annual_budget = {}
+
+        for month_str, month_data in monthly_budgets.items():
+            # Parse month index from date string
+            month_idx = int(month_str.split('-')[1]) - 1
+            month_name = month_names[month_idx]
+
+            for category in month_data.get('categories', []):
+                cat_id = category['id']
+                cat_name = category.get('name', 'Unknown')
+
+                if cat_id not in annual_budget:
+                    annual_budget[cat_id] = {
+                        'name': cat_name,
+                        'annual_budgeted': 0,
+                        'annual_activity': 0,
+                        'monthly_breakdown': {m: {'budgeted': 0, 'activity': 0} for m in month_names}
+                    }
+
+                # Convert milliunits to dollars
+                budgeted = category.get('budgeted', 0) / 1000.0
+                activity = abs(category.get('activity', 0) / 1000.0)
+
+                annual_budget[cat_id]['annual_budgeted'] += budgeted
+                annual_budget[cat_id]['annual_activity'] += activity
+                annual_budget[cat_id]['monthly_breakdown'][month_name] = {
+                    'budgeted': budgeted,
+                    'activity': activity
+                }
+
+        self.logger.info(f"Aggregated annual budget for {len(annual_budget)} categories")
+        return annual_budget
+
+    def get_budget_settings(self, budget_id: str) -> Dict:
+        """Get budget settings including currency format and first month.
+
+        Args:
+            budget_id: ID of the budget
+
+        Returns:
+            Budget settings dictionary
+        """
+        self.logger.info(f"Fetching budget settings for {budget_id}...")
+        budget = self.get_budget(budget_id)
+
+        return {
+            'name': budget.get('name'),
+            'first_month': budget.get('first_month'),
+            'last_month': budget.get('last_month'),
+            'currency_format': budget.get('currency_format', {}),
+            'date_format': budget.get('date_format', {})
+        }

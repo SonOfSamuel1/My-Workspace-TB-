@@ -30,6 +30,14 @@ budget_report:
     # Include charts and visualizations
     include_charts: true
 
+  # AWS SES Email Configuration (preferred for automated emails)
+  ses:
+    # Sender email address (must be verified in SES)
+    sender_email: "brandonhome.appdev@gmail.com"
+
+    # AWS region for SES
+    region: "us-east-1"
+
   # Report configuration
   report:
     # Number of days to look back for transactions (7 = 1 week)
@@ -62,6 +70,34 @@ budget_report:
 
     # Alert if discretionary spending exceeds this percentage
     discretionary_threshold: 80
+
+# Annual Budget Configuration (Tiller-Style Dashboard)
+annual_budget:
+  # Enable/disable annual budget tracking
+  enabled: true
+
+  # Fiscal year start month (january, february, etc.)
+  fiscal_year_start: "january"
+
+  # Show monthly breakdown table in report
+  show_monthly_breakdown: true
+
+  # Show year-end projections
+  show_projections: true
+
+  # Pace warning threshold (0.8 = warn at 80% of expected pace)
+  pace_warning_threshold: 0.8
+
+  # Pace danger threshold (1.0 = danger at 100% of expected pace)
+  pace_danger_threshold: 1.0
+
+  # Report sections to include
+  sections:
+    - weekly_summary
+    - annual_dashboard
+    - ytd_summary
+    - projections
+    - alerts
 
 # Logging
 logging:
