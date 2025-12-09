@@ -1,784 +1,672 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>End of Day Report</title>
-    <!--[if mso]>
-    <noscript>
-        <xml>
-            <o:OfficeDocumentSettings>
-                <o:PixelsPerInch>96</o:PixelsPerInch>
-            </o:OfficeDocumentSettings>
-        </xml>
-    </noscript>
-    <![endif]-->
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="x-apple-disable-message-reformatting">
+  <title>End of Day Report</title>
+  <!--[if mso]>
+  <noscript>
+    <xml>
+      <o:OfficeDocumentSettings>
+        <o:PixelsPerInch>96</o:PixelsPerInch>
+      </o:OfficeDocumentSettings>
+    </xml>
+  </noscript>
+  <style>
+    table { border-collapse: collapse; }
+    td { font-family: Arial, sans-serif; }
+    .button-td { padding: 0 !important; }
+  </style>
+  <![endif]-->
+  <style>
+    /* Reset */
+    body, table, td, p, a, li { -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
+    table, td { mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
+    img { -ms-interpolation-mode: bicubic; border: 0; height: auto; line-height: 100%; outline: none; text-decoration: none; }
 
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+    /* Base */
+    body { margin: 0 !important; padding: 0 !important; width: 100% !important; background-color: #f1f5f9; }
 
-        body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-            line-height: 1.6;
-            color: #202124;
-            background-color: #f5f5f5;
-        }
-
-        .wrapper {
-            width: 100%;
-            background-color: #f5f5f5;
-            padding: 40px 0;
-        }
-
-        .container {
-            max-width: 600px;
-            margin: 0 auto;
-            background-color: #ffffff;
-            border-radius: 12px;
-            overflow: hidden;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-        }
-
-        .header {
-            background: linear-gradient(135deg, #1a73e8 0%, #4285f4 100%);
-            color: white;
-            padding: 32px 24px;
-            text-align: center;
-        }
-
-        .header h1 {
-            font-size: 28px;
-            font-weight: 700;
-            margin: 0 0 8px 0;
-            letter-spacing: -0.5px;
-        }
-
-        .header p {
-            font-size: 16px;
-            opacity: 0.95;
-            margin: 0;
-        }
-
-        .content {
-            padding: 32px 24px;
-        }
-
-        .section {
-            margin-bottom: 32px;
-        }
-
-        .section:last-child {
-            margin-bottom: 0;
-        }
-
-        .section-title {
-            font-size: 18px;
-            font-weight: 600;
-            color: #202124;
-            margin-bottom: 16px;
-            padding-bottom: 8px;
-            border-bottom: 2px solid #f8f9fa;
-        }
-
-        .email-item {
-            background: #f8f9fa;
-            border-radius: 8px;
-            padding: 16px;
-            margin-bottom: 12px;
-            border-left: 4px solid #1a73e8;
-            transition: transform 0.2s;
-        }
-
-        .email-item:hover {
-            transform: translateX(4px);
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        }
-
-        .email-item.urgent {
-            border-left-color: #ea4335;
-            background: #fff5f5;
-        }
-
-        .email-item.pending {
-            border-left-color: #fbbc04;
-            background: #fffbf0;
-        }
-
-        .email-item.handled {
-            border-left-color: #34a853;
-            background: #f0f9ff;
-        }
-
-        .email-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: start;
-            margin-bottom: 8px;
-        }
-
-        .email-from {
-            font-weight: 600;
-            color: #202124;
-            font-size: 14px;
-        }
-
-        .email-time {
-            font-size: 12px;
-            color: #666;
-        }
-
-        .email-subject {
-            font-size: 15px;
-            color: #202124;
-            margin-bottom: 8px;
-            font-weight: 500;
-        }
-
-        .email-preview {
-            font-size: 13px;
-            color: #666;
-            margin-bottom: 12px;
-            line-height: 1.5;
-        }
-
-        .email-actions {
-            display: flex;
-            gap: 12px;
-        }
-
-        .email-link {
-            display: inline-flex;
-            align-items: center;
-            padding: 6px 12px;
-            background: white;
-            color: #1a73e8;
-            text-decoration: none;
-            border-radius: 6px;
-            font-size: 13px;
-            font-weight: 500;
-            border: 1px solid #1a73e8;
-            transition: all 0.2s;
-        }
-
-        .email-link:hover {
-            background: #1a73e8;
-            color: white;
-        }
-
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 16px;
-            margin-top: 16px;
-        }
-
-        .stat-card {
-            background: #f8f9fa;
-            border-radius: 8px;
-            padding: 16px;
-            text-align: center;
-        }
-
-        .stat-value {
-            font-size: 32px;
-            font-weight: 700;
-            color: #1a73e8;
-            line-height: 1;
-        }
-
-        .stat-label {
-            font-size: 12px;
-            color: #666;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin-top: 4px;
-        }
-
-        .badge {
-            display: inline-block;
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 11px;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .badge-urgent {
-            background: #ea4335;
-            color: white;
-        }
-
-        .badge-pending {
-            background: #fbbc04;
-            color: #202124;
-        }
-
-        .badge-handled {
-            background: #34a853;
-            color: white;
-        }
-
-        .badge-info {
-            background: #4285f4;
-            color: white;
-        }
-
-        .cta-button {
-            display: inline-block;
-            padding: 14px 28px;
-            background: #1a73e8;
-            color: white;
-            text-decoration: none;
-            border-radius: 8px;
-            font-weight: 600;
-            font-size: 16px;
-            text-align: center;
-            margin: 24px auto;
-            display: block;
-            width: fit-content;
-            transition: transform 0.2s, box-shadow 0.2s;
-        }
-
-        .cta-button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(26, 115, 232, 0.3);
-        }
-
-        .insights {
-            background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
-            border-radius: 8px;
-            padding: 16px;
-            margin-top: 16px;
-        }
-
-        .insight-item {
-            display: flex;
-            align-items: start;
-            margin-bottom: 12px;
-        }
-
-        .insight-item:last-child {
-            margin-bottom: 0;
-        }
-
-        .insight-icon {
-            width: 20px;
-            height: 20px;
-            margin-right: 12px;
-            flex-shrink: 0;
-        }
-
-        .cost-breakdown {
-            background: white;
-            border: 1px solid #e0e0e0;
-            border-radius: 8px;
-            padding: 16px;
-            margin-top: 16px;
-        }
-
-        .cost-item {
-            display: flex;
-            justify-content: space-between;
-            padding: 8px 0;
-            border-bottom: 1px solid #f0f0f0;
-        }
-
-        .cost-item:last-child {
-            border-bottom: none;
-            padding-top: 12px;
-            font-weight: 600;
-            font-size: 16px;
-            color: #202124;
-        }
-
-        .footer {
-            background: #f8f9fa;
-            padding: 24px;
-            text-align: center;
-            border-top: 1px solid #e0e0e0;
-        }
-
-        .footer-links {
-            margin-bottom: 16px;
-        }
-
-        .footer-link {
-            color: #1a73e8;
-            text-decoration: none;
-            margin: 0 12px;
-            font-size: 14px;
-            font-weight: 500;
-        }
-
-        .footer-link:hover {
-            text-decoration: underline;
-        }
-
-        .footer-text {
-            font-size: 12px;
-            color: #666;
-            margin-top: 16px;
-        }
-
-        .empty-state {
-            text-align: center;
-            padding: 32px;
-            color: #666;
-        }
-
-        .empty-state-icon {
-            font-size: 48px;
-            margin-bottom: 16px;
-        }
-
-        @media only screen and (max-width: 600px) {
-            .container {
-                border-radius: 0;
-            }
-
-            .stats-grid {
-                grid-template-columns: 1fr;
-            }
-
-            .email-header {
-                flex-direction: column;
-            }
-
-            .email-actions {
-                flex-direction: column;
-            }
-
-            .email-link {
-                width: 100%;
-                text-align: center;
-            }
-        }
-    </style>
+    /* Mobile Responsive */
+    @media only screen and (max-width: 600px) {
+      .container { width: 100% !important; padding: 12px !important; }
+      .stat-cell { display: block !important; width: 100% !important; padding: 8px 0 !important; }
+      .stat-table { margin-bottom: 8px !important; }
+      .action-cell { display: block !important; width: 100% !important; margin-bottom: 8px !important; padding: 0 !important; }
+      .action-button { width: 100% !important; text-align: center !important; }
+      .hide-mobile { display: none !important; }
+      .stack-mobile { display: block !important; width: 100% !important; }
+      .mobile-padding { padding: 16px !important; }
+      .mobile-text-center { text-align: center !important; }
+      .email-item-table { margin-bottom: 16px !important; }
+    }
+  </style>
 </head>
-<body>
-    <div class="wrapper">
-        <div class="container">
-            <div class="header">
-                <h1>End of Day Report</h1>
-                <p>Your daily email management summary</p>
-            </div>
+<body style="margin: 0; padding: 0; background-color: #f1f5f9;">
+  <!-- Wrapper -->
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color: #f1f5f9;">
+    <tr>
+      <td align="center" style="padding: 24px 16px;">
+        <!-- Container -->
+        <table role="presentation" class="container" width="600" cellspacing="0" cellpadding="0" border="0" style="background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06);">
+          <!-- Header -->
+          <tr>
+            <td style="background: linear-gradient(135deg, #0891b2 0%, #0e7490 100%); padding: 32px 24px; text-align: center;">
+              <h1 style="margin: 0 0 8px 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 24px; font-weight: 700; color: #ffffff; letter-spacing: -0.5px;">
+                End of Day Report
+              </h1>
+              <p style="margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 14px; color: rgba(255,255,255,0.9);">
+                Your daily email management summary
+              </p>
+            </td>
+          </tr>
 
-            <div class="content">
-                
-      <div class="section">
-        <h2 class="section-title">📊 Today's Summary</h2>
-        <div class="stats-grid">
-          <div class="stat-card">
-            <div class="stat-value" style="color: #1a73e8;">47</div>
-            <div class="stat-label">Emails Processed</div>
+          <!-- Content -->
+          <tr>
+            <td class="mobile-padding" style="padding: 24px;">
+              
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-bottom: 24px;">
+        <tr>
+          
+      <td class="stat-cell" width="25%" style="padding: 8px; vertical-align: top;">
+        <table role="presentation" class="stat-table" width="100%" cellspacing="0" cellpadding="0" border="0" style="background: #f1f5f9; border-radius: 8px;">
+          <tr>
+            <td style="padding: 16px; text-align: center;">
+              <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 32px; font-weight: 700; color: #0891b2; line-height: 1;">
+                47
+              </div>
+              <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #475569; margin-top: 4px;">
+                Processed
+              </div>
+              
+                <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 10px; color: #059669; margin-top: 4px;">
+                  &#9650; 12%
+                </div>
+              
+            </td>
+          </tr>
+        </table>
+      </td>
+    
+      <td class="stat-cell" width="25%" style="padding: 8px; vertical-align: top;">
+        <table role="presentation" class="stat-table" width="100%" cellspacing="0" cellpadding="0" border="0" style="background: #f1f5f9; border-radius: 8px;">
+          <tr>
+            <td style="padding: 16px; text-align: center;">
+              <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 32px; font-weight: 700; color: #dc2626; line-height: 1;">
+                3
+              </div>
+              <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #475569; margin-top: 4px;">
+                Escalated
+              </div>
+              
+            </td>
+          </tr>
+        </table>
+      </td>
+    
+      <td class="stat-cell" width="25%" style="padding: 8px; vertical-align: top;">
+        <table role="presentation" class="stat-table" width="100%" cellspacing="0" cellpadding="0" border="0" style="background: #f1f5f9; border-radius: 8px;">
+          <tr>
+            <td style="padding: 16px; text-align: center;">
+              <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 32px; font-weight: 700; color: #059669; line-height: 1;">
+                28
+              </div>
+              <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #475569; margin-top: 4px;">
+                Handled
+              </div>
+              
+            </td>
+          </tr>
+        </table>
+      </td>
+    
+      <td class="stat-cell" width="25%" style="padding: 8px; vertical-align: top;">
+        <table role="presentation" class="stat-table" width="100%" cellspacing="0" cellpadding="0" border="0" style="background: #f1f5f9; border-radius: 8px;">
+          <tr>
+            <td style="padding: 16px; text-align: center;">
+              <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 32px; font-weight: 700; color: #d97706; line-height: 1;">
+                8
+              </div>
+              <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #475569; margin-top: 4px;">
+                Drafts
+              </div>
+              
+            </td>
+          </tr>
+        </table>
+      </td>
+    
+        </tr>
+      </table>
+    
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-bottom: 24px;">
+        <tr>
+          <td>
+            <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 12px; font-weight: 600; color: #0f172a; margin-bottom: 8px;">
+              Email Processing Breakdown
+            </div>
+            <!-- Stacked bar -->
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="border-radius: 4px; overflow: hidden;">
+              <tr>
+                <td width="6%" style="background: #dc2626; height: 24px;"></td>
+                <td width="60%" style="background: #059669; height: 24px;"></td>
+                <td width="17%" style="background: #d97706; height: 24px;"></td>
+                <td width="17%" style="background: #475569; height: 24px;"></td>
+              </tr>
+            </table>
+            <!-- Legend -->
+            <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin-top: 8px;">
+              <tr>
+                <td style="padding-right: 16px;">
+                  <span style="display: inline-block; width: 10px; height: 10px; background: #dc2626; border-radius: 2px; margin-right: 4px; vertical-align: middle;"></span>
+                  <span style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 11px; color: #475569; vertical-align: middle;">Escalated (3)</span>
+                </td>
+                <td style="padding-right: 16px;">
+                  <span style="display: inline-block; width: 10px; height: 10px; background: #059669; border-radius: 2px; margin-right: 4px; vertical-align: middle;"></span>
+                  <span style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 11px; color: #475569; vertical-align: middle;">Handled (28)</span>
+                </td>
+                <td style="padding-right: 16px;">
+                  <span style="display: inline-block; width: 10px; height: 10px; background: #d97706; border-radius: 2px; margin-right: 4px; vertical-align: middle;"></span>
+                  <span style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 11px; color: #475569; vertical-align: middle;">Drafts (8)</span>
+                </td>
+                <td>
+                  <span style="display: inline-block; width: 10px; height: 10px; background: #475569; border-radius: 2px; margin-right: 4px; vertical-align: middle;"></span>
+                  <span style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 11px; color: #475569; vertical-align: middle;">Flagged (8)</span>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+      </table>
+    
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-bottom: 24px;">
+        <tr>
+          <td>
+            <h2 style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 16px; font-weight: 600; color: #0f172a; margin: 0 0 16px 0; padding-bottom: 8px; border-bottom: 2px solid #f1f5f9;">
+              &#128221; Today's Actions
+            </h2>
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+              <tr style="background: #f1f5f9;">
+                <th style="padding: 10px 8px; text-align: left; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 11px; font-weight: 600; text-transform: uppercase; color: #475569;">Time</th>
+                <th style="padding: 10px 8px; text-align: left; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 11px; font-weight: 600; text-transform: uppercase; color: #475569;">Email</th>
+                <th style="padding: 10px 8px; text-align: left; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 11px; font-weight: 600; text-transform: uppercase; color: #475569;">Action</th>
+                <th style="padding: 10px 8px; text-align: center; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 11px; font-weight: 600; text-transform: uppercase; color: #475569;">Link</th>
+              </tr>
+              
+        <tr>
+          <td style="padding: 10px 8px; border-bottom: 1px solid #e2e8f0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 12px; color: #475569;">
+            1h ago
+          </td>
+          <td style="padding: 10px 8px; border-bottom: 1px solid #e2e8f0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 13px; color: #0f172a;">
+            Q4 Revenue Report - Action Required
+          </td>
+          <td style="padding: 10px 8px; border-bottom: 1px solid #e2e8f0;">
+            <span style="display: inline-block; background: #fef2f2; color: #dc2626; padding: 2px 8px; border-radius: 4px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 10px; font-weight: 600; text-transform: uppercase;">
+              escalated
+            </span>
+          </td>
+          <td style="padding: 10px 8px; border-bottom: 1px solid #e2e8f0; text-align: center;">
+            <a href="https://mail.google.com/mail/u/0/#inbox/18c4a2b3d4e5f6a7" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 13px; color: #0891b2; text-decoration: none;">View</a>
+          </td>
+        </tr>
+      
+        <tr>
+          <td style="padding: 10px 8px; border-bottom: 1px solid #e2e8f0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 12px; color: #475569;">
+            2h ago
+          </td>
+          <td style="padding: 10px 8px; border-bottom: 1px solid #e2e8f0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 13px; color: #0f172a;">
+            Meeting reschedule request
+          </td>
+          <td style="padding: 10px 8px; border-bottom: 1px solid #e2e8f0;">
+            <span style="display: inline-block; background: #ecfdf5; color: #059669; padding: 2px 8px; border-radius: 4px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 10px; font-weight: 600; text-transform: uppercase;">
+              handled
+            </span>
+          </td>
+          <td style="padding: 10px 8px; border-bottom: 1px solid #e2e8f0; text-align: center;">
+            <a href="https://mail.google.com/mail/u/0/#inbox/18c4a2b3d4e5f6a8" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 13px; color: #0891b2; text-decoration: none;">View</a>
+          </td>
+        </tr>
+      
+        <tr>
+          <td style="padding: 10px 8px; border-bottom: 1px solid #e2e8f0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 12px; color: #475569;">
+            3h ago
+          </td>
+          <td style="padding: 10px 8px; border-bottom: 1px solid #e2e8f0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 13px; color: #0f172a;">
+            Partnership proposal from TechCorp
+          </td>
+          <td style="padding: 10px 8px; border-bottom: 1px solid #e2e8f0;">
+            <span style="display: inline-block; background: #fffbeb; color: #d97706; padding: 2px 8px; border-radius: 4px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 10px; font-weight: 600; text-transform: uppercase;">
+              drafted
+            </span>
+          </td>
+          <td style="padding: 10px 8px; border-bottom: 1px solid #e2e8f0; text-align: center;">
+            <a href="https://mail.google.com/mail/u/0/#inbox/18c4a2b3d4e5f6a9" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 13px; color: #0891b2; text-decoration: none;">View</a>
+          </td>
+        </tr>
+      
+        <tr>
+          <td style="padding: 10px 8px; border-bottom: 1px solid #e2e8f0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 12px; color: #475569;">
+            4h ago
+          </td>
+          <td style="padding: 10px 8px; border-bottom: 1px solid #e2e8f0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 13px; color: #0f172a;">
+            Invoice #4521 - Payment Received
+          </td>
+          <td style="padding: 10px 8px; border-bottom: 1px solid #e2e8f0;">
+            <span style="display: inline-block; background: #eff6ff; color: #2563eb; padding: 2px 8px; border-radius: 4px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 10px; font-weight: 600; text-transform: uppercase;">
+              archived
+            </span>
+          </td>
+          <td style="padding: 10px 8px; border-bottom: 1px solid #e2e8f0; text-align: center;">
+            <a href="https://mail.google.com/mail/u/0/#inbox/18c4a2b3d4e5f6b0" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 13px; color: #0891b2; text-decoration: none;">View</a>
+          </td>
+        </tr>
+      
+        <tr>
+          <td style="padding: 10px 8px; border-bottom: 1px solid #e2e8f0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 12px; color: #475569;">
+            5h ago
+          </td>
+          <td style="padding: 10px 8px; border-bottom: 1px solid #e2e8f0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 13px; color: #0f172a;">
+            Re: Project timeline update
+          </td>
+          <td style="padding: 10px 8px; border-bottom: 1px solid #e2e8f0;">
+            <span style="display: inline-block; background: #ecfdf5; color: #059669; padding: 2px 8px; border-radius: 4px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 10px; font-weight: 600; text-transform: uppercase;">
+              handled
+            </span>
+          </td>
+          <td style="padding: 10px 8px; border-bottom: 1px solid #e2e8f0; text-align: center;">
+            <a href="https://mail.google.com/mail/u/0/#inbox/18c4a2b3d4e5f6b1" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 13px; color: #0891b2; text-decoration: none;">View</a>
+          </td>
+        </tr>
+      
+        <tr>
+          <td style="padding: 10px 8px; border-bottom: 1px solid #e2e8f0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 12px; color: #475569;">
+            6h ago
+          </td>
+          <td style="padding: 10px 8px; border-bottom: 1px solid #e2e8f0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 13px; color: #0f172a;">
+            URGENT: Server outage notification
+          </td>
+          <td style="padding: 10px 8px; border-bottom: 1px solid #e2e8f0;">
+            <span style="display: inline-block; background: #fef2f2; color: #dc2626; padding: 2px 8px; border-radius: 4px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 10px; font-weight: 600; text-transform: uppercase;">
+              escalated
+            </span>
+          </td>
+          <td style="padding: 10px 8px; border-bottom: 1px solid #e2e8f0; text-align: center;">
+            <a href="https://mail.google.com/mail/u/0/#inbox/18c4a2b3d4e5f6b2" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 13px; color: #0891b2; text-decoration: none;">View</a>
+          </td>
+        </tr>
+      
+        <tr>
+          <td style="padding: 10px 8px; border-bottom: 1px solid #e2e8f0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 12px; color: #475569;">
+            7h ago
+          </td>
+          <td style="padding: 10px 8px; border-bottom: 1px solid #e2e8f0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 13px; color: #0f172a;">
+            Weekly team sync notes
+          </td>
+          <td style="padding: 10px 8px; border-bottom: 1px solid #e2e8f0;">
+            <span style="display: inline-block; background: #ecfdf5; color: #059669; padding: 2px 8px; border-radius: 4px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 10px; font-weight: 600; text-transform: uppercase;">
+              handled
+            </span>
+          </td>
+          <td style="padding: 10px 8px; border-bottom: 1px solid #e2e8f0; text-align: center;">
+            <a href="https://mail.google.com/mail/u/0/#inbox/18c4a2b3d4e5f6b3" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 13px; color: #0891b2; text-decoration: none;">View</a>
+          </td>
+        </tr>
+      
+        <tr>
+          <td style="padding: 10px 8px; border-bottom: 1px solid #e2e8f0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 12px; color: #475569;">
+            8h ago
+          </td>
+          <td style="padding: 10px 8px; border-bottom: 1px solid #e2e8f0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 13px; color: #0f172a;">
+            Contract review - ABC Corp
+          </td>
+          <td style="padding: 10px 8px; border-bottom: 1px solid #e2e8f0;">
+            <span style="display: inline-block; background: #fffbeb; color: #d97706; padding: 2px 8px; border-radius: 4px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 10px; font-weight: 600; text-transform: uppercase;">
+              drafted
+            </span>
+          </td>
+          <td style="padding: 10px 8px; border-bottom: 1px solid #e2e8f0; text-align: center;">
+            <a href="https://mail.google.com/mail/u/0/#inbox/18c4a2b3d4e5f6b4" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 13px; color: #0891b2; text-decoration: none;">View</a>
+          </td>
+        </tr>
+      
+            </table>
+            
+          </td>
+        </tr>
+      </table>
+    
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-bottom: 24px;">
+        <tr>
+          <td style="background: #f1f5f9; border-radius: 8px; padding: 16px;">
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+              <tr>
+                <td>
+                  <span style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 14px; font-weight: 600; color: #0f172a;">
+                    &#128176; Daily Cost: $0.13
+                  </span>
+                  <span style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 12px; color: #475569; margin-left: 12px;">
+                    Monthly projection: $3.90
+                  </span>
+                </td>
+                <td style="text-align: right;">
+                  <a href="https://email-assistant.yourdomain.com/dashboard/analytics/costs" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 13px; color: #0891b2; text-decoration: none;">
+                    Details &rarr;
+                  </a>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+      </table>
+    
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-bottom: 24px;">
+        <tr>
+          <td>
+            <h2 style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 16px; font-weight: 600; color: #0f172a; margin: 0 0 16px 0; padding-bottom: 8px; border-bottom: 2px solid #f1f5f9;">
+              &#128197; Pending for Tomorrow (4)
+            </h2>
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+              
+      <tr>
+        <td style="padding: 8px 0; border-bottom: 1px solid #e2e8f0;">
+          <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 13px; font-weight: 500; color: #0f172a;">
+            Follow up: Board presentation feedback
           </div>
-          <div class="stat-card">
-            <div class="stat-value" style="color: #ea4335;">3</div>
-            <div class="stat-label">Escalations</div>
+          <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 12px; color: #475569; margin-top: 2px;">
+            from ceo@company.com
+             &bull; Follow up: Dec 4
           </div>
-          <div class="stat-card">
-            <div class="stat-value" style="color: #34a853;">28</div>
-            <div class="stat-label">Auto-Handled</div>
+        </td>
+      </tr>
+    
+      <tr>
+        <td style="padding: 8px 0; border-bottom: 1px solid #e2e8f0;">
+          <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 13px; font-weight: 500; color: #0f172a;">
+            Re: Budget approval for Q1 initiatives
           </div>
-          <div class="stat-card">
-            <div class="stat-value" style="color: #fbbc04;">8</div>
-            <div class="stat-label">Drafts Created</div>
+          <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 12px; color: #475569; margin-top: 2px;">
+            from finance@company.com
+             &bull; Follow up: Dec 4
           </div>
-        </div>
-        
-        <div style="margin-top: 16px; padding: 12px; background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%); border-radius: 8px; text-align: center;">
-          <span style="font-size: 24px;">🤖</span>
-          <span style="font-weight: 600; color: #202124; margin-left: 8px;">
-            Email Agent processed 5 emails autonomously
+        </td>
+      </tr>
+    
+      <tr>
+        <td style="padding: 8px 0; border-bottom: 1px solid #e2e8f0;">
+          <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 13px; font-weight: 500; color: #0f172a;">
+            Client onboarding - NewClient Inc
+          </div>
+          <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 12px; color: #475569; margin-top: 2px;">
+            from sales@company.com
+            
+          </div>
+        </td>
+      </tr>
+    
+      <tr>
+        <td style="padding: 8px 0; border-bottom: 1px solid #e2e8f0;">
+          <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 13px; font-weight: 500; color: #0f172a;">
+            Performance review scheduling
+          </div>
+          <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 12px; color: #475569; margin-top: 2px;">
+            from hr@company.com
+            
+          </div>
+        </td>
+      </tr>
+    
+            </table>
+            
+          </td>
+        </tr>
+      </table>
+    
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-bottom: 24px;">
+        <tr>
+          <td>
+            <h2 style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 16px; font-weight: 600; color: #0f172a; margin: 0 0 16px 0; padding-bottom: 8px; border-bottom: 2px solid #f1f5f9;">
+              &#128161; Insights & Recommendations
+            </h2>
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border-radius: 8px; padding: 12px;">
+              
+      <tr>
+        <td width="24" style="vertical-align: top; padding: 8px 0;">
+          <span style="font-size: 14px;">&#128200;</span>
+        </td>
+        <td style="vertical-align: top; padding: 8px 0 8px 8px;">
+          <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 13px; color: #0f172a;">
+            Email volume 23% higher than average today. Most emails came between 9-11 AM.
+          </div>
+          
+            <a href="https://email-assistant.yourdomain.com/analytics/patterns" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 12px; color: #0891b2; text-decoration: none;">
+              View patterns &rarr;
+            </a>
+          
+        </td>
+      </tr>
+    
+      <tr>
+        <td width="24" style="vertical-align: top; padding: 8px 0;">
+          <span style="font-size: 14px;">&#9889;</span>
+        </td>
+        <td style="vertical-align: top; padding: 8px 0 8px 8px;">
+          <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 13px; color: #0f172a;">
+            Classification accuracy improved to 94% this week (up from 89%).
+          </div>
+          
+            <a href="https://email-assistant.yourdomain.com/analytics/accuracy" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 12px; color: #0891b2; text-decoration: none;">
+              Review accuracy &rarr;
+            </a>
+          
+        </td>
+      </tr>
+    
+      <tr>
+        <td width="24" style="vertical-align: top; padding: 8px 0;">
+          <span style="font-size: 14px;">&#128176;</span>
+        </td>
+        <td style="vertical-align: top; padding: 8px 0 8px 8px;">
+          <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 13px; color: #0f172a;">
+            Daily cost under budget. Monthly projection: $3.90 (budget: $5.00)
+          </div>
+          
+            <a href="https://email-assistant.yourdomain.com/analytics/costs" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 12px; color: #0891b2; text-decoration: none;">
+              Cost details &rarr;
+            </a>
+          
+        </td>
+      </tr>
+    
+      <tr>
+        <td width="24" style="vertical-align: top; padding: 8px 0;">
+          <span style="font-size: 14px;">&#128161;</span>
+        </td>
+        <td style="vertical-align: top; padding: 8px 0 8px 8px;">
+          <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 13px; color: #0f172a;">
+            Consider adding &quot;sarah.johnson@client.com&quot; to VIP list - 12 emails this week.
+          </div>
+          
+            <a href="https://email-assistant.yourdomain.com/settings/vip" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 12px; color: #0891b2; text-decoration: none;">
+              Manage VIPs &rarr;
+            </a>
+          
+        </td>
+      </tr>
+    
+            </table>
+          </td>
+        </tr>
+      </table>
+    
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-bottom: 24px;">
+        <tr>
+          <td>
+            <h2 style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 16px; font-weight: 600; color: #0f172a; margin: 0 0 16px 0; padding-bottom: 8px; border-bottom: 2px solid #f1f5f9;">
+              &#128101; Top Senders Today
+            </h2>
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+              <tr style="background: #f1f5f9;">
+                <th style="padding: 10px 8px; text-align: left; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 11px; font-weight: 600; text-transform: uppercase; color: #475569;">#</th>
+                <th style="padding: 10px 8px; text-align: left; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 11px; font-weight: 600; text-transform: uppercase; color: #475569;">Sender</th>
+                <th style="padding: 10px 8px; text-align: center; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 11px; font-weight: 600; text-transform: uppercase; color: #475569;">Emails</th>
+                <th style="padding: 10px 8px; text-align: center; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 11px; font-weight: 600; text-transform: uppercase; color: #475569;">Avg Tier</th>
+              </tr>
+              
+      <tr>
+        <td style="padding: 10px 8px; border-bottom: 1px solid #e2e8f0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 13px; color: #475569;">
+          1
+        </td>
+        <td style="padding: 10px 8px; border-bottom: 1px solid #e2e8f0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 13px; color: #0f172a;">
+          team-updates@company.com
+        </td>
+        <td style="padding: 10px 8px; border-bottom: 1px solid #e2e8f0; text-align: center; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 13px; font-weight: 600; color: #0f172a;">
+          8
+        </td>
+        <td style="padding: 10px 8px; border-bottom: 1px solid #e2e8f0; text-align: center;">
+          <span style="display: inline-block; background: #eff6ff; color: #2563eb; padding: 2px 8px; border-radius: 4px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 10px; font-weight: 600;">
+            Tier 4
           </span>
-        </div>
-        
-        
-        <div style="margin-top: 16px; display: flex; justify-content: center; gap: 32px; padding: 12px; background: #f8f9fa; border-radius: 8px;">
-          
-          <div style="text-align: center;">
-            <div style="font-size: 18px; font-weight: 600; color: #1a73e8;">2.3 min</div>
-            <div style="font-size: 12px; color: #666;">Avg Response</div>
-          </div>
-          
-          
-          <div style="text-align: center;">
-            <div style="font-size: 18px; font-weight: 600; color: #34a853;">94%</div>
-            <div style="font-size: 12px; color: #666;">Accuracy</div>
-          </div>
-          
-        </div>
-        
-      </div>
-    
-      <div class="section">
-        <h2 class="section-title">📝 Today's Actions</h2>
-        <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
-          <thead>
-            <tr style="background: #f8f9fa;">
-              <th style="padding: 8px; text-align: left; font-size: 12px; text-transform: uppercase;">Time</th>
-              <th style="padding: 8px; text-align: left; font-size: 12px; text-transform: uppercase;">Email</th>
-              <th style="padding: 8px; text-align: left; font-size: 12px; text-transform: uppercase;">Action</th>
-              <th style="padding: 8px; text-align: center; font-size: 12px; text-transform: uppercase;">Link</th>
-            </tr>
-          </thead>
-          <tbody>
-            
-      <tr>
-        <td style="padding: 8px; border-bottom: 1px solid #f0f0f0; font-size: 12px;">
-          1h ago
-        </td>
-        <td style="padding: 8px; border-bottom: 1px solid #f0f0f0;">
-          Q4 Revenue Report - Action Required
-        </td>
-        <td style="padding: 8px; border-bottom: 1px solid #f0f0f0;">
-          <span class="badge badge-urgent">escalated</span>
-        </td>
-        <td style="padding: 8px; border-bottom: 1px solid #f0f0f0; text-align: center;">
-          <a href="https://mail.google.com/mail/u/0/#inbox/18c4a2b3d4e5f6a7" style="color: #1a73e8;">View</a>
         </td>
       </tr>
     
       <tr>
-        <td style="padding: 8px; border-bottom: 1px solid #f0f0f0; font-size: 12px;">
-          2h ago
+        <td style="padding: 10px 8px; border-bottom: 1px solid #e2e8f0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 13px; color: #475569;">
+          2
         </td>
-        <td style="padding: 8px; border-bottom: 1px solid #f0f0f0;">
-          Meeting reschedule request
+        <td style="padding: 10px 8px; border-bottom: 1px solid #e2e8f0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 13px; color: #0f172a;">
+          sarah.johnson@client.com
         </td>
-        <td style="padding: 8px; border-bottom: 1px solid #f0f0f0;">
-          <span class="badge badge-handled">handled</span>
+        <td style="padding: 10px 8px; border-bottom: 1px solid #e2e8f0; text-align: center; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 13px; font-weight: 600; color: #0f172a;">
+          5
         </td>
-        <td style="padding: 8px; border-bottom: 1px solid #f0f0f0; text-align: center;">
-          <a href="https://mail.google.com/mail/u/0/#inbox/18c4a2b3d4e5f6a8" style="color: #1a73e8;">View</a>
-        </td>
-      </tr>
-    
-      <tr>
-        <td style="padding: 8px; border-bottom: 1px solid #f0f0f0; font-size: 12px;">
-          3h ago
-        </td>
-        <td style="padding: 8px; border-bottom: 1px solid #f0f0f0;">
-          Partnership proposal from TechCorp
-        </td>
-        <td style="padding: 8px; border-bottom: 1px solid #f0f0f0;">
-          <span class="badge badge-pending">drafted</span>
-        </td>
-        <td style="padding: 8px; border-bottom: 1px solid #f0f0f0; text-align: center;">
-          <a href="https://mail.google.com/mail/u/0/#inbox/18c4a2b3d4e5f6a9" style="color: #1a73e8;">View</a>
+        <td style="padding: 10px 8px; border-bottom: 1px solid #e2e8f0; text-align: center;">
+          <span style="display: inline-block; background: #eff6ff; color: #2563eb; padding: 2px 8px; border-radius: 4px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 10px; font-weight: 600;">
+            Tier 2
+          </span>
         </td>
       </tr>
     
       <tr>
-        <td style="padding: 8px; border-bottom: 1px solid #f0f0f0; font-size: 12px;">
-          4h ago
+        <td style="padding: 10px 8px; border-bottom: 1px solid #e2e8f0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 13px; color: #475569;">
+          3
         </td>
-        <td style="padding: 8px; border-bottom: 1px solid #f0f0f0;">
-          Invoice #4521 - Payment Received
+        <td style="padding: 10px 8px; border-bottom: 1px solid #e2e8f0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 13px; color: #0f172a;">
+          alerts@infrastructure.com
         </td>
-        <td style="padding: 8px; border-bottom: 1px solid #f0f0f0;">
-          <span class="badge badge-info">archived</span>
+        <td style="padding: 10px 8px; border-bottom: 1px solid #e2e8f0; text-align: center; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 13px; font-weight: 600; color: #0f172a;">
+          4
         </td>
-        <td style="padding: 8px; border-bottom: 1px solid #f0f0f0; text-align: center;">
-          <a href="https://mail.google.com/mail/u/0/#inbox/18c4a2b3d4e5f6b0" style="color: #1a73e8;">View</a>
-        </td>
-      </tr>
-    
-      <tr>
-        <td style="padding: 8px; border-bottom: 1px solid #f0f0f0; font-size: 12px;">
-          5h ago
-        </td>
-        <td style="padding: 8px; border-bottom: 1px solid #f0f0f0;">
-          Re: Project timeline update
-        </td>
-        <td style="padding: 8px; border-bottom: 1px solid #f0f0f0;">
-          <span class="badge badge-handled">handled</span>
-        </td>
-        <td style="padding: 8px; border-bottom: 1px solid #f0f0f0; text-align: center;">
-          <a href="https://mail.google.com/mail/u/0/#inbox/18c4a2b3d4e5f6b1" style="color: #1a73e8;">View</a>
+        <td style="padding: 10px 8px; border-bottom: 1px solid #e2e8f0; text-align: center;">
+          <span style="display: inline-block; background: #eff6ff; color: #2563eb; padding: 2px 8px; border-radius: 4px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 10px; font-weight: 600;">
+            Tier 1
+          </span>
         </td>
       </tr>
     
       <tr>
-        <td style="padding: 8px; border-bottom: 1px solid #f0f0f0; font-size: 12px;">
-          6h ago
+        <td style="padding: 10px 8px; border-bottom: 1px solid #e2e8f0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 13px; color: #475569;">
+          4
         </td>
-        <td style="padding: 8px; border-bottom: 1px solid #f0f0f0;">
-          URGENT: Server outage notification
+        <td style="padding: 10px 8px; border-bottom: 1px solid #e2e8f0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 13px; color: #0f172a;">
+          hr@company.com
         </td>
-        <td style="padding: 8px; border-bottom: 1px solid #f0f0f0;">
-          <span class="badge badge-urgent">escalated</span>
+        <td style="padding: 10px 8px; border-bottom: 1px solid #e2e8f0; text-align: center; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 13px; font-weight: 600; color: #0f172a;">
+          3
         </td>
-        <td style="padding: 8px; border-bottom: 1px solid #f0f0f0; text-align: center;">
-          <a href="https://mail.google.com/mail/u/0/#inbox/18c4a2b3d4e5f6b2" style="color: #1a73e8;">View</a>
-        </td>
-      </tr>
-    
-      <tr>
-        <td style="padding: 8px; border-bottom: 1px solid #f0f0f0; font-size: 12px;">
-          7h ago
-        </td>
-        <td style="padding: 8px; border-bottom: 1px solid #f0f0f0;">
-          Weekly team sync notes
-        </td>
-        <td style="padding: 8px; border-bottom: 1px solid #f0f0f0;">
-          <span class="badge badge-handled">handled</span>
-        </td>
-        <td style="padding: 8px; border-bottom: 1px solid #f0f0f0; text-align: center;">
-          <a href="https://mail.google.com/mail/u/0/#inbox/18c4a2b3d4e5f6b3" style="color: #1a73e8;">View</a>
+        <td style="padding: 10px 8px; border-bottom: 1px solid #e2e8f0; text-align: center;">
+          <span style="display: inline-block; background: #eff6ff; color: #2563eb; padding: 2px 8px; border-radius: 4px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 10px; font-weight: 600;">
+            Tier 3
+          </span>
         </td>
       </tr>
     
       <tr>
-        <td style="padding: 8px; border-bottom: 1px solid #f0f0f0; font-size: 12px;">
-          8h ago
+        <td style="padding: 10px 8px; border-bottom: 1px solid #e2e8f0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 13px; color: #475569;">
+          5
         </td>
-        <td style="padding: 8px; border-bottom: 1px solid #f0f0f0;">
-          Contract review - ABC Corp
+        <td style="padding: 10px 8px; border-bottom: 1px solid #e2e8f0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 13px; color: #0f172a;">
+          finance@company.com
         </td>
-        <td style="padding: 8px; border-bottom: 1px solid #f0f0f0;">
-          <span class="badge badge-pending">drafted</span>
+        <td style="padding: 10px 8px; border-bottom: 1px solid #e2e8f0; text-align: center; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 13px; font-weight: 600; color: #0f172a;">
+          3
         </td>
-        <td style="padding: 8px; border-bottom: 1px solid #f0f0f0; text-align: center;">
-          <a href="https://mail.google.com/mail/u/0/#inbox/18c4a2b3d4e5f6b4" style="color: #1a73e8;">View</a>
-        </td>
-      </tr>
-    
-          </tbody>
-        </table>
-        
-      </div>
-    
-      <div class="section">
-        <h2 class="section-title">📅 Pending for Tomorrow</h2>
-        <div style="background: #f8f9fa; border-radius: 8px; padding: 16px;">
-          <ul style="margin: 0; padding-left: 20px;">
-            
-              <li style="margin-bottom: 8px;">
-                <strong>Follow up: Board presentation feedback</strong>
-                from ceo@company.com
-                 - Follow up: Dec 3
-              </li>
-            
-              <li style="margin-bottom: 8px;">
-                <strong>Re: Budget approval for Q1 initiatives</strong>
-                from finance@company.com
-                 - Follow up: Dec 3
-              </li>
-            
-              <li style="margin-bottom: 8px;">
-                <strong>Client onboarding - NewClient Inc</strong>
-                from sales@company.com
-                
-              </li>
-            
-              <li style="margin-bottom: 8px;">
-                <strong>Performance review scheduling</strong>
-                from hr@company.com
-                
-              </li>
-            
-          </ul>
-          
-        </div>
-      </div>
-    
-      <div class="section">
-        <h2 class="section-title">💰 Cost Analysis</h2>
-        <div class="cost-breakdown">
-          
-          <div class="cost-item">
-            <span>Claude Processing</span>
-            <span>$0.0847</span>
-          </div>
-          
-          
-          <div class="cost-item">
-            <span>Email Agent (DeepSeek)</span>
-            <span>$0.0234</span>
-          </div>
-          
-          
-          <div class="cost-item">
-            <span>AWS Lambda</span>
-            <span>$0.0012</span>
-          </div>
-          
-          
-          <div class="cost-item">
-            <span>SMS Alerts</span>
-            <span>$0.0225</span>
-          </div>
-          
-          <div class="cost-item">
-            <span>Total Daily Cost</span>
-            <span>$0.13</span>
-          </div>
-        </div>
-        
-        <p style="margin-top: 12px; font-size: 13px; color: #666;">
-          Monthly projection: <strong>$3.90</strong>
-        </p>
-        
-      </div>
-    
-      <div class="section">
-        <h2 class="section-title">💡 Insights & Recommendations</h2>
-        <div class="insights">
-          
-      <div class="insight-item">
-        <span class="insight-icon">📊</span>
-        <div>
-          Email volume 23% higher than average today. Most emails came between 9-11 AM.
-          
-            <br>
-            <a href="https://email-assistant.yourdomain.com/analytics/patterns" style="color: #1a73e8; font-size: 12px;">
-              View patterns →
-            </a>
-          
-        </div>
-      </div>
-    
-      <div class="insight-item">
-        <span class="insight-icon">⚡</span>
-        <div>
-          Classification accuracy improved to 94% this week (up from 89%).
-          
-            <br>
-            <a href="https://email-assistant.yourdomain.com/analytics/accuracy" style="color: #1a73e8; font-size: 12px;">
-              Review accuracy →
-            </a>
-          
-        </div>
-      </div>
-    
-      <div class="insight-item">
-        <span class="insight-icon">💰</span>
-        <div>
-          Daily cost under budget. Monthly projection: $3.90 (budget: $5.00)
-          
-            <br>
-            <a href="https://email-assistant.yourdomain.com/analytics/costs" style="color: #1a73e8; font-size: 12px;">
-              Cost details →
-            </a>
-          
-        </div>
-      </div>
-    
-      <div class="insight-item">
-        <span class="insight-icon">💡</span>
-        <div>
-          Consider adding &quot;sarah.johnson@client.com&quot; to VIP list - 12 emails this week.
-          
-            <br>
-            <a href="https://email-assistant.yourdomain.com/settings/vip" style="color: #1a73e8; font-size: 12px;">
-              Manage VIPs →
-            </a>
-          
-        </div>
-      </div>
-    
-      <div class="insight-item">
-        <span class="insight-icon">✅</span>
-        <div>
-          Email Agent successfully completed 5 autonomous tasks today with 100% success rate.
-          
-        </div>
-      </div>
-    
-        </div>
-      </div>
-    
-      <div class="section">
-        <h2 class="section-title">👥 Top Senders Today</h2>
-        <table style="width: 100%; border-collapse: collapse;">
-          <thead>
-            <tr style="background: #f8f9fa;">
-              <th style="padding: 8px; text-align: left; font-size: 12px; text-transform: uppercase;">#</th>
-              <th style="padding: 8px; text-align: left; font-size: 12px; text-transform: uppercase;">Sender</th>
-              <th style="padding: 8px; text-align: center; font-size: 12px; text-transform: uppercase;">Emails</th>
-              <th style="padding: 8px; text-align: center; font-size: 12px; text-transform: uppercase;">Avg Tier</th>
-            </tr>
-          </thead>
-          <tbody>
-            
-      <tr>
-        <td style="padding: 8px; border-bottom: 1px solid #f0f0f0;">1</td>
-        <td style="padding: 8px; border-bottom: 1px solid #f0f0f0;">team-updates@company.com</td>
-        <td style="padding: 8px; border-bottom: 1px solid #f0f0f0; text-align: center;">8</td>
-        <td style="padding: 8px; border-bottom: 1px solid #f0f0f0; text-align: center;">
-          <span class="badge badge-info">Tier 4</span>
+        <td style="padding: 10px 8px; border-bottom: 1px solid #e2e8f0; text-align: center;">
+          <span style="display: inline-block; background: #eff6ff; color: #2563eb; padding: 2px 8px; border-radius: 4px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 10px; font-weight: 600;">
+            Tier 2
+          </span>
         </td>
       </tr>
     
-      <tr>
-        <td style="padding: 8px; border-bottom: 1px solid #f0f0f0;">2</td>
-        <td style="padding: 8px; border-bottom: 1px solid #f0f0f0;">sarah.johnson@client.com</td>
-        <td style="padding: 8px; border-bottom: 1px solid #f0f0f0; text-align: center;">5</td>
-        <td style="padding: 8px; border-bottom: 1px solid #f0f0f0; text-align: center;">
-          <span class="badge badge-info">Tier 2</span>
-        </td>
-      </tr>
-    
-      <tr>
-        <td style="padding: 8px; border-bottom: 1px solid #f0f0f0;">3</td>
-        <td style="padding: 8px; border-bottom: 1px solid #f0f0f0;">alerts@infrastructure.com</td>
-        <td style="padding: 8px; border-bottom: 1px solid #f0f0f0; text-align: center;">4</td>
-        <td style="padding: 8px; border-bottom: 1px solid #f0f0f0; text-align: center;">
-          <span class="badge badge-info">Tier 1</span>
-        </td>
-      </tr>
-    
-      <tr>
-        <td style="padding: 8px; border-bottom: 1px solid #f0f0f0;">4</td>
-        <td style="padding: 8px; border-bottom: 1px solid #f0f0f0;">hr@company.com</td>
-        <td style="padding: 8px; border-bottom: 1px solid #f0f0f0; text-align: center;">3</td>
-        <td style="padding: 8px; border-bottom: 1px solid #f0f0f0; text-align: center;">
-          <span class="badge badge-info">Tier 3</span>
-        </td>
-      </tr>
-    
-      <tr>
-        <td style="padding: 8px; border-bottom: 1px solid #f0f0f0;">5</td>
-        <td style="padding: 8px; border-bottom: 1px solid #f0f0f0;">finance@company.com</td>
-        <td style="padding: 8px; border-bottom: 1px solid #f0f0f0; text-align: center;">3</td>
-        <td style="padding: 8px; border-bottom: 1px solid #f0f0f0; text-align: center;">
-          <span class="badge badge-info">Tier 2</span>
-        </td>
-      </tr>
-    
-          </tbody>
-        </table>
-      </div>
+            </table>
+          </td>
+        </tr>
+      </table>
     
 
-                
-                <a href="https://email-assistant.yourdomain.com/dashboard/analytics" class="cta-button">
+              
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-top: 24px;">
+        <tr>
+          <td align="center">
+            <table role="presentation" cellspacing="0" cellpadding="0" border="0">
+              <tr>
+                <td style="border-radius: 8px; background: #0891b2;">
+                  <a href="https://email-assistant.yourdomain.com/dashboard/analytics" target="_blank" style="display: inline-block; padding: 14px 28px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 16px; font-weight: 600; color: #ffffff; text-decoration: none; border-radius: 8px;">
                     View Analytics Dashboard
-                </a>
-                
-            </div>
+                  </a>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+      </table>
+    
+            </td>
+          </tr>
 
-            <div class="footer">
-                <div class="footer-links">
-                    <a href="https://email-assistant.yourdomain.com/dashboard" class="footer-link">Dashboard</a>
-                    <a href="https://email-assistant.yourdomain.com/dashboard/settings" class="footer-link">Settings</a>
-                    <a href="https://email-assistant.yourdomain.com/dashboard/analytics" class="footer-link">Analytics</a>
-                    <a href="https://email-assistant.yourdomain.com/dashboard/help" class="footer-link">Help</a>
-                </div>
-                <div class="footer-text">
-                    Powered by Email Assistant AI • 12/2/2025
-                    <br>
-                    <a href="https://email-assistant.yourdomain.com/dashboard/unsubscribe" style="color: #999; font-size: 11px;">Manage Notifications</a>
-                </div>
-            </div>
-        </div>
-    </div>
+          <!-- Footer -->
+          
+      <tr>
+        <td style="background: #f1f5f9; padding: 24px; border-top: 1px solid #e2e8f0;">
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+            <tr>
+              <td align="center">
+                <table role="presentation" cellspacing="0" cellpadding="0" border="0">
+                  <tr>
+                    <td style="padding: 0 12px;">
+                      <a href="https://email-assistant.yourdomain.com/dashboard" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 13px; font-weight: 500; color: #0891b2; text-decoration: none;">Dashboard</a>
+                    </td>
+                    <td style="padding: 0 12px;">
+                      <a href="https://email-assistant.yourdomain.com/dashboard/settings" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 13px; font-weight: 500; color: #0891b2; text-decoration: none;">Settings</a>
+                    </td>
+                    <td style="padding: 0 12px;">
+                      <a href="https://email-assistant.yourdomain.com/dashboard/analytics" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 13px; font-weight: 500; color: #0891b2; text-decoration: none;">Analytics</a>
+                    </td>
+                    <td style="padding: 0 12px;">
+                      <a href="https://email-assistant.yourdomain.com/dashboard/help" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 13px; font-weight: 500; color: #0891b2; text-decoration: none;">Help</a>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+            <tr>
+              <td align="center" style="padding-top: 16px;">
+                <p style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 12px; color: #475569; margin: 0;">
+                  Powered by Email Assistant AI &bull; 12/3/2025
+                </p>
+                <p style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 11px; margin: 8px 0 0 0;">
+                  <a href="https://email-assistant.yourdomain.com/dashboard/unsubscribe" style="color: #475569; text-decoration: underline;">Manage Notifications</a>
+                </p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    
+        </table>
+      </td>
+    </tr>
+  </table>
 </body>
 </html>

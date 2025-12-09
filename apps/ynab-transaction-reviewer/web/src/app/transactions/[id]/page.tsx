@@ -1,6 +1,5 @@
 'use client';
 
-import { use } from 'react';
 import { useTransaction, useCategories, useUpdateTransaction, useApproveTransaction } from '@/hooks/useTransaction';
 import { TransactionEditor } from '@/components/TransactionEditor';
 import { Button } from '@/components/ui/button';
@@ -8,13 +7,11 @@ import { Card, CardContent } from '@/components/ui/card';
 import type { TransactionUpdate } from '@/lib/types';
 import { ArrowLeft, Loader2, AlertCircle, ExternalLink } from 'lucide-react';
 import Link from 'next/link';
+import { useParams } from 'next/navigation';
 
-interface TransactionPageProps {
-  params: Promise<{ id: string }>;
-}
-
-export default function TransactionPage({ params }: TransactionPageProps) {
-  const { id } = use(params);
+export default function TransactionPage() {
+  const params = useParams();
+  const id = params.id as string;
   const { data: transaction, isLoading: txnLoading, error: txnError } = useTransaction(id);
   const { data: categories, isLoading: catLoading } = useCategories();
   const updateMutation = useUpdateTransaction();

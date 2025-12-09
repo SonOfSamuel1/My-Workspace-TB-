@@ -91,6 +91,30 @@ if [ "$setup_gmail" = "y" ]; then
     create_parameter "/amazon-reconciler/gmail-token" "Gmail token (base64 encoded)" true
 fi
 
+# Browserbase credentials (optional)
+echo -e "\n${YELLOW}Browserbase Cloud Browser Setup${NC}"
+echo -e "Browserbase provides cloud-based browser automation for scraping Amazon."
+echo -e "It's recommended for more reliable data extraction than email parsing."
+echo -n "Do you want to set up Browserbase? (y/n): "
+read setup_browserbase
+
+if [ "$setup_browserbase" = "y" ]; then
+    echo -e "\n${YELLOW}Get your API key from: https://www.browserbase.com/settings/api-keys${NC}"
+    create_parameter "/amazon-reconciler/browserbase-api-key" "Browserbase API key" true
+
+    echo -e "\n${YELLOW}Optional: SNS Topic for session expiry notifications${NC}"
+    echo -n "Do you want to set up SNS notifications for session expiry? (y/n): "
+    read setup_sns
+    if [ "$setup_sns" = "y" ]; then
+        create_parameter "/amazon-reconciler/notification-topic-arn" "SNS topic ARN for notifications" false
+    fi
+
+    echo -e "\n${YELLOW}Note: Browserbase session ID will be created when you run:${NC}"
+    echo "python src/browserbase_setup.py --login"
+    echo "Then upload to Parameter Store with:"
+    echo "python src/browserbase_setup.py --upload"
+fi
+
 echo -e "\n${GREEN}================================================${NC}"
 echo -e "${GREEN}Parameter Store Setup Complete!${NC}"
 echo -e "${GREEN}================================================${NC}"

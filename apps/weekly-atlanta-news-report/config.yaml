@@ -1,0 +1,48 @@
+atlanta_news_report:
+  enabled: true
+  schedule: "cron(30 23 ? * FRI *)"  # Friday 11:30pm UTC = 6:30pm EST
+  timezone: "America/New_York"
+
+  feeds:
+    # General News - Major Atlanta TV/News Outlets
+    - name: "11Alive Atlanta"
+      url: "https://www.11alive.com/feeds/syndication/rss/news"
+      category: "general"
+    - name: "WSB-TV Atlanta"
+      url: "https://www.wsbtv.com/arc/outboundfeeds/rss/?outputType=xml"
+      category: "general"
+    - name: "CBS46 Atlanta"
+      url: "https://www.cbs46.com/arc/outboundfeeds/rss/?outputType=xml"
+      category: "general"
+    - name: "Georgia Public Broadcasting"
+      url: "https://www.gpb.org/rss-feeds/news"
+      category: "general"
+
+    # Business & Development
+    - name: "Atlanta Intown"
+      url: "https://atlantaintownpaper.com/feed/"
+      category: "business"
+    - name: "Curbed Atlanta"
+      url: "https://atlanta.curbed.com/rss/index.xml"
+      category: "business"
+
+  report:
+    max_articles: 25
+    min_articles: 15
+    lookback_days: 7
+    deduplicate: true
+    similarity_threshold: 0.7
+    top_stories_count: 7
+
+  email:
+    subject_template: "Atlanta Weekly News Digest - {date}"
+    recipient: "${ATLANTA_NEWS_EMAIL}"
+
+  ses:
+    sender_email: "brandonhome.appdev@gmail.com"
+    region: "us-east-1"
+
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file: "logs/atlanta_news.log"

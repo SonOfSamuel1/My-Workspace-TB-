@@ -142,3 +142,29 @@ class ReportError(ReconcilerException):
 class EmailSendError(ReportError):
     """Raised when sending email report fails."""
     pass
+
+
+# Browserbase Service Errors
+class BrowserbaseError(ReconcilerException):
+    """Raised when Browserbase operations fail."""
+    pass
+
+
+class BrowserbaseSessionError(BrowserbaseError):
+    """Raised when Browserbase session is invalid or cannot be created."""
+    pass
+
+
+class BrowserbaseAuthRequiredError(BrowserbaseSessionError):
+    """Raised when manual re-authentication is required for Amazon."""
+    pass
+
+
+class BrowserbaseNavigationError(BrowserbaseError):
+    """Raised when browser navigation fails."""
+    pass
+
+
+class BrowserbaseExtractionError(BrowserbaseError):
+    """Raised when data extraction from page fails."""
+    pass

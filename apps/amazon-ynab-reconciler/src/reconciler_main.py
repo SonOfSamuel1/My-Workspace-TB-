@@ -269,6 +269,11 @@ def main():
         help='Check downloads folder for Amazon CSV files (highest priority)'
     )
     parser.add_argument(
+        '--use-browserbase',
+        action='store_true',
+        help='Use Browserbase cloud browser to scrape Amazon orders'
+    )
+    parser.add_argument(
         '--use-email',
         action='store_true',
         help='Use Gmail to parse Amazon order confirmation emails'
@@ -313,6 +318,11 @@ def main():
         os.environ['USE_DOWNLOADS'] = 'true'
         os.environ['DOWNLOAD_MONITOR_DIR'] = os.path.expanduser(args.download_dir)
         logger.info(f"Downloads mode enabled - will check {args.download_dir} for Amazon CSV files")
+
+    # Set environment variable for Browserbase mode if requested
+    if args.use_browserbase:
+        os.environ['USE_BROWSERBASE'] = 'true'
+        logger.info("Browserbase mode enabled - will use cloud browser automation")
 
     # Set environment variable for email mode if requested
     if args.use_email:

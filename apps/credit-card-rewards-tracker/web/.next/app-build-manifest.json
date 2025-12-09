@@ -1,0 +1,51 @@
+{
+  "pages": {
+    "/_not-found/page": [
+      "static/chunks/webpack-04c090bf27c652c8.js",
+      "static/chunks/fd9d1056-a84e0dd092467c60.js",
+      "static/chunks/23-62aeb85a83e062d7.js",
+      "static/chunks/main-app-99df9ff0cdaf10c6.js",
+      "static/chunks/app/_not-found/page-1900bbce11c7f203.js"
+    ],
+    "/layout": [
+      "static/chunks/webpack-04c090bf27c652c8.js",
+      "static/chunks/fd9d1056-a84e0dd092467c60.js",
+      "static/chunks/23-62aeb85a83e062d7.js",
+      "static/chunks/main-app-99df9ff0cdaf10c6.js",
+      "static/css/c1398abfc08b85c5.css",
+      "static/chunks/app/layout-ecf039b6a6418f1a.js"
+    ],
+    "/cards/page": [
+      "static/chunks/webpack-04c090bf27c652c8.js",
+      "static/chunks/fd9d1056-a84e0dd092467c60.js",
+      "static/chunks/23-62aeb85a83e062d7.js",
+      "static/chunks/main-app-99df9ff0cdaf10c6.js",
+      "static/chunks/996-d79a892afac7ad49.js",
+      "static/chunks/app/cards/page-205ca9a15fc24cf5.js"
+    ],
+    "/page": [
+      "static/chunks/webpack-04c090bf27c652c8.js",
+      "static/chunks/fd9d1056-a84e0dd092467c60.js",
+      "static/chunks/23-62aeb85a83e062d7.js",
+      "static/chunks/main-app-99df9ff0cdaf10c6.js",
+      "static/chunks/996-d79a892afac7ad49.js",
+      "static/chunks/app/page-a920504f3b3a052d.js"
+    ],
+    "/recommendations/page": [
+      "static/chunks/webpack-04c090bf27c652c8.js",
+      "static/chunks/fd9d1056-a84e0dd092467c60.js",
+      "static/chunks/23-62aeb85a83e062d7.js",
+      "static/chunks/main-app-99df9ff0cdaf10c6.js",
+      "static/chunks/996-d79a892afac7ad49.js",
+      "static/chunks/app/recommendations/page-3298b6cbf0acc8e5.js"
+    ],
+    "/redemptions/page": [
+      "static/chunks/webpack-04c090bf27c652c8.js",
+      "static/chunks/fd9d1056-a84e0dd092467c60.js",
+      "static/chunks/23-62aeb85a83e062d7.js",
+      "static/chunks/main-app-99df9ff0cdaf10c6.js",
+      "static/chunks/996-d79a892afac7ad49.js",
+      "static/chunks/app/redemptions/page-0dadc5cda2c22592.js"
+    ]
+  }
+}

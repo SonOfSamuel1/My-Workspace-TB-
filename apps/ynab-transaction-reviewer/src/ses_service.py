@@ -110,19 +110,13 @@ class SESEmailService:
         Returns:
             True if sent successfully
         """
-        # Determine subject based on transaction counts
-        uncategorized_count = summary_stats.get('total_count', 0)
+        # Determine subject based on unapproved count only
         unapproved_count = summary_stats.get('unapproved_count', 0)
 
-        if uncategorized_count == 0 and unapproved_count == 0:
-            subject = "[YNAB Review] All transactions categorized!"
+        if unapproved_count == 0:
+            subject = "[YNAB Review] All transactions approved!"
         else:
-            parts = []
-            if uncategorized_count > 0:
-                parts.append(f"{uncategorized_count} uncategorized")
-            if unapproved_count > 0:
-                parts.append(f"{unapproved_count} need approval")
-            subject = f"[YNAB Review] {' + '.join(parts)}"
+            subject = f"[YNAB Review] {unapproved_count} transactions need approval"
 
         # Build full HTML email
         html_body = self._build_review_email_html(transactions_html, summary_stats)
@@ -133,8 +127,48 @@ class SESEmailService:
             html_body=html_body
         )
 
+    def _build_monthly_breakdown_html(self, unapproved_by_month: dict) -> str:
+        """Build HTML for monthly breakdown of unapproved transactions"""
+        if not unapproved_by_month:
+            return ""
+
+        # Sort months chronologically
+        months = sorted(
+            unapproved_by_month.keys(),
+            key=lambda x: datetime.strptime(x, '%B %Y')
+        )
+
+        # Build badge HTML for each month with count > 0
+        # Neutral gray styling for all badges
+        badges = []
+        for month in months:
+            count = unapproved_by_month[month]
+            if count > 0:
+                badges.append(f'''
+                    <span style="display: inline-block; background: #e5e7eb; color: #374151; padding: 6px 14px; border-radius: 20px; font-size: 13px; font-weight: 500; margin: 4px;">
+                        {month}: <strong>{count}</strong>
+                    </span>
+                ''')
+
+        if not badges:
+            return ""
+
+        return f'''
+        <div style="background: #f8fafc; border-radius: 12px; padding: 16px; box-shadow: 0 1px 2px rgba(0,0,0,0.03);">
+            <div style="font-size: 11px; color: #64748b; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">By Month</div>
+            <div>
+                {''.join(badges)}
+            </div>
+        </div>
+        '''
+
     def _build_review_email_html(self, transactions_html: str, summary_stats: Dict) -> str:
         """Build complete HTML email for transaction review"""
+        # Build monthly breakdown HTML
+        monthly_breakdown_html = self._build_monthly_breakdown_html(
+            summary_stats.get('unapproved_by_month', {})
+        )
+
         # Get next email time
         tomorrow = datetime.now() + timedelta(days=1)
         if tomorrow.weekday() == 5:  # Saturday
@@ -148,222 +182,82 @@ class SESEmailService:
         <head>
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <style>
-                body {{
-                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-                    line-height: 1.6;
-                    color: #333;
-                    max-width: 800px;
-                    margin: 0 auto;
-                    padding: 20px;
-                    background-color: #f5f5f5;
-                }}
-                .container {{
-                    background-color: white;
-                    border-radius: 8px;
-                    padding: 30px;
-                    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-                }}
-                .header {{
-                    border-bottom: 2px solid #4CAF50;
-                    padding-bottom: 20px;
-                    margin-bottom: 30px;
-                }}
-                h1 {{
-                    color: #2c3e50;
-                    margin: 0;
-                    font-size: 28px;
-                }}
-                .subtitle {{
-                    color: #7f8c8d;
-                    margin-top: 5px;
-                    font-size: 14px;
-                }}
-                .summary {{
-                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                    color: white;
-                    padding: 20px;
-                    border-radius: 8px;
-                    margin-bottom: 30px;
-                }}
-                .summary-grid {{
-                    display: grid;
-                    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-                    gap: 20px;
-                    margin-top: 15px;
-                }}
-                .summary-item {{
-                    text-align: center;
-                }}
-                .summary-value {{
-                    font-size: 24px;
-                    font-weight: bold;
-                }}
-                .summary-label {{
-                    font-size: 12px;
-                    opacity: 0.9;
-                    text-transform: uppercase;
-                }}
-                .transactions-section {{
-                    margin-top: 30px;
-                }}
-                .transaction {{
-                    background: #f8f9fa;
-                    border: 1px solid #dee2e6;
-                    border-radius: 8px;
-                    padding: 20px;
-                    margin-bottom: 20px;
-                }}
-                .transaction-header {{
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: start;
-                    margin-bottom: 10px;
-                }}
-                .transaction-payee {{
-                    font-size: 18px;
-                    font-weight: 600;
-                    color: #2c3e50;
-                }}
-                .transaction-amount {{
-                    font-size: 20px;
-                    font-weight: bold;
-                    color: #e74c3c;
-                }}
-                .transaction-amount.positive {{
-                    color: #27ae60;
-                }}
-                .transaction-details {{
-                    color: #6c757d;
-                    font-size: 14px;
-                    margin: 10px 0;
-                }}
-                .suggestion-box {{
-                    background: white;
-                    border: 1px solid #e0e0e0;
-                    border-radius: 6px;
-                    padding: 15px;
-                    margin: 15px 0;
-                }}
-                .suggestion-header {{
-                    color: #5c6bc0;
-                    font-weight: 600;
-                    margin-bottom: 10px;
-                    display: flex;
-                    align-items: center;
-                }}
-                .suggestion-item {{
-                    padding: 8px 0;
-                    border-bottom: 1px solid #f0f0f0;
-                }}
-                .suggestion-item:last-child {{
-                    border-bottom: none;
-                }}
-                .confidence {{
-                    display: inline-block;
-                    padding: 2px 8px;
-                    border-radius: 4px;
-                    font-size: 12px;
-                    font-weight: 600;
-                    margin-left: 10px;
-                }}
-                .confidence.high {{
-                    background: #c8e6c9;
-                    color: #2e7d32;
-                }}
-                .confidence.medium {{
-                    background: #fff3cd;
-                    color: #856404;
-                }}
-                .confidence.low {{
-                    background: #f8d7da;
-                    color: #721c24;
-                }}
-                .action-buttons {{
-                    margin-top: 15px;
-                    display: flex;
-                    gap: 10px;
-                    flex-wrap: wrap;
-                }}
-                .action-button {{
-                    display: inline-block;
-                    padding: 10px 20px;
-                    background: #4CAF50;
-                    color: white;
-                    text-decoration: none;
-                    border-radius: 5px;
-                    font-size: 14px;
-                    font-weight: 500;
-                }}
-                .action-button:hover {{
-                    background: #45a049;
-                }}
-                .action-button.secondary {{
-                    background: #6c757d;
-                }}
-                .action-button.secondary:hover {{
-                    background: #5a6268;
-                }}
-                .footer {{
-                    margin-top: 40px;
-                    padding-top: 20px;
-                    border-top: 1px solid #e0e0e0;
-                    text-align: center;
-                    color: #6c757d;
-                    font-size: 13px;
-                }}
-                .next-email {{
-                    background: #e3f2fd;
-                    color: #1976d2;
-                    padding: 10px;
-                    border-radius: 5px;
-                    margin-top: 20px;
-                    text-align: center;
-                }}
-            </style>
         </head>
-        <body>
-            <div class="container">
-                <div class="header">
-                    <h1>YNAB Transaction Review</h1>
-                    <div class="subtitle">{datetime.now().strftime('%A, %B %d, %Y')}</div>
-                </div>
+        <body style="margin: 0; padding: 0; background-color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color: #f8fafc;">
+                <tr>
+                    <td align="center" style="padding: 40px 20px;">
+                        <table role="presentation" width="600" cellspacing="0" cellpadding="0" style="background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);">
 
-                <div class="summary">
-                    <h2 style="margin: 0; margin-bottom: 10px;">Summary</h2>
-                    <div class="summary-grid">
-                        <div class="summary-item">
-                            <div class="summary-value">{summary_stats.get('total_count', 0)}</div>
-                            <div class="summary-label">Uncategorized</div>
-                        </div>
-                        <div class="summary-item">
-                            <div class="summary-value" style="color: #ffcc80;">{summary_stats.get('unapproved_count', 0)}</div>
-                            <div class="summary-label">Need Approval</div>
-                        </div>
-                        <div class="summary-item">
-                            <div class="summary-value">{summary_stats.get('accounts_affected', 0)}</div>
-                            <div class="summary-label">Accounts</div>
-                        </div>
-                        <div class="summary-item">
-                            <div class="summary-value">{summary_stats.get('oldest_days', 0)}</div>
-                            <div class="summary-label">Days Old</div>
-                        </div>
-                    </div>
-                </div>
+                            <!-- Header -->
+                            <tr>
+                                <td style="background: linear-gradient(135deg, #1e293b 0%, #334155 100%); padding: 32px 40px;">
+                                    <h1 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: 600; letter-spacing: -0.5px;">YNAB Transaction Review</h1>
+                                    <p style="margin: 6px 0 0 0; color: #94a3b8; font-size: 14px;">{datetime.now().strftime('%A, %B %d, %Y')}</p>
+                                </td>
+                            </tr>
 
-                <div class="transactions-section">
-                    <h2>Transactions Needing Categorization</h2>
-                    {transactions_html}
-                </div>
+                            <!-- Summary Stats -->
+                            <tr>
+                                <td style="padding: 32px 40px 24px 40px;">
+                                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+                                        <tr>
+                                            <td width="33%" align="center" style="padding: 16px 8px;">
+                                                <div style="background: #f3f4f6; border-radius: 12px; padding: 20px 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                                                    <div style="font-size: 36px; font-weight: 700; color: #1f2937; line-height: 1;">{summary_stats.get('unapproved_count', 0)}</div>
+                                                    <div style="font-size: 11px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 8px; font-weight: 600;">Need Approval</div>
+                                                </div>
+                                            </td>
+                                            <td width="33%" align="center" style="padding: 16px 8px;">
+                                                <div style="background: #f3f4f6; border-radius: 12px; padding: 20px 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                                                    <div style="font-size: 36px; font-weight: 700; color: #1f2937; line-height: 1;">{summary_stats.get('oldest_days', 0)}</div>
+                                                    <div style="font-size: 11px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 8px; font-weight: 600;">Days Old</div>
+                                                </div>
+                                            </td>
+                                            <td width="33%" align="center" style="padding: 16px 8px;">
+                                                <div style="background: #f3f4f6; border-radius: 12px; padding: 20px 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                                                    <div style="font-size: 36px; font-weight: 700; color: #1f2937; line-height: 1;">{summary_stats.get('amazon_unapproved_count', 0)}</div>
+                                                    <div style="font-size: 11px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 8px; font-weight: 600;">Amazon</div>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    </table>
+                                </td>
+                            </tr>
 
-                <div class="next-email">
-                    Next email: {next_email}
-                </div>
+                            <!-- Monthly Breakdown -->
+                            <tr>
+                                <td style="padding: 0 40px 24px 40px;">
+                                    {monthly_breakdown_html}
+                                </td>
+                            </tr>
 
-                <div class="footer">
-                    <p>YNAB Transaction Reviewer - Automated Daily at 5 PM (except Saturdays)</p>
-                </div>
-            </div>
+                            <!-- Transactions -->
+                            <tr>
+                                <td style="padding: 0 40px 32px 40px;">
+                                    {transactions_html}
+                                </td>
+                            </tr>
+
+                            <!-- Footer -->
+                            <tr>
+                                <td style="background: #f8fafc; padding: 24px 40px; border-top: 1px solid #e5e7eb;">
+                                    <p style="margin: 0 0 16px 0; text-align: center;">
+                                        <a href="https://app.ynab.com" style="display: inline-block; background: #374151; color: #ffffff; padding: 10px 20px; border-radius: 8px; text-decoration: none; font-size: 14px; font-weight: 500; box-shadow: 0 1px 2px rgba(0,0,0,0.04);">Open YNAB</a>
+                                    </p>
+                                    <p style="margin: 0; color: #64748b; font-size: 13px; text-align: center;">
+                                        Next review: <strong style="color: #475569;">{next_email}</strong>
+                                    </p>
+                                    <p style="margin: 8px 0 0 0; color: #94a3b8; font-size: 12px; text-align: center;">
+                                        Daily at 5 PM (except Saturdays)
+                                    </p>
+                                </td>
+                            </tr>
+
+                        </table>
+                    </td>
+                </tr>
+            </table>
         </body>
         </html>
         """

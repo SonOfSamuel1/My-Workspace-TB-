@@ -1,0 +1,35 @@
+# Environment
+.env
+
+# Credentials
+credentials/
+*.pickle
+*.json
+!config.yaml
+
+# Cache
+cache/
+
+# Logs
+logs/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+.venv/
+ENV/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db

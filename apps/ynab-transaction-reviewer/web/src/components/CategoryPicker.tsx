@@ -81,9 +81,9 @@ export function CategoryPicker({
       </Button>
 
       {isOpen && (
-        <div className="absolute z-50 mt-1 w-full rounded-md border bg-popover shadow-lg">
+        <div className="absolute z-50 mt-1 w-full rounded-md border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-900">
           {/* Search input */}
-          <div className="flex items-center border-b px-3">
+          <div className="flex items-center border-b border-gray-200 bg-white px-3 dark:border-gray-700 dark:bg-gray-900">
             <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
             <input
               type="text"
@@ -96,7 +96,7 @@ export function CategoryPicker({
           </div>
 
           {/* Category list */}
-          <div className="max-h-[300px] overflow-y-auto p-1">
+          <div className="max-h-[300px] overflow-y-auto bg-white p-1 dark:bg-gray-900">
             {filteredCategories.length === 0 ? (
               <p className="py-6 text-center text-sm text-muted-foreground">
                 No categories found.
@@ -120,8 +120,8 @@ export function CategoryPicker({
                           setSearch('');
                         }}
                         className={cn(
-                          'flex w-full cursor-pointer items-center rounded-sm px-2 py-1.5 text-sm hover:bg-accent',
-                          category.id === value && 'bg-accent'
+                          'flex w-full cursor-pointer items-center rounded-sm px-2 py-1.5 text-sm bg-white hover:bg-gray-100 dark:bg-gray-900 dark:hover:bg-gray-800',
+                          category.id === value && 'bg-gray-100 dark:bg-gray-800'
                         )}
                       >
                         <Check

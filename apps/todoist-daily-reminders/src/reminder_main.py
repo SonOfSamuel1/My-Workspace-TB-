@@ -1,7 +1,7 @@
 """Main module for Todoist daily reminders automation.
 
 This module creates reminders at 8am, 11am, 4pm, and 7pm for all tasks
-that are due today and have the @commit label.
+that are due today or overdue and have the @commit label.
 """
 
 import logging
@@ -106,13 +106,13 @@ def process_tasks_and_create_reminders(
     }
 
     try:
-        # Get tasks due today with the @commit label
-        logger.info(f"Fetching tasks due today with @{label_name} label...")
+        # Get tasks due today or overdue with the @commit label
+        logger.info(f"Fetching tasks due today or overdue with @{label_name} label...")
         tasks = service.get_tasks_due_today_with_label(label_name)
         results["tasks_found"] = len(tasks)
 
         if not tasks:
-            logger.info(f"No tasks found due today with @{label_name} label")
+            logger.info(f"No tasks found due today or overdue with @{label_name} label")
             return results
 
         # Get reminder times that are still in the future

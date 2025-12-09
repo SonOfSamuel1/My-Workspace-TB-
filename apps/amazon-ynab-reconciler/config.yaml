@@ -78,6 +78,21 @@ amazon:
     item_link: 'a[href*="/dp/"]'
     next_page: '.a-pagination .a-last:not(.a-disabled)'
 
+  # Browserbase cloud browser automation
+  browserbase:
+    enabled: true
+    # Session persistence settings
+    session_max_age_days: 7  # Re-authenticate after this many days of inactivity
+    # Order extraction settings
+    order_history_pages: 5  # Maximum pages to scrape per run
+    extraction_timeout: 30000  # Milliseconds for extraction operations
+    # Navigation settings
+    wait_between_pages: 2000  # Milliseconds between page navigations
+    max_retries: 3  # Retry attempts on failure
+    # Notification settings
+    notify_on_session_expiry: true
+    notification_topic_arn: null  # Set to SNS topic ARN for alerts
+
 ynab:
   # Budget name to use
   budget_name: "Terrance Brandon's Plan"
@@ -126,6 +141,8 @@ aws:
     amazon_credentials: '/amazon-reconciler/amazon-credentials'
     ynab_api_key: '/amazon-reconciler/ynab-api-key'
     gmail_credentials: '/amazon-reconciler/gmail-credentials'
+    browserbase_session: '/amazon-reconciler/browserbase-session-id'
+    browserbase_api_key: '/amazon-reconciler/browserbase-api-key'
 
   # EventBridge schedule
   schedule:

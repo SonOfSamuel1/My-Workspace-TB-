@@ -1,0 +1,31 @@
+# RSS parsing
+feedparser>=6.0.0
+beautifulsoup4>=4.12.0
+
+# HTTP requests
+requests>=2.31.0
+
+# Date/time handling
+python-dateutil>=2.8.2
+pytz>=2023.3
+
+# Configuration
+PyYAML>=6.0
+python-dotenv>=1.0.0
+
+# HTML templating
+jinja2>=3.1.2
+
+# AWS SDK (SES + Parameter Store)
+boto3>=1.28.0
+
+# Testing
+pytest>=7.4.0
+pytest-cov>=4.1.0
+pytest-mock>=3.11.0
+responses>=0.23.0
+
+# Code quality
+black>=23.0.0
+flake8>=6.0.0
+mypy>=1.0.0

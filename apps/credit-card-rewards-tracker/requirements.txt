@@ -1,0 +1,23 @@
+# Credit Card Rewards Tracker Dependencies
+
+# Configuration
+pyyaml>=6.0
+python-dotenv>=1.0.0
+
+# HTTP requests (for future Plaid integration)
+requests>=2.31.0
+
+# CLI dashboard
+rich>=13.0.0
+
+# Email templating
+jinja2>=3.1.0
+
+# AWS services (SES, Parameter Store, Lambda)
+boto3>=1.28.0
+
+# Timezone handling
+pytz>=2023.3
+
+# Date parsing
+python-dateutil>=2.8.2

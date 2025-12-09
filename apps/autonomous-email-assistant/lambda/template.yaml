@@ -43,9 +43,8 @@ Globals:
   Function:
     Timeout: 600  # 10 minutes (max for Lambda)
     MemorySize: 1024
-    Runtime: nodejs20.x
     Architectures:
-      - x86_64
+      - arm64
 
 Resources:
   EmailAssistantFunction:

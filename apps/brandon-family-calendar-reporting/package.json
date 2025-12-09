@@ -18,12 +18,13 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "googleapis": "^128.0.0",
     "@aws-sdk/client-ses": "^3.645.0",
     "@aws-sdk/client-ssm": "^3.645.0",
+    "googleapis": "^128.0.0",
     "moment-timezone": "^0.5.45"
   },
   "devDependencies": {
-    "dotenv": "^16.4.5"
+    "dotenv": "^16.4.5",
+    "open": "^11.0.0"
   }
 }

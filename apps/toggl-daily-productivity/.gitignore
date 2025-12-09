@@ -1,0 +1,34 @@
+# Environment
+.env
+
+# Logs
+logs/
+*.log
+
+# Cache
+cache/
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Python
+venv/
+.venv/
+ENV/
+*.so
+.Python
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Output
+output/
+*.html

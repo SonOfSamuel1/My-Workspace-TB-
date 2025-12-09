@@ -85,6 +85,26 @@ def load_credentials_from_parameters():
     except:
         logger.info("Amazon email not configured")
 
+    # Load Browserbase credentials
+    try:
+        browserbase_api_key = get_parameter('/amazon-reconciler/browserbase-api-key')
+        os.environ['BROWSERBASE_API_KEY'] = browserbase_api_key
+        logger.info("Browserbase API key loaded")
+    except:
+        logger.info("Browserbase API key not configured")
+
+    # Load Browserbase session ID (enables Browserbase mode if present)
+    try:
+        browserbase_session = get_parameter('/amazon-reconciler/browserbase-session-id')
+        # Parse the JSON to get just the session_id
+        import json as json_module
+        session_data = json_module.loads(browserbase_session)
+        os.environ['BROWSERBASE_SESSION_ID'] = session_data.get('session_id', browserbase_session)
+        os.environ['USE_BROWSERBASE'] = 'true'
+        logger.info("Browserbase session loaded - will use cloud browser automation")
+    except:
+        logger.info("Browserbase session not configured, will use email mode")
+
 
 def load_state_from_s3(bucket: str = None) -> Dict:
     """Load reconciliation state from S3."""
@@ -212,8 +232,12 @@ def lambda_handler(event, context):
         # Load credentials from Parameter Store
         load_credentials_from_parameters()
 
-        # Set email mode as default for Lambda
-        os.environ['USE_EMAIL'] = 'true'
+        # Set data source priority for Lambda
+        # Browserbase takes priority if session is configured (set in load_credentials_from_parameters)
+        # Otherwise, fall back to email mode
+        if not os.environ.get('USE_BROWSERBASE'):
+            os.environ['USE_EMAIL'] = 'true'
+            logger.info("Using email mode for Lambda (no Browserbase session)")
 
         # Load state from S3
         state_bucket = os.environ.get('STATE_BUCKET')

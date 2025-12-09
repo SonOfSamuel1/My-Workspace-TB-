@@ -1,0 +1,74 @@
+# Toggl Daily Productivity Report Configuration
+
+productivity_report:
+  enabled: true
+
+  # Daily goal in minutes (6 hours = 360 minutes)
+  # Saturday has no goal (rest day)
+  daily_goal_minutes: 360
+
+  # Timezone for scheduling
+  timezone: "America/New_York"
+
+  # Schedule (handled by scheduler.py):
+  # - Mon-Fri: 6:00 AM and 7:00 PM
+  # - Saturday: 7:30 PM only
+  # - Sunday: 6:00 AM and 7:00 PM
+
+  # Project Categories
+  # Mapped to your actual Toggl projects
+  categories:
+    personal:
+      # Personal/life projects
+      projects:
+        - "Personal"
+        - "P4 • Personal"
+        - "Cleaning"
+      daily_goal: 60
+
+    w2_job:
+      # Work/W2 job projects
+      projects:
+        - "Active Offer"
+        - "Agentic AE"
+        - "Good Portion"
+      daily_goal: 240
+
+    p1_total:
+      # Priority 1 / Life action plan projects
+      projects:
+        - "Slave myself out • Lay Life Down"
+        - "Action Plan • Love God + Jesus"
+        - "Love Brittany Action Plan"
+        - "Love Children • Action Plan"
+        - "Love God • Action Plan"
+        - "Deep Scripture Study"
+        - "ATL • Christ + Friends"
+        - "ATL: Christ + Friends"
+        - "Grove Park Project"
+        - "Serve the Least of These"
+      daily_goal: 60
+
+  # Email Configuration
+  email:
+    # Recipient email address (can be overridden by REPORT_RECIPIENT env var)
+    recipient: "terrance@goodportion.org"
+
+    # Subject line template
+    # Available variables: {date}, {period}
+    subject_template: "Daily Productivity Report - {date} {period}"
+
+  # AWS SES Configuration
+  ses:
+    # Sender email (must be verified in SES)
+    # Can be overridden by SES_SENDER_EMAIL env var
+    sender_email: "brandonhome.appdev@gmail.com"
+
+    # AWS region for SES
+    # Can be overridden by AWS_REGION env var
+    region: "us-east-1"
+
+  # Logging
+  logging:
+    level: "INFO"
+    file: "logs/productivity.log"

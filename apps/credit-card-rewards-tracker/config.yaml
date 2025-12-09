@@ -1,0 +1,137 @@
+version: "1.0.0"
+name: "Credit Card Rewards Tracker"
+description: "Track and optimize credit card rewards across multiple issuers"
+
+# Rewards Tracker Configuration
+rewards_tracker:
+  # Enable/disable the tracker
+  enabled: true
+
+  # Report schedule
+  schedule:
+    day: "sunday"
+    time: "09:00"
+    timezone: "America/New_York"
+
+  # Email settings
+  email:
+    # Send report to this address (set in .env)
+    recipient: ""
+
+    # Email subject template
+    subject_template: "Weekly Rewards Report - {date}"
+
+    # Sender email (must be verified in SES)
+    sender_email: "brandonhome.appdev@gmail.com"
+
+  # AWS SES Configuration
+  ses:
+    region: "us-east-1"
+
+  # Data storage
+  data:
+    directory: "data"
+    backup_enabled: true
+    backup_retention_days: 90
+
+  # Point valuations (cents per point for each program)
+  # Used for calculating estimated value of rewards
+  point_valuations:
+    chase_ultimate_rewards: 1.5      # Chase portal = 1.25-1.5cpp, transfers can be 2+cpp
+    amex_membership_rewards: 1.0     # Conservative baseline
+    capital_one_miles: 1.0           # 1cpp for travel portal
+    citi_thank_you: 1.0              # 1cpp baseline
+    discover_cashback_bonus: 1.0     # Direct cash back
+    wells_fargo_rewards: 1.0         # 1cpp baseline
+
+  # Alert thresholds
+  alerts:
+    # Days before annual fee to send reminder
+    annual_fee_warning_days: 60
+
+    # Minimum ROI percentage to recommend keeping a card
+    min_acceptable_roi: 100
+
+    # Days before points expire to warn
+    expiring_points_days: 90
+
+    # Warn if redemption is below this cpp value
+    low_redemption_cpp: 1.0
+
+  # Category keywords for automatic categorization
+  categories:
+    dining:
+      - "restaurant"
+      - "chipotle"
+      - "starbucks"
+      - "mcdonalds"
+      - "doordash"
+      - "uber eats"
+      - "grubhub"
+    groceries:
+      - "kroger"
+      - "publix"
+      - "whole foods"
+      - "trader joe"
+      - "aldi"
+      - "costco"
+      - "walmart grocery"
+    gas:
+      - "shell"
+      - "exxon"
+      - "chevron"
+      - "bp"
+      - "costco gas"
+      - "sams club fuel"
+    travel:
+      - "airline"
+      - "hotel"
+      - "airbnb"
+      - "amtrak"
+      - "uber"
+      - "lyft"
+      - "delta"
+      - "united"
+      - "southwest"
+      - "marriott"
+      - "hilton"
+    streaming:
+      - "netflix"
+      - "spotify"
+      - "hulu"
+      - "disney+"
+      - "hbo"
+      - "apple tv"
+    utilities:
+      - "electric"
+      - "gas bill"
+      - "water"
+      - "internet"
+      - "phone"
+
+  # Dashboard settings
+  dashboard:
+    # Number of recent redemptions to show
+    recent_redemptions_count: 10
+
+    # Show cents per point in displays
+    show_cpp: true
+
+    # Default view when opening dashboard
+    default_view: "balances"
+
+# AWS Lambda settings (for scheduled reports)
+aws:
+  region: "us-east-1"
+  lambda_function_name: "credit-card-rewards-tracker"
+  parameter_store_prefix: "/rewards-tracker/"
+  # Sunday 9 AM ET = 14:00 UTC
+  eventbridge_schedule: "cron(0 14 ? * SUN *)"
+
+# Logging configuration
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file: "logs/rewards_tracker.log"
+  max_bytes: 10485760  # 10MB
+  backup_count: 5

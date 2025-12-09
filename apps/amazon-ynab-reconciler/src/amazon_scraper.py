@@ -120,7 +120,43 @@ class AmazonScraper:
                 logger.info("Falling back to email mode if available")
                 # Fall through to email mode
 
-        # Check if we should use email mode (second priority)
+        # Check if we should use Browserbase mode (second priority after downloads)
+        use_browserbase = os.getenv('USE_BROWSERBASE', 'false').lower() == 'true'
+        if use_browserbase:
+            logger.info("Using Browserbase mode to fetch Amazon transactions")
+            from amazon_browserbase_scraper import AmazonBrowserbaseScraper
+            from exceptions import BrowserbaseAuthRequiredError, BrowserbaseError
+
+            try:
+                browserbase_config = self.config.get('browserbase', {})
+                scraper = AmazonBrowserbaseScraper(browserbase_config)
+                transactions = scraper.get_transactions(start_date, end_date)
+
+                if transactions:
+                    logger.info(f"Scraped {len(transactions)} transactions via Browserbase")
+                    return transactions
+                else:
+                    logger.info("No transactions found via Browserbase, falling back to email")
+                    # Fall through to email mode
+
+            except BrowserbaseAuthRequiredError as e:
+                logger.warning(f"Browserbase session expired: {e}")
+                logger.info("Manual re-authentication required. Falling back to email mode.")
+                # Send notification about expired session
+                self._notify_browserbase_session_expired(str(e))
+                # Fall through to email mode
+
+            except BrowserbaseError as e:
+                logger.error(f"Browserbase mode failed: {e}")
+                logger.info("Falling back to email mode if available")
+                # Fall through to email mode
+
+            except Exception as e:
+                logger.error(f"Unexpected Browserbase error: {e}")
+                logger.info("Falling back to email mode if available")
+                # Fall through to email mode
+
+        # Check if we should use email mode (third priority)
         use_email = os.getenv('USE_EMAIL', 'false').lower() == 'true'
         if use_email:
             logger.info("Using email mode to fetch Amazon transactions")
@@ -333,6 +369,46 @@ class AmazonScraper:
         """Clean up browser resources."""
         logger.info("Closing Amazon scraper")
         # Would close Playwright browser here
+
+    def _notify_browserbase_session_expired(self, error_details: str):
+        """
+        Send notification when Browserbase Amazon session expires.
+
+        Uses SNS if configured, otherwise just logs.
+
+        Args:
+            error_details: Error message with details
+        """
+        topic_arn = os.getenv('NOTIFICATION_TOPIC_ARN') or \
+                    self.config.get('browserbase', {}).get('notification_topic_arn')
+
+        message = f"""
+Your Amazon Browserbase session has expired.
+
+Error: {error_details}
+
+To restore automated scraping:
+1. Run locally: python src/browserbase_setup.py --login
+2. Complete Amazon login in the browser window
+3. Session will be automatically saved to Parameter Store
+
+The system has fallen back to email parsing mode for this run.
+        """.strip()
+
+        if topic_arn:
+            try:
+                import boto3
+                sns = boto3.client('sns', region_name=os.environ.get('AWS_REGION', 'us-east-1'))
+                sns.publish(
+                    TopicArn=topic_arn,
+                    Subject='[Amazon-YNAB] Browserbase Session Expired - Action Required',
+                    Message=message
+                )
+                logger.info("Session expiry notification sent via SNS")
+            except Exception as e:
+                logger.warning(f"Failed to send SNS notification: {e}")
+        else:
+            logger.warning("No notification topic configured for session expiry alerts")
 
 
 # Utility functions for date parsing

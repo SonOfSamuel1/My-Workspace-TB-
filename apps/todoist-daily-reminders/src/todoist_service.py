@@ -33,7 +33,7 @@ class TodoistService:
         }
 
     def get_tasks_due_today_with_label(self, label_name: str) -> List[Dict[str, Any]]:
-        """Get all tasks due today that have a specific label.
+        """Get all tasks due today or overdue that have a specific label.
 
         Args:
             label_name: The label name to filter by (without @)
@@ -41,9 +41,9 @@ class TodoistService:
         Returns:
             List of task dictionaries matching the criteria
         """
-        # Use Todoist filter syntax to get tasks due today with the label
-        # The filter combines "today" (due today) with the label
-        filter_query = f"today & @{label_name}"
+        # Use Todoist filter syntax to get tasks due today OR overdue with the label
+        # The filter combines "today | overdue" (due today or past due) with the label
+        filter_query = f"(today | overdue) & @{label_name}"
 
         try:
             response = requests.get(
@@ -54,7 +54,7 @@ class TodoistService:
             response.raise_for_status()
             tasks = response.json()
 
-            logger.info(f"Found {len(tasks)} tasks due today with @{label_name} label")
+            logger.info(f"Found {len(tasks)} tasks due today or overdue with @{label_name} label")
             return tasks
 
         except requests.exceptions.RequestException as e:

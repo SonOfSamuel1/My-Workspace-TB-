@@ -15,13 +15,23 @@ async function testLocal() {
 
   // Verify environment variables
   const requiredVars = [
-    'GOOGLE_CLIENT_EMAIL',
-    'GOOGLE_PRIVATE_KEY',
     'UNIQUE_EVENTS_CALENDAR_ID',
     'BIRTHDAYS_ANNIVERSARIES_CALENDAR_ID',
     'EMAIL_TO',
     'EMAIL_FROM'
   ];
+
+  // Check for either service account OR OAuth file credentials
+  const hasServiceAccount = process.env.GOOGLE_CLIENT_EMAIL && process.env.GOOGLE_PRIVATE_KEY;
+  const hasOAuthFiles = process.env.GOOGLE_CREDENTIALS_PATH && process.env.GOOGLE_TOKEN_PATH;
+
+  if (!hasServiceAccount && !hasOAuthFiles) {
+    console.error('❌ Missing Google credentials. Set either:');
+    console.error('   Option 1: GOOGLE_CLIENT_EMAIL and GOOGLE_PRIVATE_KEY (service account)');
+    console.error('   Option 2: GOOGLE_CREDENTIALS_PATH and GOOGLE_TOKEN_PATH (OAuth files)');
+    console.error('\nRun "node authorize.js" to set up OAuth credentials');
+    process.exit(1);
+  }
 
   const missing = requiredVars.filter(v => !process.env[v]);
   if (missing.length > 0) {
@@ -34,7 +44,11 @@ async function testLocal() {
   console.log('✓ Environment variables loaded');
   console.log(`✓ Email will be sent to: ${process.env.EMAIL_TO}`);
   console.log(`✓ Email will be sent from: ${process.env.EMAIL_FROM}`);
-  console.log('✓ Google credentials found\n');
+  if (hasServiceAccount) {
+    console.log('✓ Using Service Account credentials');
+  } else {
+    console.log('✓ Using OAuth credentials from files');
+  }
 
   console.log('Invoking Lambda handler...\n');
 

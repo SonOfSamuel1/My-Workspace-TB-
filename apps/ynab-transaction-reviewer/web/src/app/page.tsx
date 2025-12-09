@@ -20,16 +20,11 @@ import {
 const BUDGET_ID = '2a373a3b-bc29-46f0-92ab-008f3b0221a9';
 
 async function fetchTransactions(): Promise<{
-  uncategorized: Transaction[];
   unapproved: Transaction[];
 }> {
-  // Get transactions from the last 30 days
-  const sinceDate = new Date();
-  sinceDate.setDate(sinceDate.getDate() - 30);
-  const dateStr = sinceDate.toISOString().split('T')[0];
-
+  // Get all unapproved transactions
   const response = await fetch(
-    `/api/ynab/budgets/${BUDGET_ID}/transactions?since_date=${dateStr}`
+    `/api/ynab/budgets/${BUDGET_ID}/transactions?type=unapproved`
   );
   if (!response.ok) {
     throw new Error('Failed to fetch transactions');
@@ -37,9 +32,12 @@ async function fetchTransactions(): Promise<{
   const data = await response.json();
   const transactions: Transaction[] = data.data.transactions;
 
+  // Sort by date descending (most recent first)
+  const sortByDateDesc = (a: Transaction, b: Transaction) =>
+    new Date(b.date).getTime() - new Date(a.date).getTime();
+
   return {
-    uncategorized: transactions.filter((t) => !t.category_id),
-    unapproved: transactions.filter((t) => !t.approved && t.category_id),
+    unapproved: transactions.sort(sortByDateDesc),
   };
 }
 
@@ -106,7 +104,7 @@ export default function HomePage() {
     );
   }
 
-  const { uncategorized = [], unapproved = [] } = data || {};
+  const { unapproved = [] } = data || {};
 
   return (
     <div className="min-h-screen bg-muted/30 py-8 px-4">
@@ -114,9 +112,9 @@ export default function HomePage() {
         {/* Header */}
         <div className="mb-8 flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold">YNAB Transaction Manager</h1>
+            <h1 className="text-2xl font-bold">YNAB Transaction Reviewer</h1>
             <p className="text-muted-foreground">
-              Review and categorize your transactions
+              Review and approve your transactions
             </p>
           </div>
           <Button
@@ -131,34 +129,21 @@ export default function HomePage() {
           </Button>
         </div>
 
-        {/* Summary cards */}
-        <div className="grid grid-cols-2 gap-4 mb-8">
-          <Card>
-            <CardContent className="flex items-center gap-4 p-4">
-              <div className="rounded-full bg-amber-100 p-3 dark:bg-amber-900">
-                <AlertCircle className="h-6 w-6 text-amber-600 dark:text-amber-400" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{uncategorized.length}</p>
-                <p className="text-sm text-muted-foreground">Uncategorized</p>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="flex items-center gap-4 p-4">
-              <div className="rounded-full bg-blue-100 p-3 dark:bg-blue-900">
-                <Clock className="h-6 w-6 text-blue-600 dark:text-blue-400" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{unapproved.length}</p>
-                <p className="text-sm text-muted-foreground">Need Approval</p>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+        {/* Summary card */}
+        <Card className="mb-8">
+          <CardContent className="flex items-center gap-4 p-4">
+            <div className="rounded-full bg-blue-100 p-3 dark:bg-blue-900">
+              <Clock className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold">{unapproved.length}</p>
+              <p className="text-sm text-muted-foreground">Transactions Need Approval</p>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* All caught up state */}
-        {uncategorized.length === 0 && unapproved.length === 0 && (
+        {unapproved.length === 0 && (
           <Card>
             <CardContent className="flex flex-col items-center gap-4 py-12">
               <CheckCircle className="h-16 w-16 text-green-500" />
@@ -172,26 +157,6 @@ export default function HomePage() {
           </Card>
         )}
 
-        {/* Uncategorized transactions */}
-        {uncategorized.length > 0 && (
-          <div className="mb-8">
-            <div className="flex items-center gap-2 mb-4">
-              <h2 className="text-lg font-semibold">Uncategorized</h2>
-              <Badge variant="warning">{uncategorized.length}</Badge>
-            </div>
-            <div className="space-y-2">
-              {uncategorized.slice(0, 10).map((txn) => (
-                <TransactionCard key={txn.id} transaction={txn} />
-              ))}
-              {uncategorized.length > 10 && (
-                <p className="text-center text-sm text-muted-foreground py-2">
-                  And {uncategorized.length - 10} more...
-                </p>
-              )}
-            </div>
-          </div>
-        )}
-
         {/* Unapproved transactions */}
         {unapproved.length > 0 && (
           <div>
@@ -200,14 +165,9 @@ export default function HomePage() {
               <Badge variant="info">{unapproved.length}</Badge>
             </div>
             <div className="space-y-2">
-              {unapproved.slice(0, 10).map((txn) => (
+              {unapproved.map((txn) => (
                 <TransactionCard key={txn.id} transaction={txn} />
               ))}
-              {unapproved.length > 10 && (
-                <p className="text-center text-sm text-muted-foreground py-2">
-                  And {unapproved.length - 10} more...
-                </p>
-              )}
             </div>
           </div>
         )}

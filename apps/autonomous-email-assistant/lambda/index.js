@@ -24,8 +24,8 @@ const { EmailAssistantError, ErrorCodes, handleError } = require('./lib/error-ha
 const { selectModel, analyzeEmailComplexity } = require('./lib/model-router');
 
 // HTML email generation and sending
-const EmailSummaryGenerator = require('../lib/email-summary-generator');
-const SESEmailSender = require('../lib/ses-email-sender');
+const EmailSummaryGenerator = require('./lib/email-summary-generator');
+const SESEmailSender = require('./lib/ses-email-sender');
 
 const writeFile = promisify(fs.writeFile);
 const mkdir = promisify(fs.mkdir);
@@ -602,12 +602,12 @@ exports.handler = async (event, context) => {
     contextLogger.info('Step 1: Validating environment');
     validateEnvironment();
 
-    // Step 2: Get execution mode
-    const mode = getExecutionMode();
+    // Step 2: Get execution mode (can be overridden via event.testMode)
+    const mode = event.testMode || getExecutionMode();
     const estDate = new Date().toLocaleString("en-US", { timeZone: "America/New_York" });
     const hour = new Date(estDate).getHours();
 
-    contextLogger.info('Step 2: Determined execution mode', { mode, hour });
+    contextLogger.info('Step 2: Determined execution mode', { mode, hour, overridden: !!event.testMode });
     validateExecutionMode(mode);
 
     // Step 3: Setup Gmail credentials

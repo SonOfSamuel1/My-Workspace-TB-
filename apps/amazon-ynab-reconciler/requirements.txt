@@ -14,6 +14,9 @@ google-api-python-client>=2.70.0
 # For testing
 pytest>=7.0.0
 
+# Browserbase cloud browser integration
+httpx>=0.24.0
+
 # Optional: For local Playwright automation (if not using MCP)
 # playwright>=1.40.0
 
