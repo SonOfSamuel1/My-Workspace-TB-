@@ -19,7 +19,8 @@ const sampleData = {
     flagged: 8,
     agentProcessed: 5,
     avgResponseTime: '2.3 min',
-    accuracy: 94
+    accuracy: 94,
+    processedTrend: 12 // Show +12% trend indicator
   },
 
   actionsTaken: [

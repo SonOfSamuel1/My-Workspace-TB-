@@ -67,6 +67,10 @@ wheels/
 *.egg
 MANIFEST
 
+# Allow lib/ directories in apps (Node.js library code)
+!apps/*/lib/
+!apps/*/lib/**
+
 # Python testing
 .pytest_cache/
 .tox/
