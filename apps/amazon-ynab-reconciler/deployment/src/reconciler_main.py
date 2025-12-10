@@ -125,7 +125,10 @@ class AmazonYNABReconciler:
 
         # Use provided lookback or fall back to config
         lookback = lookback_days or self.config['reconciliation']['lookback_days']
-        start_date = datetime.now() - timedelta(days=lookback)
+
+        # Use current date directly - no year manipulation needed
+        current_date = datetime.now()
+        start_date = current_date - timedelta(days=lookback)
 
         results = {
             'start_time': start_time,
@@ -148,34 +151,79 @@ class AmazonYNABReconciler:
             logger.info(f"Found {len(results['amazon_transactions'])} Amazon transactions")
 
             # Step 2: Fetch YNAB transactions
-            logger.info("Fetching YNAB transactions")
-            results['ynab_transactions'] = self.ynab_service.get_transactions(
-                since_date=start_date,
-                account_names=self.config['ynab']['account_names']
-            )
+            # In dual-email mode, fetch ALL Amazon transactions by payee name
+            use_dual_email = os.getenv('USE_DUAL_EMAIL', 'false').lower() == 'true'
+            match_by_payee = self.config.get('reconciliation', {}).get('match_by_payee', use_dual_email)
+
+            if match_by_payee:
+                logger.info("Fetching YNAB transactions by Amazon payee name (all accounts)")
+                payee_patterns = self.config.get('reconciliation', {}).get(
+                    'amazon_payee_patterns', ['Amazon', 'AMZN', 'AMZ']
+                )
+                results['ynab_transactions'] = self.ynab_service.get_amazon_transactions(
+                    since_date=start_date,
+                    include_cleared=True,
+                    payee_patterns=payee_patterns
+                )
+            else:
+                logger.info("Fetching YNAB transactions from configured accounts")
+                results['ynab_transactions'] = self.ynab_service.get_transactions(
+                    since_date=start_date,
+                    account_names=self.config['ynab']['account_names']
+                )
             logger.info(f"Found {len(results['ynab_transactions'])} YNAB transactions")
 
             # Step 3: Match transactions
             logger.info("Matching transactions")
             logger.debug(f"Passing {len(results['amazon_transactions'])} Amazon and {len(results['ynab_transactions'])} YNAB to matcher")
-            matches, unmatched_amazon, unmatched_ynab = self.matcher.match_transactions(
-                amazon_transactions=results['amazon_transactions'],
-                ynab_transactions=results['ynab_transactions']
-            )
+
+            # Check if batch detection is enabled
+            batch_config = self.config.get('reconciliation', {}).get('batch_detection', {})
+            batch_enabled = batch_config.get('enabled', False)
+
+            if batch_enabled:
+                logger.info("Using batch-aware matching (split payments and consolidated charges)")
+                matches, batch_matches, unmatched_amazon, unmatched_ynab = self.matcher.match_transactions_with_batches(
+                    amazon_transactions=results['amazon_transactions'],
+                    ynab_transactions=results['ynab_transactions']
+                )
+                results['batch_matches'] = batch_matches
+                logger.info(f"Found {len(batch_matches)} batch matches")
+            else:
+                matches, unmatched_amazon, unmatched_ynab = self.matcher.match_transactions(
+                    amazon_transactions=results['amazon_transactions'],
+                    ynab_transactions=results['ynab_transactions']
+                )
+                results['batch_matches'] = []
 
             results['matches'] = matches
             results['unmatched_amazon'] = unmatched_amazon
             results['unmatched_ynab'] = unmatched_ynab
 
-            logger.info(f"Matched {len(matches)} transactions")
+            logger.info(f"Matched {len(matches)} transactions (1-to-1)")
+            if results['batch_matches']:
+                split_count = sum(1 for m in results['batch_matches'] if m['type'] == 'split_payment')
+                consolidated_count = sum(1 for m in results['batch_matches'] if m['type'] == 'consolidated_charge')
+                logger.info(f"Batch matches: {split_count} split payments, {consolidated_count} consolidated charges")
             logger.info(f"Unmatched Amazon: {len(unmatched_amazon)}")
             logger.info(f"Unmatched YNAB: {len(unmatched_ynab)}")
 
             # Step 4: Apply updates to YNAB
-            if matches and not self.dry_run:
+            if (matches or results['batch_matches']) and not self.dry_run:
                 logger.info("Applying updates to YNAB")
-                results['updates_applied'] = self.reconciliation_engine.apply_updates(matches)
-                logger.info(f"Applied {results['updates_applied']} updates")
+
+                # Apply normal matches
+                if matches:
+                    results['updates_applied'] = self.reconciliation_engine.apply_updates(matches)
+                    logger.info(f"Applied {results['updates_applied']} normal updates")
+                else:
+                    results['updates_applied'] = 0
+
+                # Apply batch matches
+                if results['batch_matches']:
+                    batch_stats = self.reconciliation_engine.apply_batch_matches(results['batch_matches'])
+                    results['batch_updates_applied'] = batch_stats
+                    logger.info(f"Applied batch updates: {batch_stats}")
             elif self.dry_run:
                 logger.info("DRY RUN: Skipping YNAB updates")
 
@@ -231,9 +279,24 @@ def main():
         help='Run without applying updates to YNAB'
     )
     parser.add_argument(
+        '--use-downloads',
+        action='store_true',
+        help='Check downloads folder for Amazon CSV files (highest priority)'
+    )
+    parser.add_argument(
+        '--use-browserbase',
+        action='store_true',
+        help='Use Browserbase cloud browser to scrape Amazon orders'
+    )
+    parser.add_argument(
+        '--use-dual-email',
+        action='store_true',
+        help='Use dual-email reconciliation (Gmail + IMAP) - PRIMARY source'
+    )
+    parser.add_argument(
         '--use-email',
         action='store_true',
-        help='Use Gmail to parse Amazon order confirmation emails'
+        help='Use single Gmail account to parse Amazon order emails (legacy)'
     )
     parser.add_argument(
         '--use-csv',
@@ -246,6 +309,17 @@ def main():
         help='Use sample Amazon data for testing'
     )
     parser.add_argument(
+        '--monitor',
+        action='store_true',
+        help='Continuously monitor downloads folder for new CSV files'
+    )
+    parser.add_argument(
+        '--download-dir',
+        type=str,
+        default='~/Downloads',
+        help='Path to downloads directory to monitor (default: ~/Downloads)'
+    )
+    parser.add_argument(
         '--validate',
         action='store_true',
         help='Validate configuration and exit'
@@ -256,13 +330,34 @@ def main():
         default=None,
         help='Path to configuration file'
     )
+    parser.add_argument(
+        '--email-receipts',
+        action='store_true',
+        help='Match ALL pending YNAB transactions with email receipts (not just Amazon)'
+    )
 
     args = parser.parse_args()
 
-    # Set environment variable for email mode if requested
+    # Set environment variable for downloads mode if requested (highest priority)
+    if args.use_downloads:
+        os.environ['USE_DOWNLOADS'] = 'true'
+        os.environ['DOWNLOAD_MONITOR_DIR'] = os.path.expanduser(args.download_dir)
+        logger.info(f"Downloads mode enabled - will check {args.download_dir} for Amazon CSV files")
+
+    # Set environment variable for Browserbase mode if requested
+    if args.use_browserbase:
+        os.environ['USE_BROWSERBASE'] = 'true'
+        logger.info("Browserbase mode enabled - will use cloud browser automation")
+
+    # Set environment variable for dual-email mode if requested (PRIMARY)
+    if args.use_dual_email:
+        os.environ['USE_DUAL_EMAIL'] = 'true'
+        logger.info("Dual-email mode enabled - will search Gmail + IMAP accounts (PRIMARY)")
+
+    # Set environment variable for legacy single email mode if requested
     if args.use_email:
         os.environ['USE_EMAIL'] = 'true'
-        logger.info("Email mode enabled - will parse Amazon emails from Gmail")
+        logger.info("Email mode enabled - will parse Amazon emails from Gmail (legacy single account)")
 
     # Set environment variable for CSV mode if requested
     if args.use_csv:
@@ -271,6 +366,32 @@ def main():
     # Set environment variable for sample mode if requested
     if args.use_sample:
         os.environ['USE_SAMPLE'] = 'true'
+
+    # Handle monitor mode
+    if args.monitor:
+        logger.info("Starting continuous monitoring mode...")
+        from downloads_monitor import DownloadsMonitor
+
+        monitor = DownloadsMonitor(downloads_dir=args.download_dir)
+
+        def process_csv(csv_path):
+            """Process a detected CSV file."""
+            logger.info(f"Processing new CSV: {csv_path}")
+            os.environ['USE_DOWNLOADS'] = 'true'
+
+            # Run reconciliation for this file
+            reconciler = AmazonYNABReconciler(
+                config_path=args.config,
+                dry_run=args.dry_run
+            )
+            results = reconciler.run(lookback_days=args.days or 30)
+
+            logger.info(f"Processed {len(results['matches'])} matches from {csv_path}")
+            return len(results['matches'])
+
+        # Start monitoring with 5 minute intervals
+        monitor.start_monitoring(process_csv, interval=300)
+        sys.exit(0)
 
     # Initialize reconciler
     reconciler = AmazonYNABReconciler(
@@ -287,6 +408,28 @@ def main():
             print("✗ Validation failed")
             sys.exit(1)
 
+    # Email receipts mode - matches ALL pending transactions with email receipts
+    if args.email_receipts:
+        from email_receipt_reconciler import EmailReceiptReconciler
+
+        logger.info("Starting email receipt reconciliation mode...")
+
+        ynab_config = {
+            'budget_name': "Terrance Brandon's Plan",
+            'account_names': [],  # Empty = all accounts
+            'only_uncleared': False
+        }
+
+        email_reconciler = EmailReceiptReconciler(
+            ynab_config=ynab_config,
+            email_config_path=args.config or str(Path(__file__).parent.parent / 'config.yaml'),
+            dry_run=args.dry_run
+        )
+
+        results = email_reconciler.run(lookback_days=args.days or 30)
+        print(email_reconciler.get_summary_report(results))
+        sys.exit(0)
+
     # Run reconciliation
     results = reconciler.run(lookback_days=args.days)
 
@@ -297,8 +440,21 @@ def main():
     print(f"Duration: {results['duration']:.2f} seconds")
     print(f"Amazon transactions: {len(results['amazon_transactions'])}")
     print(f"YNAB transactions: {len(results['ynab_transactions'])}")
-    print(f"Matched: {len(results['matches'])}")
-    print(f"Updates applied: {results['updates_applied']}")
+    print(f"Matched (1-to-1): {len(results['matches'])}")
+
+    # Show batch matches if present
+    if 'batch_matches' in results and results['batch_matches']:
+        split_count = sum(1 for m in results['batch_matches'] if m['type'] == 'split_payment')
+        consolidated_count = sum(1 for m in results['batch_matches'] if m['type'] == 'consolidated_charge')
+        print(f"Batch matches:")
+        print(f"  - Split payments: {split_count}")
+        print(f"  - Consolidated charges: {consolidated_count}")
+
+    print(f"Updates applied: {results.get('updates_applied', 0)}")
+    if 'batch_updates_applied' in results:
+        batch_stats = results['batch_updates_applied']
+        print(f"Batch updates: {batch_stats.get('split_payments_processed', 0)} split, "
+              f"{batch_stats.get('consolidated_charges_processed', 0)} consolidated")
 
     if results['errors']:
         print(f"\nErrors: {len(results['errors'])}")

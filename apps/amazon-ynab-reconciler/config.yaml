@@ -13,6 +13,16 @@ reconciliation:
   # Amount tolerance for matching (cents)
   amount_tolerance_cents: 200  # Increased from 50 to $2.00 for better tolerance
 
+  # Match by payee name (finds ALL Amazon transactions in YNAB)
+  match_by_payee: true
+  amazon_payee_patterns:
+    - "Amazon"
+    - "AMZN"
+    - "AMZ"
+    - "Amazon.com"
+    - "Amazon Prime"
+    - "Amazon Marketplace"
+
   # Batch detection settings
   batch_detection:
     enabled: true
@@ -30,6 +40,52 @@ reconciliation:
   state_file: 'logs/reconciliation_state.json'
   # How long to keep state entries before cleanup (days)
   state_retention_days: 90
+
+# =============================================================================
+# EMAIL ACCOUNTS CONFIGURATION (for dual-email reconciliation)
+# =============================================================================
+email_accounts:
+  accounts:
+    # Primary Gmail account (uses OAuth2)
+    - name: "Primary Gmail"
+      type: "gmail"
+      enabled: true
+      credentials_path: "~/.gmail-mcp/gcp-oauth.keys.json"
+      token_path: "~/.gmail-mcp/credentials.json"
+      search:
+        senders:
+          - "ship-confirm@amazon.com"
+          - "auto-confirm@amazon.com"
+          - "order-update@amazon.com"
+          - "digital-no-reply@amazon.com"
+          - "no-reply@amazon.com"
+        lookback_days: 30
+
+    # Brittany's mail.com account (uses IMAP)
+    - name: "Brittany Mail.com"
+      type: "imap"
+      enabled: true
+      server: "imap.mail.com"
+      port: 993
+      use_ssl: true
+      username: "brittanybrandon@mail.com"
+      # Password from environment: IMAP_PASSWORD_BRITTANY
+      search:
+        folder: "INBOX"
+        lookback_days: 30
+
+  # Deduplication settings
+  deduplication:
+    enabled: true
+    strategy: "order_id"  # Primary: match by Amazon order ID
+
+  # Priority settings
+  priority:
+    primary_source: "email"  # email, downloads, csv, browserbase
+    fallback_order:
+      - "downloads"
+      - "csv"
+      - "browserbase"
 
 amazon:
   # Amazon order history URL

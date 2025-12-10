@@ -3,18 +3,25 @@ Smart Suggestion Engine
 
 Provides intelligent category suggestions based on merchant identification,
 historical patterns, and amount analysis.
+
+REFACTORED: Now uses BudgetDataContext for all lookups instead of making
+API calls. This reduces API calls from N (per transaction) to 0.
 """
 
 import json
 import logging
 import re
-from typing import List, Dict, Optional, Tuple
+from typing import List, Dict, Optional, Tuple, TYPE_CHECKING
 from pathlib import Path
 from collections import defaultdict, Counter
 from datetime import datetime, timedelta
 from dataclasses import dataclass
 
-from ynab_service import Transaction
+# Import Transaction from data_context (new location)
+from data_context import Transaction, BudgetDataContext
+
+if TYPE_CHECKING:
+    from ynab_service import YNABService
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -31,20 +38,30 @@ class CategorySuggestion:
 
 
 class SuggestionEngine:
-    """Generates smart category suggestions for transactions"""
+    """
+    Generates smart category suggestions for transactions.
 
-    def __init__(self, ynab_service, merchant_db_file: str = None):
+    REFACTORED: Uses pre-fetched BudgetDataContext instead of making
+    per-transaction API calls. This eliminates rate limiting issues.
+    """
+
+    def __init__(self, data_context: BudgetDataContext = None, ynab_service: 'YNABService' = None, merchant_db_file: str = None):
         """
         Initialize suggestion engine
 
         Args:
-            ynab_service: YNAB service instance
+            data_context: Pre-fetched budget data context (preferred)
+            ynab_service: YNAB service instance (legacy, for backward compatibility)
             merchant_db_file: Path to merchant database file
         """
-        self.ynab = ynab_service
+        self.context = data_context
+        self.ynab = ynab_service  # Keep for backward compatibility
         self.merchant_db_file = merchant_db_file or 'data/merchants.json'
         self.merchant_db = self._load_merchant_db()
         self._build_merchant_patterns()
+
+        # Cache for categories (used when context not available)
+        self._categories_cache = None
 
     def _load_merchant_db(self) -> Dict:
         """Load merchant database from file"""
@@ -144,6 +161,36 @@ class SuggestionEngine:
             'fitness': 'Health & Fitness'
         }
 
+    def _get_categories(self) -> Dict[str, List[Dict]]:
+        """
+        Get categories from context or YNAB service (cached).
+
+        This method ensures we only make 1 API call max, regardless of
+        how many times it's called.
+        """
+        # Prefer context (no API calls)
+        if self.context is not None:
+            return self.context.get_categories_formatted()
+
+        # Fallback to YNAB service with caching
+        if self._categories_cache is None and self.ynab is not None:
+            self._categories_cache = self.ynab.get_categories()
+
+        return self._categories_cache or {}
+
+    def _get_category_id(self, category_name: str) -> Optional[str]:
+        """Get category ID by name from context or cached data"""
+        if self.context is not None:
+            return self.context.get_category_id(category_name)
+
+        # Search in cached categories
+        categories = self._get_categories()
+        for group, cats in categories.items():
+            for cat in cats:
+                if cat['name'] == category_name:
+                    return cat['id']
+        return None
+
     def suggest_category(self, transaction: Transaction) -> List[CategorySuggestion]:
         """
         Generate category suggestions for a transaction
@@ -217,11 +264,64 @@ class SuggestionEngine:
         return None
 
     def _check_historical_patterns(self, transaction: Transaction) -> Optional[CategorySuggestion]:
-        """Check historical patterns for this payee"""
-        history = self.ynab.get_transaction_history_for_payee(
-            transaction.payee_name,
-            limit=20
-        )
+        """
+        Check historical patterns for this payee.
+
+        REFACTORED: Uses pre-computed histogram from BudgetDataContext
+        instead of making API call per payee. This eliminates the primary
+        source of rate limiting (was 1 API call per transaction).
+        """
+        if not transaction.payee_name:
+            return None
+
+        payee_lower = transaction.payee_name.lower()
+
+        # Use pre-computed histogram from context (NO API CALLS)
+        if self.context is not None and hasattr(self.context, 'payee_category_histogram'):
+            histogram = self.context.payee_category_histogram.get(payee_lower)
+
+            if not histogram:
+                return None
+
+            # Get most common category
+            most_common = histogram.most_common(1)
+            if not most_common:
+                return None
+
+            category_id, count = most_common[0]
+            total = sum(histogram.values())
+
+            # Calculate confidence based on consistency
+            confidence = min(90, (count / total) * 100)
+
+            # Get category name from context
+            category_name = self.context.get_category_name(category_id) or 'Unknown'
+
+            return CategorySuggestion(
+                category_id=category_id,
+                category_name=category_name,
+                confidence=confidence,
+                reason=f"Most common category for {transaction.payee_name} ({count}/{total} times)",
+                based_on_count=count
+            )
+
+        # LEGACY FALLBACK: Use YNAB API if no context available
+        # This path should be avoided - it causes rate limiting
+        if self.ynab is None:
+            return None
+
+        try:
+            history = self.ynab.get_transaction_history_for_payee(
+                transaction.payee_name,
+                limit=20
+            )
+        except Exception as e:
+            # Handle rate limits and other API errors gracefully
+            if '429' in str(e):
+                logger.warning(f"Rate limited while getting history for {transaction.payee_name}, skipping")
+            else:
+                logger.error(f"Error getting history for {transaction.payee_name}: {e}")
+            return None
 
         if not history:
             return None
@@ -245,14 +345,8 @@ class SuggestionEngine:
         consistency = count / total_categorized
         confidence = min(90, consistency * 100)
 
-        # Find category ID
-        categories = self.ynab.get_categories()
-        category_id = None
-        for group, cats in categories.items():
-            for cat in cats:
-                if cat['name'] == category_name:
-                    category_id = cat['id']
-                    break
+        # Find category ID using cached lookup
+        category_id = self._get_category_id(category_name)
 
         if category_id:
             return CategorySuggestion(
@@ -267,6 +361,9 @@ class SuggestionEngine:
 
     def _check_merchant_type(self, transaction: Transaction) -> Optional[CategorySuggestion]:
         """Check merchant type patterns"""
+        if not transaction.payee_name:
+            return None
+
         payee_lower = transaction.payee_name.lower()
 
         for merchant_type, pattern in self.merchant_type_patterns.items():
@@ -275,8 +372,8 @@ class SuggestionEngine:
                 suggested_category = self.type_to_category_hints.get(merchant_type)
 
                 if suggested_category:
-                    # Find category ID
-                    categories = self.ynab.get_categories()
+                    # Find category ID using cached categories (no API call)
+                    categories = self._get_categories()
                     for group, cats in categories.items():
                         for cat in cats:
                             if suggested_category in cat['name']:
@@ -310,8 +407,8 @@ class SuggestionEngine:
                 if self._matches_merchant_context(transaction, category_hint):
                     confidence += 10
 
-                # Find category ID
-                categories = self.ynab.get_categories()
+                # Find category ID using cached categories (no API call)
+                categories = self._get_categories()
                 for group, cats in categories.items():
                     for cat in cats:
                         if category_hint in cat['name']:
@@ -326,6 +423,8 @@ class SuggestionEngine:
 
     def _matches_merchant_context(self, transaction: Transaction, category_hint: str) -> bool:
         """Check if merchant name matches expected context for category"""
+        if not transaction.payee_name:
+            return False
         payee_lower = transaction.payee_name.lower()
         hint_lower = category_hint.lower()
 

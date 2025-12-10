@@ -1,6 +1,17 @@
 """
-Amazon transaction scraper using Playwright MCP server.
-Handles login, navigation, and extraction of order history.
+Amazon transaction scraper with multiple data source support.
+Handles Dual-Email (primary), Downloads folder, CSV import, and Playwright web scraping.
+
+Priority Order (configurable):
+1. DUAL EMAIL - Multi-account email reconciliation (Gmail + IMAP)
+2. DOWNLOADS - Amazon CSV exports from Downloads folder
+3. SINGLE EMAIL - Legacy single Gmail account mode
+4. CSV - Manual CSV import from data/ directory
+5. BROWSERBASE - Cloud browser automation
+6. PLAYWRIGHT - Local browser automation (fallback)
+
+Playwright dependencies are loaded lazily to reduce Lambda memory usage
+when using email or CSV modes.
 """
 
 import os
@@ -10,9 +21,19 @@ from datetime import datetime, timedelta
 from typing import List, Dict, Optional
 import time
 import base64
-import pyotp
 
 logger = logging.getLogger(__name__)
+
+# Lazy import for pyotp - only needed for 2FA login
+_pyotp = None
+
+def _get_pyotp():
+    """Lazy load pyotp module only when needed."""
+    global _pyotp
+    if _pyotp is None:
+        import pyotp
+        _pyotp = pyotp
+    return _pyotp
 
 
 class AmazonScraper:
@@ -56,9 +77,107 @@ class AmazonScraper:
         if not end_date:
             end_date = datetime.now()
 
+        # Validate date range - end_date should not be more than 30 days in future
+        max_future = datetime.now() + timedelta(days=30)
+        if end_date > max_future:
+            logger.warning(f"End date {end_date.date()} is more than 30 days in future, using current date")
+            end_date = datetime.now()
+
+        # Validate start_date is before end_date
+        if start_date > end_date:
+            logger.error(f"Start date {start_date.date()} is after end date {end_date.date()}")
+            raise ValueError("Start date cannot be after end date")
+
         logger.info(f"Getting Amazon transactions from {start_date.date()} to {end_date.date()}")
 
-        # Check if we should use email mode (highest priority)
+        # =====================================================================
+        # PRIORITY 1: DUAL EMAIL MODE (Primary - searches both Gmail + IMAP)
+        # =====================================================================
+        use_dual_email = os.getenv('USE_DUAL_EMAIL', 'false').lower() == 'true'
+        if use_dual_email:
+            logger.info("Using DUAL EMAIL mode (primary) - searching multiple email accounts")
+            transactions = self._fetch_from_dual_email(start_date, end_date)
+            if transactions is not None:  # None means fallback, empty list means no transactions
+                return transactions
+            logger.info("Dual email mode returned no results, trying fallback sources...")
+
+        # =====================================================================
+        # PRIORITY 2: DOWNLOADS MODE
+        # =====================================================================
+        use_downloads = os.getenv('USE_DOWNLOADS', 'false').lower() == 'true'
+        if use_downloads:
+            logger.info("Using downloads mode to fetch Amazon transactions from Downloads folder")
+            from amazon_csv_importer import AmazonCSVImporter
+
+            try:
+                importer = AmazonCSVImporter()
+                transactions, csv_path = importer.import_from_downloads(since=start_date)
+
+                if transactions:
+                    # Use enhanced parsing if available
+                    if csv_path:
+                        enhanced_transactions = importer.parse_enhanced_csv(csv_path)
+                        if enhanced_transactions:
+                            transactions = enhanced_transactions
+
+                    # Filter by date range
+                    filtered = [
+                        txn for txn in transactions
+                        if start_date <= txn['date'] <= end_date
+                    ]
+
+                    logger.info(f"Imported {len(filtered)} transactions from Downloads folder")
+
+                    # Archive the CSV if configured
+                    if csv_path and self.config.get('archive_downloads', True):
+                        importer.archive_csv(csv_path)
+
+                    return filtered
+                else:
+                    logger.info("No unprocessed Amazon CSV files found in Downloads folder")
+                    # Fall through to email mode
+            except Exception as e:
+                logger.error(f"Downloads mode failed: {e}")
+                logger.info("Falling back to email mode if available")
+                # Fall through to email mode
+
+        # Check if we should use Browserbase mode (second priority after downloads)
+        use_browserbase = os.getenv('USE_BROWSERBASE', 'false').lower() == 'true'
+        if use_browserbase:
+            logger.info("Using Browserbase mode to fetch Amazon transactions")
+            from amazon_browserbase_scraper import AmazonBrowserbaseScraper
+            from exceptions import BrowserbaseAuthRequiredError, BrowserbaseError
+
+            try:
+                browserbase_config = self.config.get('browserbase', {})
+                scraper = AmazonBrowserbaseScraper(browserbase_config)
+                transactions = scraper.get_transactions(start_date, end_date)
+
+                if transactions:
+                    logger.info(f"Scraped {len(transactions)} transactions via Browserbase")
+                    return transactions
+                else:
+                    logger.info("No transactions found via Browserbase, falling back to email")
+                    # Fall through to email mode
+
+            except BrowserbaseAuthRequiredError as e:
+                logger.warning(f"Browserbase session expired: {e}")
+                logger.info("Manual re-authentication required. Falling back to email mode.")
+                # Send notification about expired session
+                self._notify_browserbase_session_expired(str(e))
+                # Fall through to email mode
+
+            except BrowserbaseError as e:
+                logger.error(f"Browserbase mode failed: {e}")
+                logger.info("Falling back to email mode if available")
+                # Fall through to email mode
+
+            except Exception as e:
+                logger.error(f"Unexpected Browserbase error: {e}")
+                logger.info("Falling back to email mode if available")
+                # Fall through to email mode
+
+        # Check if we should use email mode (third priority)
         use_email = os.getenv('USE_EMAIL', 'false').lower() == 'true'
         if use_email:
             logger.info("Using email mode to fetch Amazon transactions")
@@ -76,7 +195,7 @@ class AmazonScraper:
                 logger.info("Falling back to CSV mode if available")
                 # Fall through to CSV mode
 
-        # Check if we should use CSV import
+        # Check if we should use CSV import (third priority)
         use_csv = os.getenv('USE_CSV', 'false').lower() == 'true'
         if use_csv:
             from amazon_csv_importer import AmazonCSVImporter
@@ -227,7 +346,8 @@ class AmazonScraper:
         logger.info("Logging in to Amazon...")
 
         if self.otp_secret:
-            # Generate OTP if 2FA is configured
+            # Generate OTP if 2FA is configured (lazy load pyotp)
+            pyotp = _get_pyotp()
             totp = pyotp.TOTP(self.otp_secret)
             otp_code = totp.now()
             logger.info(f"Generated OTP code for 2FA")
@@ -270,6 +390,129 @@ class AmazonScraper:
         """Clean up browser resources."""
         logger.info("Closing Amazon scraper")
         # Would close Playwright browser here
+
+    def _fetch_from_dual_email(
+        self,
+        start_date: datetime,
+        end_date: datetime
+    ) -> Optional[List[Dict]]:
+        """
+        Fetch Amazon transactions from multiple email accounts.
+
+        Uses the MultiAccountEmailService to search both Gmail and IMAP accounts,
+        then parses the emails into transaction data.
+
+        Args:
+            start_date: Start of date range
+            end_date: End of date range
+
+        Returns:
+            List of transactions, or None if should fallback to other sources
+        """
+        try:
+            from multi_account_email_service import MultiAccountEmailService
+            from amazon_email_parser import AmazonEmailParser
+
+            # Calculate days to look back
+            days_back = (end_date - start_date).days + 1
+
+            # Initialize multi-account service (loads from config.yaml)
+            config_path = os.path.join(
+                os.path.dirname(__file__), '..', 'config.yaml'
+            )
+            email_service = MultiAccountEmailService(config_path=config_path)
+
+            # Check if we have any accounts configured
+            if not email_service.clients:
+                logger.warning("No email accounts configured for dual email mode")
+                return None  # Fallback to other sources
+
+            # Test connections
+            connection_results = email_service.test_all_connections()
+            connected_accounts = sum(1 for success in connection_results.values() if success)
+
+            if connected_accounts == 0:
+                logger.error("No email accounts could connect")
+                return None  # Fallback to other sources
+
+            logger.info(f"Connected to {connected_accounts}/{len(email_service.clients)} email accounts")
+
+            # Search all accounts for Amazon emails
+            logger.info(f"Searching for Amazon emails (last {days_back} days)...")
+            email_messages = email_service.search_all_accounts(
+                days_back=days_back,
+                deduplicate=True,
+                parallel=True
+            )
+
+            if not email_messages:
+                logger.info("No Amazon emails found in any account")
+                return []  # Return empty list (don't fallback - this is intentional)
+
+            logger.info(f"Found {len(email_messages)} unique Amazon emails")
+
+            # Parse emails into transactions
+            parser = AmazonEmailParser()
+            transactions = parser.parse_email_messages(
+                messages=email_messages,
+                start_date=start_date,
+                end_date=end_date
+            )
+
+            # Close email connections
+            email_service.close_all()
+
+            logger.info(f"Parsed {len(transactions)} transactions from dual email sources")
+            return transactions
+
+        except ImportError as e:
+            logger.warning(f"Multi-account email dependencies not available: {e}")
+            return None  # Fallback to other sources
+        except Exception as e:
+            logger.error(f"Dual email mode failed: {e}")
+            import traceback
+            traceback.print_exc()
+            return None  # Fallback to other sources
+
+    def _notify_browserbase_session_expired(self, error_details: str):
+        """
+        Send notification when Browserbase Amazon session expires.
+
+        Uses SNS if configured, otherwise just logs.
+
+        Args:
+            error_details: Error message with details
+        """
+        topic_arn = os.getenv('NOTIFICATION_TOPIC_ARN') or \
+                    self.config.get('browserbase', {}).get('notification_topic_arn')
+
+        message = f"""
+Your Amazon Browserbase session has expired.
+
+Error: {error_details}
+
+To restore automated scraping:
+1. Run locally: python src/browserbase_setup.py --login
+2. Complete Amazon login in the browser window
+3. Session will be automatically saved to Parameter Store
+
+The system has fallen back to email parsing mode for this run.
+        """.strip()
+
+        if topic_arn:
+            try:
+                import boto3
+                sns = boto3.client('sns', region_name=os.environ.get('AWS_REGION', 'us-east-1'))
+                sns.publish(
+                    TopicArn=topic_arn,
+                    Subject='[Amazon-YNAB] Browserbase Session Expired - Action Required',
+                    Message=message
+                )
+                logger.info("Session expiry notification sent via SNS")
+            except Exception as e:
+                logger.warning(f"Failed to send SNS notification: {e}")
+        else:
+            logger.warning("No notification topic configured for session expiry alerts")
 
 
 # Utility functions for date parsing

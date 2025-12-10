@@ -1,35 +1,52 @@
 """
 Amazon email parser for order confirmation emails.
-Extracts transaction data from Gmail without browser automation.
+Extracts transaction data from emails (Gmail or IMAP) without browser automation.
+
+Supports both:
+- Legacy Gmail API service object (backward compatible)
+- New EmailMessage objects from multi-account email service
 """
 
 import os
 import re
 import logging
 from datetime import datetime, timedelta
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Union, Any
 from bs4 import BeautifulSoup
 import base64
+
+# Import EmailMessage for type checking (optional import for backward compatibility)
+try:
+    from email_client_base import EmailMessage
+except ImportError:
+    EmailMessage = None
 
 logger = logging.getLogger(__name__)
 
 
 class AmazonEmailParser:
-    """Parse Amazon order confirmation emails from Gmail."""
+    """
+    Parse Amazon order confirmation emails.
 
-    def __init__(self, gmail_service):
+    Supports multiple input sources:
+    - Gmail API service object (legacy)
+    - EmailMessage objects from multi-account email service
+    """
+
+    def __init__(self, gmail_service=None):
         """
-        Initialize the email parser with Gmail service.
+        Initialize the email parser.
 
         Args:
-            gmail_service: Authenticated Gmail API service object
+            gmail_service: Optional Gmail API service object (legacy support)
         """
         self.gmail_service = gmail_service
         self.email_addresses = [
             'ship-confirm@amazon.com',
             'auto-confirm@amazon.com',
             'order-update@amazon.com',
-            'digital-no-reply@amazon.com'
+            'digital-no-reply@amazon.com',
+            'no-reply@amazon.com'
         ]
 
     def fetch_order_emails(self, days_back: int = 7) -> List[Dict]:
@@ -207,13 +224,15 @@ class AmazonEmailParser:
                     except:
                         continue
 
-            # If no total found, look for item prices
+            # If no total found, look for item prices (with $ sign to be more specific)
             if 'total' not in order_data:
-                price_matches = re.findall(r'\$?([\d,]+\.?\d{2})', str(soup))
+                # First try finding prices with $ sign (more reliable)
+                price_matches = re.findall(r'\$\s*([\d,]+\.\d{2})', str(soup))
                 if price_matches:
-                    # Use the largest amount as likely total
-                    prices = [float(p.replace(',', '')) for p in price_matches]
-                    order_data['total'] = max(prices)
+                    # Filter out unreasonable prices (more than $10,000)
+                    prices = [float(p.replace(',', '')) for p in price_matches if float(p.replace(',', '')) < 10000]
+                    if prices:
+                        order_data['total'] = max(prices)
 
             # Extract items (simplified - look for product names)
             # Amazon emails typically have product names as links
@@ -278,7 +297,13 @@ class AmazonEmailParser:
             # Default payment method (will be matched by account later)
             order_data['payment_method'] = 'Amazon Card'
 
-            return order_data if order_data.get('total') else None
+            # Sanity check: reject unreasonable totals (> $10,000 or < $0.01)
+            total = order_data.get('total', 0)
+            if total < 0.01 or total > 10000:
+                logger.debug(f"Rejecting order with invalid total: ${total}")
+                return None
+
+            return order_data
 
         except Exception as e:
             logger.error(f"Error extracting order details: {str(e)}")
@@ -332,3 +357,146 @@ class AmazonEmailParser:
 
         logger.info(f"Parsed {len(transactions)} transactions from emails")
         return transactions
+
+    # =========================================================================
+    # New Multi-Source Methods (for EmailMessage objects)
+    # =========================================================================
+
+    def parse_email_messages(
+        self,
+        messages: List[Any],
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None
+    ) -> List[Dict]:
+        """
+        Parse Amazon transactions from EmailMessage objects.
+
+        This is the new entry point for multi-account email service integration.
+
+        Args:
+            messages: List of EmailMessage objects from any email client
+            start_date: Optional start date filter
+            end_date: Optional end date filter (default: now)
+
+        Returns:
+            List of transaction dictionaries
+        """
+        if not messages:
+            return []
+
+        if not end_date:
+            end_date = datetime.now()
+
+        transactions = []
+
+        for message in messages:
+            try:
+                transaction = self.parse_email_message(message)
+                if transaction:
+                    # Apply date filter if specified
+                    tx_date = transaction.get('date', datetime.now())
+                    if start_date and tx_date < start_date:
+                        continue
+                    if end_date and tx_date > end_date:
+                        continue
+
+                    # Track source account if available
+                    if hasattr(message, 'headers'):
+                        source = message.headers.get('x-source-account', 'unknown')
+                        transaction['source_account'] = source
+
+                    transactions.append(transaction)
+            except Exception as e:
+                logger.error(f"Error parsing email message: {e}")
+                continue
+
+        # Sort by date descending
+        transactions.sort(key=lambda x: x.get('date', datetime.now()), reverse=True)
+
+        logger.info(f"Parsed {len(transactions)} transactions from {len(messages)} email messages")
+        return transactions
+
+    def parse_email_message(self, message: Any) -> Optional[Dict]:
+        """
+        Parse a single EmailMessage object into a transaction.
+
+        Args:
+            message: EmailMessage object from email client
+
+        Returns:
+            Transaction dictionary or None
+        """
+        try:
+            # Get subject and check if it's an Amazon order email
+            subject = getattr(message, 'subject', '') or ''
+            if not any(keyword in subject.lower() for keyword in [
+                'order', 'shipment', 'delivered', 'amazon.com', 'your amazon'
+            ]):
+                logger.debug(f"Skipping non-order email: {subject[:50]}...")
+                return None
+
+            # Get email body (prefer HTML)
+            body_html = getattr(message, 'body_html', None)
+            body_text = getattr(message, 'body_text', None)
+
+            if not body_html and not body_text:
+                logger.debug(f"No body content for email: {subject[:50]}...")
+                return None
+
+            # Parse HTML content if available
+            if body_html:
+                soup = BeautifulSoup(body_html, 'html.parser')
+            else:
+                # Create minimal soup from text
+                soup = BeautifulSoup(f"<html><body>{body_text}</body></html>", 'html.parser')
+
+            # Extract order details
+            order_data = self._extract_order_details(soup, subject)
+
+            if not order_data:
+                logger.debug(f"Could not extract order details from: {subject[:50]}...")
+                return None
+
+            # Use message date if not extracted from content
+            message_date = getattr(message, 'date', None)
+            if not order_data.get('date') and message_date:
+                order_data['date'] = message_date
+
+            # Add sender info
+            sender = getattr(message, 'sender', '')
+            order_data['email_sender'] = sender
+
+            # Add message ID for reference
+            message_id = getattr(message, 'id', '')
+            order_data['email_message_id'] = message_id
+
+            logger.info(f"Parsed order: {order_data.get('order_id', 'Unknown')} - ${order_data.get('total', 0)}")
+            return order_data
+
+        except Exception as e:
+            logger.error(f"Failed to parse email message: {e}")
+            return None
+
+    def get_transactions_from_messages(
+        self,
+        messages: List[Any],
+        days_back: int = 30
+    ) -> List[Dict]:
+        """
+        Convenience method to get transactions from email messages with date range.
+
+        Args:
+            messages: List of EmailMessage objects
+            days_back: Number of days to include
+
+        Returns:
+            List of transaction dictionaries
+        """
+        end_date = datetime.now()
+        start_date = end_date - timedelta(days=days_back)
+
+        return self.parse_email_messages(
+            messages=messages,
+            start_date=start_date,
+            end_date=end_date
+        )

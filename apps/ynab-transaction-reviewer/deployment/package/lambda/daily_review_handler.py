@@ -2,7 +2,7 @@
 AWS Lambda handler for daily transaction review
 
 This handler is triggered by EventBridge on schedule to run the daily
-transaction review and send emails.
+transaction review and send emails via AWS SES.
 """
 
 import os
@@ -24,10 +24,6 @@ logger.setLevel(logging.INFO)
 
 # AWS clients
 ssm = boto3.client('ssm')
-s3 = boto3.client('s3')
-
-# S3 bucket for credentials
-CREDENTIALS_BUCKET = 'ynab-reviewer-credentials-718881314209'
 
 
 def get_parameter(name: str, decrypt: bool = True) -> str:
@@ -38,40 +34,6 @@ def get_parameter(name: str, decrypt: bool = True) -> str:
     except Exception as e:
         logger.error(f"Failed to get parameter {name}: {e}")
         raise
-
-
-def download_gmail_credentials():
-    """Download Gmail credentials from S3 to /tmp"""
-    credentials_dir = Path('/tmp/credentials')
-    credentials_dir.mkdir(parents=True, exist_ok=True)
-
-    # Download credentials.json
-    credentials_path = credentials_dir / 'gmail_credentials.json'
-    try:
-        s3.download_file(
-            CREDENTIALS_BUCKET,
-            'gmail_credentials.json',
-            str(credentials_path)
-        )
-        logger.info(f"Downloaded gmail_credentials.json to {credentials_path}")
-    except Exception as e:
-        logger.error(f"Failed to download gmail_credentials.json: {e}")
-        raise
-
-    # Download token.pickle
-    token_path = credentials_dir / 'gmail_token.pickle'
-    try:
-        s3.download_file(
-            CREDENTIALS_BUCKET,
-            'gmail_token.pickle',
-            str(token_path)
-        )
-        logger.info(f"Downloaded gmail_token.pickle to {token_path}")
-    except Exception as e:
-        logger.error(f"Failed to download gmail_token.pickle: {e}")
-        raise
-
-    return str(credentials_dir)
 
 
 def lambda_handler(event, context):
@@ -98,10 +60,20 @@ def lambda_handler(event, context):
         except:
             pass  # Use default (first budget)
 
-        # Download Gmail credentials from S3
-        credentials_dir = download_gmail_credentials()
-        os.environ['GMAIL_CREDENTIALS_PATH'] = f"{credentials_dir}/gmail_credentials.json"
-        os.environ['GMAIL_TOKEN_PATH'] = f"{credentials_dir}/gmail_token.pickle"
+        try:
+            os.environ['YNAB_WEB_APP_URL'] = get_parameter('/ynab-reviewer/web-app-url')
+        except:
+            pass  # Use default YNAB URLs if not set
+
+        # SES configuration - use parameter store, or existing env var, or default
+        if 'SES_SENDER_EMAIL' not in os.environ or not os.environ['SES_SENDER_EMAIL']:
+            try:
+                os.environ['SES_SENDER_EMAIL'] = get_parameter('/ynab-reviewer/ses-sender-email')
+            except:
+                os.environ['SES_SENDER_EMAIL'] = 'TERRANCE@GOODPORTION.ORG'
+
+        # Use SES instead of Gmail
+        os.environ['USE_SES'] = 'true'
 
         # Create reviewer instance
         reviewer = TransactionReviewer()

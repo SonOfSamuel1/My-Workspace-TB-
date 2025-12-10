@@ -179,6 +179,21 @@ else
     fi
 fi
 
+# Web app URL for deep linking in emails
+if aws ssm get-parameter --name "/ynab-reviewer/web-app-url" --region "$REGION" 2>/dev/null; then
+    echo "Web app URL already stored in Parameter Store"
+else
+    echo "Storing web app URL..."
+    aws ssm put-parameter \
+        --name "/ynab-reviewer/web-app-url" \
+        --value "https://ynab-dashboard.vercel.app" \
+        --type "String" \
+        --region "$REGION" \
+        --overwrite \
+        --output json > /dev/null
+    echo "✅ Web app URL stored"
+fi
+
 # Create or update EventBridge rule
 echo ""
 echo "⏰ Step 5: Setting up EventBridge schedule..."

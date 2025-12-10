@@ -156,17 +156,20 @@ class ReconciliationEngine:
                     dry_run=self.dry_run
                 )
 
-            # Add flag for high-confidence matches
-            if match['confidence'] >= 95:
+            # Add flag based on email source account
+            source_account = match.get('amazon_data', {}).get('source_account', 'unknown')
+            if 'brittany' in source_account.lower() or 'mail.com' in source_account.lower():
+                # Purple for Brittany's mail.com account
                 self.ynab_service.add_flag_to_transaction(
                     transaction_id=transaction_id,
-                    flag_color='green',
+                    flag_color='purple',
                     dry_run=self.dry_run
                 )
-            elif match['confidence'] >= 85:
+            elif source_account != 'unknown':
+                # Blue for Terrance's Gmail accounts
                 self.ynab_service.add_flag_to_transaction(
                     transaction_id=transaction_id,
-                    flag_color='yellow',
+                    flag_color='blue',
                     dry_run=self.dry_run
                 )
 

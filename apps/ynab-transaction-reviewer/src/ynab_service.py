@@ -15,6 +15,13 @@ import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
+# Import cache service (optional - won't fail if not in Lambda)
+try:
+    from cache_service import get_cache, CacheService
+    CACHE_AVAILABLE = True
+except ImportError:
+    CACHE_AVAILABLE = False
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -62,13 +69,14 @@ class YNABService:
 
     BASE_URL = "https://api.ynab.com/v1"
 
-    def __init__(self, api_key: str = None, budget_id: str = None):
+    def __init__(self, api_key: str = None, budget_id: str = None, use_cache: bool = True):
         """
         Initialize YNAB service
 
         Args:
             api_key: YNAB personal access token
             budget_id: Optional budget ID (uses first budget if not specified)
+            use_cache: Whether to use S3 caching (default: True)
         """
         self.api_key = api_key or os.getenv('YNAB_API_KEY')
         if not self.api_key:
@@ -91,7 +99,13 @@ class YNABService:
         self.session.mount("http://", adapter)
         self.session.mount("https://", adapter)
 
-        # Cache for budget data
+        # S3 cache service
+        self._use_cache = use_cache and CACHE_AVAILABLE
+        self._cache = get_cache() if self._use_cache else None
+        if self._use_cache:
+            logger.info("S3 caching enabled for YNAB API responses")
+
+        # In-memory cache for budget data (populated from S3 or API)
         self._budget_cache = {}
         self._category_cache = {}
         self._account_cache = {}
@@ -261,7 +275,18 @@ class YNABService:
         )
 
     def _load_categories(self):
-        """Load and cache all categories"""
+        """Load and cache all categories (with S3 caching)"""
+        cache_key = f"categories-{self.budget_id}"
+
+        # Try S3 cache first
+        if self._use_cache:
+            cached = self._cache.get(cache_key)
+            if cached:
+                self._category_cache = cached
+                logger.info(f"Loaded {len(cached)} categories from S3 cache")
+                return
+
+        # Fetch from API
         endpoint = f"/budgets/{self.budget_id}/categories"
         response = self._make_request('GET', endpoint)
 
@@ -273,8 +298,24 @@ class YNABService:
                     'hidden': category.get('hidden', False)
                 }
 
+        # Store in S3 cache
+        if self._use_cache and self._category_cache:
+            self._cache.set(cache_key, self._category_cache)
+            logger.info(f"Cached {len(self._category_cache)} categories to S3")
+
     def _load_accounts(self):
-        """Load and cache all accounts"""
+        """Load and cache all accounts (with S3 caching)"""
+        cache_key = f"accounts-{self.budget_id}"
+
+        # Try S3 cache first
+        if self._use_cache:
+            cached = self._cache.get(cache_key)
+            if cached:
+                self._account_cache = cached
+                logger.info(f"Loaded {len(cached)} accounts from S3 cache")
+                return
+
+        # Fetch from API
         endpoint = f"/budgets/{self.budget_id}/accounts"
         response = self._make_request('GET', endpoint)
 
@@ -286,8 +327,24 @@ class YNABService:
                 'closed': account.get('closed', False)
             }
 
+        # Store in S3 cache
+        if self._use_cache and self._account_cache:
+            self._cache.set(cache_key, self._account_cache)
+            logger.info(f"Cached {len(self._account_cache)} accounts to S3")
+
     def _load_payees(self):
-        """Load and cache all payees"""
+        """Load and cache all payees (with S3 caching)"""
+        cache_key = f"payees-{self.budget_id}"
+
+        # Try S3 cache first
+        if self._use_cache:
+            cached = self._cache.get(cache_key)
+            if cached:
+                self._payee_cache = cached
+                logger.info(f"Loaded {len(cached)} payees from S3 cache")
+                return
+
+        # Fetch from API
         endpoint = f"/budgets/{self.budget_id}/payees"
         response = self._make_request('GET', endpoint)
 
@@ -295,6 +352,11 @@ class YNABService:
             self._payee_cache[payee['id']] = {
                 'name': payee['name']
             }
+
+        # Store in S3 cache
+        if self._use_cache and self._payee_cache:
+            self._cache.set(cache_key, self._payee_cache)
+            logger.info(f"Cached {len(self._payee_cache)} payees to S3")
 
     def categorize_transaction(self, transaction_id: str, category_id: str) -> bool:
         """

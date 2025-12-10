@@ -149,6 +149,13 @@ jobs:
           8. Expenses - Receipts, invoices
           9. Newsletters - Subscriptions
 
+          CRITICAL CONSTRAINT - NO AUTO-SENDING:
+          NEVER send any email response automatically. ALL responses must be:
+          1. Saved as drafts in Gmail
+          2. Added to the approval queue
+          3. Reported in morning brief or EOD report
+          4. Only sent after explicit approval from Terrance
+
           TIER CLASSIFICATION:
 
           TIER 1 (Escalate Immediately - SMS + Priority Email):
@@ -162,7 +169,7 @@ jobs:
           - Emails from off-limits contacts
           - Anything marked urgent/confidential
 
-          TIER 2 (Handle Independently):
+          TIER 2 (Draft for Approval - Do NOT send automatically):
           - Meeting scheduling
           - Newsletter subscriptions
           - Vendor communications (routine)
@@ -209,8 +216,9 @@ jobs:
 
                TIER 2:
                - Apply appropriate label (Meetings/Travel/Expenses/Newsletters)
-               - Draft and SEND response if clear pattern exists
-               - Archive if handled
+               - Draft response but DO NOT send
+               - Save draft in Gmail
+               - Add to approval queue for brief/report
                - Log action for EOD report
 
                TIER 3:
@@ -281,7 +289,7 @@ jobs:
           - Emails checked: [#]
           - New emails found: [#]
           - Tier 1 (escalated): [#]
-          - Tier 2 (handled): [#]
+          - Tier 2 (drafted, awaiting approval): [#]
           - Tier 3 (drafted): [#]
           - Tier 4 (flagged): [#]
 

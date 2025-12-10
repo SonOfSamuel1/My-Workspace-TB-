@@ -1,6 +1,14 @@
 """
 Amazon transaction scraper with multiple data source support.
-Handles Downloads folder, Email parsing, CSV import, and Playwright web scraping.
+Handles Dual-Email (primary), Downloads folder, CSV import, and Playwright web scraping.
+
+Priority Order (configurable):
+1. DUAL EMAIL - Multi-account email reconciliation (Gmail + IMAP)
+2. DOWNLOADS - Amazon CSV exports from Downloads folder
+3. SINGLE EMAIL - Legacy single Gmail account mode
+4. CSV - Manual CSV import from data/ directory
+5. BROWSERBASE - Cloud browser automation
+6. PLAYWRIGHT - Local browser automation (fallback)
 
 Playwright dependencies are loaded lazily to reduce Lambda memory usage
 when using email or CSV modes.
@@ -82,7 +90,20 @@ class AmazonScraper:
 
         logger.info(f"Getting Amazon transactions from {start_date.date()} to {end_date.date()}")
 
-        # Check if we should use downloads mode (highest priority)
+        # =====================================================================
+        # PRIORITY 1: DUAL EMAIL MODE (Primary - searches both Gmail + IMAP)
+        # =====================================================================
+        use_dual_email = os.getenv('USE_DUAL_EMAIL', 'false').lower() == 'true'
+        if use_dual_email:
+            logger.info("Using DUAL EMAIL mode (primary) - searching multiple email accounts")
+            transactions = self._fetch_from_dual_email(start_date, end_date)
+            if transactions is not None:  # None means fallback, empty list means no transactions
+                return transactions
+            logger.info("Dual email mode returned no results, trying fallback sources...")
+
+        # =====================================================================
+        # PRIORITY 2: DOWNLOADS MODE
+        # =====================================================================
         use_downloads = os.getenv('USE_DOWNLOADS', 'false').lower() == 'true'
         if use_downloads:
             logger.info("Using downloads mode to fetch Amazon transactions from Downloads folder")
@@ -369,6 +390,89 @@ class AmazonScraper:
         """Clean up browser resources."""
         logger.info("Closing Amazon scraper")
         # Would close Playwright browser here
+
+    def _fetch_from_dual_email(
+        self,
+        start_date: datetime,
+        end_date: datetime
+    ) -> Optional[List[Dict]]:
+        """
+        Fetch Amazon transactions from multiple email accounts.
+
+        Uses the MultiAccountEmailService to search both Gmail and IMAP accounts,
+        then parses the emails into transaction data.
+
+        Args:
+            start_date: Start of date range
+            end_date: End of date range
+
+        Returns:
+            List of transactions, or None if should fallback to other sources
+        """
+        try:
+            from multi_account_email_service import MultiAccountEmailService
+            from amazon_email_parser import AmazonEmailParser
+
+            # Calculate days to look back
+            days_back = (end_date - start_date).days + 1
+
+            # Initialize multi-account service (loads from config.yaml)
+            config_path = os.path.join(
+                os.path.dirname(__file__), '..', 'config.yaml'
+            )
+            email_service = MultiAccountEmailService(config_path=config_path)
+
+            # Check if we have any accounts configured
+            if not email_service.clients:
+                logger.warning("No email accounts configured for dual email mode")
+                return None  # Fallback to other sources
+
+            # Test connections
+            connection_results = email_service.test_all_connections()
+            connected_accounts = sum(1 for success in connection_results.values() if success)
+
+            if connected_accounts == 0:
+                logger.error("No email accounts could connect")
+                return None  # Fallback to other sources
+
+            logger.info(f"Connected to {connected_accounts}/{len(email_service.clients)} email accounts")
+
+            # Search all accounts for Amazon emails
+            logger.info(f"Searching for Amazon emails (last {days_back} days)...")
+            email_messages = email_service.search_all_accounts(
+                days_back=days_back,
+                deduplicate=True,
+                parallel=True
+            )
+
+            if not email_messages:
+                logger.info("No Amazon emails found in any account")
+                return []  # Return empty list (don't fallback - this is intentional)
+
+            logger.info(f"Found {len(email_messages)} unique Amazon emails")
+
+            # Parse emails into transactions
+            parser = AmazonEmailParser()
+            transactions = parser.parse_email_messages(
+                messages=email_messages,
+                start_date=start_date,
+                end_date=end_date
+            )
+
+            # Close email connections
+            email_service.close_all()
+
+            logger.info(f"Parsed {len(transactions)} transactions from dual email sources")
+            return transactions
+
+        except ImportError as e:
+            logger.warning(f"Multi-account email dependencies not available: {e}")
+            return None  # Fallback to other sources
+        except Exception as e:
+            logger.error(f"Dual email mode failed: {e}")
+            import traceback
+            traceback.print_exc()
+            return None  # Fallback to other sources
 
     def _notify_browserbase_session_expired(self, error_details: str):
         """

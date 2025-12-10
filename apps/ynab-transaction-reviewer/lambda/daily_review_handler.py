@@ -60,6 +60,11 @@ def lambda_handler(event, context):
         except:
             pass  # Use default (first budget)
 
+        try:
+            os.environ['YNAB_WEB_APP_URL'] = get_parameter('/ynab-reviewer/web-app-url')
+        except:
+            pass  # Use default YNAB URLs if not set
+
         # SES configuration - use parameter store, or existing env var, or default
         if 'SES_SENDER_EMAIL' not in os.environ or not os.environ['SES_SENDER_EMAIL']:
             try:

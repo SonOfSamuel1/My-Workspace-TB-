@@ -151,11 +151,26 @@ class AmazonYNABReconciler:
             logger.info(f"Found {len(results['amazon_transactions'])} Amazon transactions")
 
             # Step 2: Fetch YNAB transactions
-            logger.info("Fetching YNAB transactions")
-            results['ynab_transactions'] = self.ynab_service.get_transactions(
-                since_date=start_date,
-                account_names=self.config['ynab']['account_names']
-            )
+            # In dual-email mode, fetch ALL Amazon transactions by payee name
+            use_dual_email = os.getenv('USE_DUAL_EMAIL', 'false').lower() == 'true'
+            match_by_payee = self.config.get('reconciliation', {}).get('match_by_payee', use_dual_email)
+
+            if match_by_payee:
+                logger.info("Fetching YNAB transactions by Amazon payee name (all accounts)")
+                payee_patterns = self.config.get('reconciliation', {}).get(
+                    'amazon_payee_patterns', ['Amazon', 'AMZN', 'AMZ']
+                )
+                results['ynab_transactions'] = self.ynab_service.get_amazon_transactions(
+                    since_date=start_date,
+                    include_cleared=True,
+                    payee_patterns=payee_patterns
+                )
+            else:
+                logger.info("Fetching YNAB transactions from configured accounts")
+                results['ynab_transactions'] = self.ynab_service.get_transactions(
+                    since_date=start_date,
+                    account_names=self.config['ynab']['account_names']
+                )
             logger.info(f"Found {len(results['ynab_transactions'])} YNAB transactions")
 
             # Step 3: Match transactions
@@ -274,9 +289,14 @@ def main():
         help='Use Browserbase cloud browser to scrape Amazon orders'
     )
     parser.add_argument(
+        '--use-dual-email',
+        action='store_true',
+        help='Use dual-email reconciliation (Gmail + IMAP) - PRIMARY source'
+    )
+    parser.add_argument(
         '--use-email',
         action='store_true',
-        help='Use Gmail to parse Amazon order confirmation emails'
+        help='Use single Gmail account to parse Amazon order emails (legacy)'
     )
     parser.add_argument(
         '--use-csv',
@@ -310,6 +330,11 @@ def main():
         default=None,
         help='Path to configuration file'
     )
+    parser.add_argument(
+        '--email-receipts',
+        action='store_true',
+        help='Match ALL pending YNAB transactions with email receipts (not just Amazon)'
+    )
 
     args = parser.parse_args()
 
@@ -324,10 +349,15 @@ def main():
         os.environ['USE_BROWSERBASE'] = 'true'
         logger.info("Browserbase mode enabled - will use cloud browser automation")
 
-    # Set environment variable for email mode if requested
+    # Set environment variable for dual-email mode if requested (PRIMARY)
+    if args.use_dual_email:
+        os.environ['USE_DUAL_EMAIL'] = 'true'
+        logger.info("Dual-email mode enabled - will search Gmail + IMAP accounts (PRIMARY)")
+
+    # Set environment variable for legacy single email mode if requested
     if args.use_email:
         os.environ['USE_EMAIL'] = 'true'
-        logger.info("Email mode enabled - will parse Amazon emails from Gmail")
+        logger.info("Email mode enabled - will parse Amazon emails from Gmail (legacy single account)")
 
     # Set environment variable for CSV mode if requested
     if args.use_csv:
@@ -377,6 +407,28 @@ def main():
         else:
             print("✗ Validation failed")
             sys.exit(1)
+
+    # Email receipts mode - matches ALL pending transactions with email receipts
+    if args.email_receipts:
+        from email_receipt_reconciler import EmailReceiptReconciler
+
+        logger.info("Starting email receipt reconciliation mode...")
+
+        ynab_config = {
+            'budget_name': "Terrance Brandon's Plan",
+            'account_names': [],  # Empty = all accounts
+            'only_uncleared': False
+        }
+
+        email_reconciler = EmailReceiptReconciler(
+            ynab_config=ynab_config,
+            email_config_path=args.config or str(Path(__file__).parent.parent / 'config.yaml'),
+            dry_run=args.dry_run
+        )
+
+        results = email_reconciler.run(lookback_days=args.days or 30)
+        print(email_reconciler.get_summary_report(results))
+        sys.exit(0)
 
     # Run reconciliation
     results = reconciler.run(lookback_days=args.days)

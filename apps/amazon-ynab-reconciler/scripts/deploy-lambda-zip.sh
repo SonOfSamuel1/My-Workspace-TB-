@@ -12,7 +12,7 @@ PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 FUNCTION_NAME="amazon-ynab-reconciler"
 RUNTIME="python3.9"
 HANDLER="lambda_handler.lambda_handler"
-MEMORY_SIZE=512  # Reduced from 3008MB for container
+MEMORY_SIZE=1024  # Increased for dual-email processing
 TIMEOUT=300
 ROLE_ARN="arn:aws:iam::$(aws sts get-caller-identity --query 'Account' --output text):role/lambda-execution-role"
 REGION="${AWS_REGION:-us-east-1}"
@@ -85,7 +85,7 @@ if aws lambda get-function --function-name "$FUNCTION_NAME" --region "$REGION" &
         --memory-size "$MEMORY_SIZE" \
         --timeout "$TIMEOUT" \
         --environment "Variables={
-            USE_EMAIL=true,
+            USE_DUAL_EMAIL=true,
             STATE_BUCKET=amazon-ynab-reconciler,
             REPORT_EMAIL=terrancebrandon@me.com
         }" \
@@ -178,7 +178,7 @@ EOF
         --memory-size "$MEMORY_SIZE" \
         --timeout "$TIMEOUT" \
         --environment "Variables={
-            USE_EMAIL=true,
+            USE_DUAL_EMAIL=true,
             STATE_BUCKET=amazon-ynab-reconciler,
             REPORT_EMAIL=terrancebrandon@me.com
         }" \

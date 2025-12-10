@@ -5,7 +5,7 @@ export function middleware(request: NextRequest) {
   // Allow access to login page and API routes
   if (
     request.nextUrl.pathname.startsWith('/login') ||
-    request.nextUrl.pathname.startsWith('/api/auth') ||
+    request.nextUrl.pathname.startsWith('/api') ||
     request.nextUrl.pathname.startsWith('/_next') ||
     request.nextUrl.pathname === '/favicon.ico'
   ) {
@@ -17,7 +17,10 @@ export function middleware(request: NextRequest) {
 
   if (!authCookie || authCookie.value !== 'authenticated') {
     // Redirect to login
-    return NextResponse.redirect(new URL('/login', request.url));
+    const loginUrl = new URL('/login', request.url);
+    // Preserve the original URL to redirect back after login
+    loginUrl.searchParams.set('from', request.nextUrl.pathname);
+    return NextResponse.redirect(loginUrl);
   }
 
   return NextResponse.next();

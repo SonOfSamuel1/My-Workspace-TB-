@@ -251,3 +251,24 @@ class TransactionScanner:
 
         self._save_state()
         logger.info("Cleaned up old state data")
+
+    def scan_for_unapproved(self, days_back: int = 30) -> List[Transaction]:
+        """
+        Scan for transactions needing approval
+
+        Args:
+            days_back: Number of days to look back
+
+        Returns:
+            List of unapproved transactions
+        """
+        logger.info(f"Scanning for unapproved transactions (last {days_back} days)")
+
+        # Get unapproved transactions from YNAB
+        transactions = self.ynab.get_unapproved_transactions(days_back=days_back)
+
+        # Group by account for logging
+        grouped = self._group_by_account(transactions)
+
+        logger.info(f"Found {len(transactions)} unapproved transactions across {len(grouped)} accounts")
+        return transactions
