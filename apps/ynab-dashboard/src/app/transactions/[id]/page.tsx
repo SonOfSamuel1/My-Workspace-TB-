@@ -7,6 +7,7 @@ import {
   useUpdateTransaction,
   useApproveTransaction,
   useSplitTransaction,
+  useAllTransactions,
 } from "@/hooks/useTransaction";
 import { TransactionEditor } from "@/components/TransactionEditor";
 import { TransactionSplitter } from "@/components/TransactionSplitter";
@@ -21,13 +22,18 @@ export default function TransactionPage() {
   const params = useParams();
   const id = params.id as string;
   const [isSplitMode, setIsSplitMode] = useState(false);
+
+  // Fetch all transactions first to populate the cache
+  const { isLoading: allTxnLoading } = useAllTransactions();
+
+  // Then look up this specific transaction from the cache
   const { data: transaction, isLoading: txnLoading, error: txnError } = useTransaction(id);
   const { data: categories, isLoading: catLoading } = useCategories();
   const updateMutation = useUpdateTransaction();
   const approveMutation = useApproveTransaction();
   const splitMutation = useSplitTransaction();
 
-  const isLoading = txnLoading || catLoading;
+  const isLoading = allTxnLoading || txnLoading || catLoading;
 
   const handleSave = async (update: TransactionUpdate) => {
     await updateMutation.mutateAsync({
