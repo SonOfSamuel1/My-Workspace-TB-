@@ -1,13 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import type { Transaction } from "@/lib/types";
 import { formatCurrency, formatDateRelative } from "@/lib/utils";
+import { useAllTransactions } from "@/hooks/useTransaction";
 import {
   AlertCircle,
   Calendar,
@@ -86,29 +87,6 @@ function formatMonthLabel(month: string): string {
   return date.toLocaleDateString("en-US", { month: "short", year: "numeric" });
 }
 
-// Budget ID hardcoded for personal use - this is a single-user app
-const BUDGET_ID = "2a373a3b-bc29-46f0-92ab-008f3b0221a9";
-
-async function fetchTransactions(): Promise<{
-  unapproved: Transaction[];
-}> {
-  // Get all unapproved transactions
-  const response = await fetch(`/api/ynab/budgets/${BUDGET_ID}/transactions?type=unapproved`);
-  if (!response.ok) {
-    throw new Error("Failed to fetch transactions");
-  }
-  const data = await response.json();
-  const transactions: Transaction[] = data.data.transactions;
-
-  // Sort by date descending (most recent first)
-  const sortByDateDesc = (a: Transaction, b: Transaction) =>
-    new Date(b.date).getTime() - new Date(a.date).getTime();
-
-  return {
-    unapproved: transactions.sort(sortByDateDesc),
-  };
-}
-
 function TransactionCard({ transaction }: { transaction: Transaction }) {
   const isOutflow = transaction.amount < 0;
 
@@ -140,11 +118,23 @@ function TransactionCard({ transaction }: { transaction: Transaction }) {
 export default function HomePage() {
   const [activeFilter, setActiveFilter] = useState<FilterType>("all");
   const [monthFilter, setMonthFilter] = useState<string>("all");
+  const queryClient = useQueryClient();
 
-  const { data, isLoading, error, refetch, isRefetching } = useQuery({
-    queryKey: ["transactions", "overview"],
-    queryFn: fetchTransactions,
-  });
+  const { data: transactions = [], isLoading, error, refetch, isRefetching } = useAllTransactions();
+
+  // Filter to only unapproved transactions, sorted by date descending
+  const unapproved = transactions
+    .filter((t) => !t.approved)
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+  const handleRefresh = () => {
+    // Clear localStorage timestamp to force fresh fetch
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("ynab-all-transactions-timestamp");
+    }
+    queryClient.invalidateQueries({ queryKey: ["transactions", "all"] });
+    refetch();
+  };
 
   if (isLoading) {
     return (
@@ -167,14 +157,12 @@ export default function HomePage() {
             <p className="text-center text-muted-foreground">
               {error instanceof Error ? error.message : "An error occurred"}
             </p>
-            <Button onClick={() => refetch()}>Try Again</Button>
+            <Button onClick={handleRefresh}>Try Again</Button>
           </CardContent>
         </Card>
       </div>
     );
   }
-
-  const { unapproved = [] } = data || {};
 
   return (
     <div className="min-h-screen bg-muted/30 py-8 px-4">
@@ -185,7 +173,7 @@ export default function HomePage() {
             <h1 className="text-2xl font-bold">YNAB Transaction Reviewer</h1>
             <p className="text-muted-foreground">Review and approve your transactions</p>
           </div>
-          <Button variant="outline" size="icon" onClick={() => refetch()} disabled={isRefetching}>
+          <Button variant="outline" size="icon" onClick={handleRefresh} disabled={isRefetching}>
             <RefreshCw className={`h-4 w-4 ${isRefetching ? "animate-spin" : ""}`} />
           </Button>
         </div>
