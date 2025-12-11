@@ -10,6 +10,7 @@ export function Navigation() {
   const tabs = [
     { href: "/", label: "Needs Approval" },
     { href: "/all-transactions", label: "All Transactions" },
+    { href: "/browse", label: "Browse" },
   ];
 
   return (
