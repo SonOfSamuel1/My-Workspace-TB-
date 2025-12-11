@@ -1,21 +1,31 @@
-'use client';
+"use client";
 
-import { useTransaction, useCategories, useUpdateTransaction, useApproveTransaction } from '@/hooks/useTransaction';
-import { TransactionEditor } from '@/components/TransactionEditor';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import type { TransactionUpdate } from '@/lib/types';
-import { ArrowLeft, Loader2, AlertCircle, ExternalLink } from 'lucide-react';
-import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { useState } from "react";
+import {
+  useTransaction,
+  useCategories,
+  useUpdateTransaction,
+  useApproveTransaction,
+  useSplitTransaction,
+} from "@/hooks/useTransaction";
+import { TransactionEditor } from "@/components/TransactionEditor";
+import { TransactionSplitter } from "@/components/TransactionSplitter";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import type { TransactionUpdate, SubTransactionUpdate } from "@/lib/types";
+import { ArrowLeft, Loader2, AlertCircle, ExternalLink } from "lucide-react";
+import Link from "next/link";
+import { useParams } from "next/navigation";
 
 export default function TransactionPage() {
   const params = useParams();
   const id = params.id as string;
+  const [isSplitMode, setIsSplitMode] = useState(false);
   const { data: transaction, isLoading: txnLoading, error: txnError } = useTransaction(id);
   const { data: categories, isLoading: catLoading } = useCategories();
   const updateMutation = useUpdateTransaction();
   const approveMutation = useApproveTransaction();
+  const splitMutation = useSplitTransaction();
 
   const isLoading = txnLoading || catLoading;
 
@@ -28,6 +38,14 @@ export default function TransactionPage() {
 
   const handleApprove = async () => {
     await approveMutation.mutateAsync(id);
+  };
+
+  const handleSplit = async (subtransactions: SubTransactionUpdate[]) => {
+    await splitMutation.mutateAsync({
+      transactionId: id,
+      subtransactions,
+    });
+    setIsSplitMode(false);
   };
 
   if (isLoading) {
@@ -51,7 +69,7 @@ export default function TransactionPage() {
             <p className="text-center text-muted-foreground">
               {txnError instanceof Error
                 ? txnError.message
-                : 'The transaction you are looking for could not be found.'}
+                : "The transaction you are looking for could not be found."}
             </p>
             <div className="flex gap-2">
               <Button variant="outline" asChild>
@@ -91,13 +109,23 @@ export default function TransactionPage() {
           </Button>
         </div>
 
-        {/* Transaction Editor */}
-        <TransactionEditor
-          transaction={transaction}
-          categories={categories || []}
-          onSave={handleSave}
-          onApprove={handleApprove}
-        />
+        {/* Transaction Editor or Splitter */}
+        {isSplitMode ? (
+          <TransactionSplitter
+            totalAmount={transaction.amount}
+            categories={categories || []}
+            onSave={handleSplit}
+            onCancel={() => setIsSplitMode(false)}
+          />
+        ) : (
+          <TransactionEditor
+            transaction={transaction}
+            categories={categories || []}
+            onSave={handleSave}
+            onApprove={handleApprove}
+            onSplit={() => setIsSplitMode(true)}
+          />
+        )}
       </div>
     </div>
   );

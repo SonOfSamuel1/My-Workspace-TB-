@@ -1,7 +1,12 @@
 "use client";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import type { Transaction, CategoryGroup, TransactionUpdate } from "@/lib/types";
+import type {
+  Transaction,
+  CategoryGroup,
+  TransactionUpdate,
+  SubTransactionUpdate,
+} from "@/lib/types";
 
 // Budget ID hardcoded for personal use - this is a single-user app
 const BUDGET_ID = "2a373a3b-bc29-46f0-92ab-008f3b0221a9";
@@ -109,4 +114,36 @@ export function useApproveTransaction() {
         update: { approved: true },
       }),
   };
+}
+
+export function useSplitTransaction() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      transactionId,
+      subtransactions,
+    }: {
+      transactionId: string;
+      subtransactions: SubTransactionUpdate[];
+    }) => {
+      const response = await fetch(`/api/ynab/budgets/${BUDGET_ID}/transactions/${transactionId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ transaction: { subtransactions } }),
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error?.detail || "Failed to split transaction");
+      }
+      const data = await response.json();
+      return data.data.transaction as Transaction;
+    },
+    onSuccess: (data, variables) => {
+      // Update the transaction in the cache
+      queryClient.setQueryData(["transaction", variables.transactionId], data);
+      // Invalidate transactions list
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+    },
+  });
 }

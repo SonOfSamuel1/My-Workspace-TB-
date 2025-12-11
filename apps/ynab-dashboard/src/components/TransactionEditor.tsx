@@ -1,20 +1,15 @@
-'use client';
+"use client";
 
-import * as React from 'react';
-import { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { CategoryPicker } from '@/components/CategoryPicker';
-import {
-  formatCurrency,
-  formatDate,
-  milliunitsToDisplay,
-  displayToMilliunits,
-} from '@/lib/utils';
-import type { Transaction, CategoryGroup, TransactionUpdate } from '@/lib/types';
+import * as React from "react";
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { CategoryPicker } from "@/components/CategoryPicker";
+import { formatCurrency, formatDate, milliunitsToDisplay, displayToMilliunits } from "@/lib/utils";
+import type { Transaction, CategoryGroup, TransactionUpdate } from "@/lib/types";
 import {
   Calendar,
   DollarSign,
@@ -27,7 +22,8 @@ import {
   CheckCircle,
   AlertCircle,
   Clock,
-} from 'lucide-react';
+  Split,
+} from "lucide-react";
 
 interface TransactionEditorProps {
   transaction: Transaction;
@@ -35,6 +31,7 @@ interface TransactionEditorProps {
   onSave: (update: TransactionUpdate) => Promise<void>;
   onApprove?: () => Promise<void>;
   onCancel?: () => void;
+  onSplit?: () => void;
 }
 
 export function TransactionEditor({
@@ -43,6 +40,7 @@ export function TransactionEditor({
   onSave,
   onApprove,
   onCancel,
+  onSplit,
 }: TransactionEditorProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -50,7 +48,7 @@ export function TransactionEditor({
 
   // Form state
   const [payeeName, setPayeeName] = useState(transaction.payee_name);
-  const [memo, setMemo] = useState(transaction.memo || '');
+  const [memo, setMemo] = useState(transaction.memo || "");
   const [date, setDate] = useState(transaction.date);
   const [categoryId, setCategoryId] = useState(transaction.category_id);
   const [amount, setAmount] = useState(
@@ -79,7 +77,7 @@ export function TransactionEditor({
       setSuccess(true);
       setTimeout(() => setSuccess(false), 2000);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save transaction');
+      setError(err instanceof Error ? err.message : "Failed to save transaction");
     } finally {
       setIsLoading(false);
     }
@@ -95,7 +93,7 @@ export function TransactionEditor({
       await onApprove();
       setSuccess(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to approve transaction');
+      setError(err instanceof Error ? err.message : "Failed to approve transaction");
     } finally {
       setIsLoading(false);
     }
@@ -142,12 +140,8 @@ export function TransactionEditor({
       <CardContent className="space-y-6">
         {/* Amount display */}
         <div className="flex items-center justify-center py-4">
-          <span
-            className={`text-4xl font-bold ${
-              isOutflow ? 'text-red-600' : 'text-green-600'
-            }`}
-          >
-            {isOutflow ? '-' : '+'}
+          <span className={`text-4xl font-bold ${isOutflow ? "text-red-600" : "text-green-600"}`}>
+            {isOutflow ? "-" : "+"}
             {formatCurrency(Math.abs(transaction.amount))}
           </span>
         </div>
@@ -172,11 +166,7 @@ export function TransactionEditor({
             <DollarSign className="h-4 w-4" />
             Category
           </Label>
-          <CategoryPicker
-            categories={categories}
-            value={categoryId}
-            onChange={setCategoryId}
-          />
+          <CategoryPicker categories={categories} value={categoryId} onChange={setCategoryId} />
         </div>
 
         {/* Date */}
@@ -185,12 +175,7 @@ export function TransactionEditor({
             <Calendar className="h-4 w-4" />
             Date
           </Label>
-          <Input
-            id="date"
-            type="date"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-          />
+          <Input id="date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
         </div>
 
         {/* Memo */}
@@ -231,9 +216,7 @@ export function TransactionEditor({
 
         {/* Error message */}
         {error && (
-          <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
-            {error}
-          </div>
+          <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">{error}</div>
         )}
 
         {/* Success message */}
@@ -253,15 +236,17 @@ export function TransactionEditor({
               Cancel
             </Button>
           )}
+          {onSplit && transaction.subtransactions.length === 0 && (
+            <Button variant="outline" onClick={onSplit} disabled={isLoading}>
+              <Split className="mr-2 h-4 w-4" />
+              Split
+            </Button>
+          )}
         </div>
 
         <div className="flex gap-2">
           {!transaction.approved && onApprove && (
-            <Button
-              variant="success"
-              onClick={handleApprove}
-              disabled={isLoading}
-            >
+            <Button variant="success" onClick={handleApprove} disabled={isLoading}>
               {isLoading ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : (
