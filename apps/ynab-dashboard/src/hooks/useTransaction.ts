@@ -60,10 +60,24 @@ async function updateTransaction(
 }
 
 export function useTransaction(transactionId: string) {
+  const queryClient = useQueryClient();
+
   return useQuery({
     queryKey: ["transaction", transactionId],
-    queryFn: () => fetchTransaction(transactionId),
+    queryFn: async () => {
+      // First, try to find the transaction in the cached all-transactions data
+      const cachedTransactions = queryClient.getQueryData<Transaction[]>(["transactions", "all"]);
+      if (cachedTransactions) {
+        const found = cachedTransactions.find((t) => t.id === transactionId);
+        if (found) {
+          return found;
+        }
+      }
+      // Fall back to API call if not in cache
+      return fetchTransaction(transactionId);
+    },
     enabled: !!transactionId,
+    staleTime: Infinity, // Use cached data, don't auto-refetch
   });
 }
 
