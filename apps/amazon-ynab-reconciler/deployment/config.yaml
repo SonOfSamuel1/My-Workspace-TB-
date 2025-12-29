@@ -5,17 +5,87 @@ reconciliation:
   lookback_days: 30
 
   # Minimum confidence score (0-100) to consider a match
-  match_threshold: 80
+  match_threshold: 70  # Lowered from 80 to allow more potential matches
 
   # Date tolerance for matching (days)
-  date_tolerance_days: 2
+  date_tolerance_days: 7  # Increased from 2 to account for processing delays
 
   # Amount tolerance for matching (cents)
-  amount_tolerance_cents: 50
+  amount_tolerance_cents: 200  # Increased from 50 to $2.00 for better tolerance
+
+  # Match by payee name (finds ALL Amazon transactions in YNAB)
+  match_by_payee: true
+  amazon_payee_patterns:
+    - "Amazon"
+    - "AMZN"
+    - "AMZ"
+    - "Amazon.com"
+    - "Amazon Prime"
+    - "Amazon Marketplace"
+
+  # Batch detection settings
+  batch_detection:
+    enabled: true
+    # Maximum number of transactions to combine when looking for batches
+    max_batch_size: 5
+    # Try to detect split payments (one Amazon order split into multiple charges)
+    detect_split_payments: true
+    # Try to detect consolidated charges (multiple Amazon orders in one charge)
+    detect_consolidated_charges: true
+    # Confidence boost for transactions with Payment Reference IDs
+    payment_ref_confidence_boost: 10
 
   # Track previously reconciled transactions to avoid duplicates
-  enable_state_tracking: false
-  state_file: '../logs/reconciliation_state.json'
+  enable_state_tracking: true
+  state_file: 'logs/reconciliation_state.json'
+  # How long to keep state entries before cleanup (days)
+  state_retention_days: 90
+
+# =============================================================================
+# EMAIL ACCOUNTS CONFIGURATION (for dual-email reconciliation)
+# =============================================================================
+email_accounts:
+  accounts:
+    # Primary Gmail account (uses OAuth2)
+    - name: "Primary Gmail"
+      type: "gmail"
+      enabled: true
+      credentials_path: "~/.gmail-mcp/gcp-oauth.keys.json"
+      token_path: "~/.gmail-mcp/credentials.json"
+      search:
+        senders:
+          - "ship-confirm@amazon.com"
+          - "auto-confirm@amazon.com"
+          - "order-update@amazon.com"
+          - "digital-no-reply@amazon.com"
+          - "no-reply@amazon.com"
+        lookback_days: 30
+
+    # Brittany's mail.com account (uses IMAP)
+    - name: "Brittany Mail.com"
+      type: "imap"
+      enabled: true
+      server: "imap.mail.com"
+      port: 993
+      use_ssl: true
+      username: "brittanybrandon@mail.com"
+      # Password from environment: IMAP_PASSWORD_BRITTANY
+      search:
+        folder: "INBOX"
+        lookback_days: 30
+
+  # Deduplication settings
+  deduplication:
+    enabled: true
+    strategy: "order_id"  # Primary: match by Amazon order ID
+
+  # Priority settings
+  priority:
+    primary_source: "email"  # email, downloads, csv, browserbase
+    fallback_order:
+      - "downloads"
+      - "csv"
+      - "browserbase"
 
 amazon:
   # Amazon order history URL
@@ -26,6 +96,25 @@ amazon:
 
   # Wait time between page navigations (milliseconds)
   navigation_delay: 2000
+
+  # Downloads folder monitoring
+  downloads:
+    enabled: true
+    monitor_directory: '~/Downloads'
+    file_patterns:
+      - '*amazon*.csv'
+      - '*Amazon*.csv'
+      - '*order*.csv'
+      - '*Order*.csv'
+      - '*purchase*.csv'
+      - '*transaction*.csv'
+    archive_processed: true
+    archive_directory: 'data/processed'
+    min_file_size_bytes: 100
+    watch_interval_seconds: 300  # 5 minutes for continuous monitoring
+
+  # Archive downloaded CSV files after processing
+  archive_downloads: true
 
   # Browser settings for Playwright
   browser:
@@ -44,6 +133,21 @@ amazon:
     item_category: '.item-category'
     item_link: 'a[href*="/dp/"]'
     next_page: '.a-pagination .a-last:not(.a-disabled)'
+
+  # Browserbase cloud browser automation
+  browserbase:
+    enabled: true
+    # Session persistence settings
+    session_max_age_days: 7  # Re-authenticate after this many days of inactivity
+    # Order extraction settings
+    order_history_pages: 5  # Maximum pages to scrape per run
+    extraction_timeout: 30000  # Milliseconds for extraction operations
+    # Navigation settings
+    wait_between_pages: 2000  # Milliseconds between page navigations
+    max_retries: 3  # Retry attempts on failure
+    # Notification settings
+    notify_on_session_expiry: true
+    notification_topic_arn: null  # Set to SNS topic ARN for alerts
 
 ynab:
   # Budget name to use
@@ -93,6 +197,8 @@ aws:
     amazon_credentials: '/amazon-reconciler/amazon-credentials'
     ynab_api_key: '/amazon-reconciler/ynab-api-key'
     gmail_credentials: '/amazon-reconciler/gmail-credentials'
+    browserbase_session: '/amazon-reconciler/browserbase-session-id'
+    browserbase_api_key: '/amazon-reconciler/browserbase-api-key'
 
   # EventBridge schedule
   schedule:

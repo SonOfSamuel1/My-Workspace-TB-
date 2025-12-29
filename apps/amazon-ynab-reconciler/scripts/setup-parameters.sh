@@ -91,6 +91,17 @@ if [ "$setup_gmail" = "y" ]; then
     create_parameter "/amazon-reconciler/gmail-token" "Gmail token (base64 encoded)" true
 fi
 
+# IMAP credentials for dual-email mode (Brittany's mail.com account)
+echo -e "\n${YELLOW}IMAP Credentials for Dual-Email Mode${NC}"
+echo -e "This enables searching Amazon order emails from a second email account."
+echo -n "Do you want to set up IMAP credentials for Brittany's mail.com? (y/n): "
+read setup_imap
+
+if [ "$setup_imap" = "y" ]; then
+    echo -e "\n${YELLOW}Enter the IMAP password for brittanybrandon@mail.com${NC}"
+    create_parameter "/amazon-reconciler/imap-password-brittany" "IMAP password for mail.com account" true
+fi
+
 # Browserbase credentials (optional)
 echo -e "\n${YELLOW}Browserbase Cloud Browser Setup${NC}"
 echo -e "Browserbase provides cloud-based browser automation for scraping Amazon."

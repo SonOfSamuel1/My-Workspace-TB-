@@ -124,7 +124,7 @@ class TransactionMatcher:
 
         Args:
             transactions: List of transactions to index
-            is_ynab: Whether these are YNAB transactions (amounts in milliunits)
+            is_ynab: Whether these are YNAB transactions
 
         Returns:
             Dict mapping bucket keys to lists of transactions
@@ -132,7 +132,9 @@ class TransactionMatcher:
         index = defaultdict(list)
         for txn in transactions:
             if is_ynab:
-                amount = abs(txn['amount'] / 1000)  # Convert milliunits to dollars
+                # YNAB transactions from get_amazon_transactions() are already in dollars
+                # Only raw API responses have milliunits
+                amount = abs(txn['amount'])
             else:
                 amount = txn['total']
             bucket_key = int(amount // self._amount_bucket_dollars)
@@ -344,8 +346,8 @@ class TransactionMatcher:
             return 0
 
         # Amount proximity (0-60 points)
-        # YNAB amounts are in milliunits (1/1000 of currency unit)
-        ynab_amount_dollars = abs(ynab_txn['amount'] / 1000)
+        # YNAB transactions from get_amazon_transactions() are already in dollars
+        ynab_amount_dollars = abs(ynab_txn['amount'])
         amount_diff_cents = abs(amazon_txn['total'] - ynab_amount_dollars) * 100
         if amount_diff_cents <= self.amount_tolerance_cents:
             amount_score = 60 * (1 - (amount_diff_cents / (self.amount_tolerance_cents + 1)))
@@ -448,7 +450,8 @@ class TransactionMatcher:
             ynab_date = datetime.fromisoformat(ynab_date)
 
         # Calculate differences correctly
-        ynab_amount_dollars = abs(ynab_txn['amount'] / 1000)
+        # YNAB transactions from get_amazon_transactions() are already in dollars
+        ynab_amount_dollars = abs(ynab_txn['amount'])
         amount_diff_cents = abs(amazon_txn['total'] - ynab_amount_dollars) * 100
 
         return {
@@ -462,10 +465,12 @@ class TransactionMatcher:
             'date_diff_days': abs((amazon_txn['date'] - ynab_date).days),
             'amount_diff_cents': amount_diff_cents,
             'amazon_data': {
+                'order_id': amazon_txn['order_id'],
                 'category': primary_item.get('category', 'Unknown'),
                 'item_name': item_display,
                 'item_link': primary_item.get('link', ''),
-                'all_items': amazon_txn['items']
+                'items': amazon_txn['items'],
+                'source_account': amazon_txn.get('source_account', 'unknown')
             },
             'ynab_data': {
                 'payee_name': ynab_txn.get('payee_name', ''),
@@ -623,7 +628,7 @@ class TransactionMatcher:
             ynab_date = ynab_txn['date']
             if isinstance(ynab_date, str):
                 ynab_date = datetime.fromisoformat(ynab_date)
-            ynab_amount = abs(ynab_txn['amount'] / 1000)
+            ynab_amount = abs(ynab_txn['amount'])  # Already in dollars
 
             # Check date groups within tolerance
             for days_offset in range(-self.date_tolerance_days, self.date_tolerance_days + 1):
@@ -698,7 +703,7 @@ class TransactionMatcher:
                 date_diff = abs((amazon_date - ynab_date).days)
 
                 if date_diff <= self.date_tolerance_days:
-                    ynab_amount = abs(ynab_txn['amount'] / 1000)
+                    ynab_amount = abs(ynab_txn['amount'])  # Already in dollars
 
                     # Check if this could be part of a split
                     if ynab_amount < amazon_total:
@@ -714,7 +719,7 @@ class TransactionMatcher:
                 from itertools import combinations
                 for r in range(2, min(6, len(potential_ynab) + 1)):
                     for combo in combinations(potential_ynab, r):
-                        total = sum(abs(txn['amount'] / 1000) for txn in combo)
+                        total = sum(abs(txn['amount']) for txn in combo)  # Already in dollars
 
                         # Check if sum matches within tolerance
                         if abs(total - amazon_total) <= (self.amount_tolerance_cents / 100):

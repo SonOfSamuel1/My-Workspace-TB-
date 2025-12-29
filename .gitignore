@@ -70,6 +70,8 @@ MANIFEST
 # Allow lib/ directories in apps (Node.js library code)
 !apps/*/lib/
 !apps/*/lib/**
+!apps/*/src/lib/
+!apps/*/src/lib/**
 
 # Python testing
 .pytest_cache/

@@ -215,14 +215,19 @@ class GmailService:
         Returns:
             True if sent successfully
         """
-        # Determine subject based on transaction count
-        count = summary_stats.get('total_count', 0)
-        if count == 0:
+        # Determine subject based on transaction counts
+        uncategorized_count = summary_stats.get('total_count', 0)
+        unapproved_count = summary_stats.get('unapproved_count', 0)
+
+        if uncategorized_count == 0 and unapproved_count == 0:
             subject = "[YNAB Review] All transactions categorized!"
-        elif count == 1:
-            subject = "[YNAB Review] 1 transaction needs categorization"
         else:
-            subject = f"[YNAB Review] {count} transactions need categorization"
+            parts = []
+            if uncategorized_count > 0:
+                parts.append(f"{uncategorized_count} uncategorized")
+            if unapproved_count > 0:
+                parts.append(f"{unapproved_count} need approval")
+            subject = f"[YNAB Review] {' + '.join(parts)}"
 
         # Build full HTML email
         html_body = self._build_review_email_html(transactions_html, summary_stats)
@@ -233,6 +238,42 @@ class GmailService:
             html_body=html_body
         )
 
+    def _build_monthly_breakdown_html(self, unapproved_by_month: dict) -> str:
+        """Build HTML for monthly breakdown of unapproved transactions"""
+        if not unapproved_by_month:
+            return ""
+
+        from datetime import datetime
+
+        # Sort months chronologically
+        months = sorted(
+            unapproved_by_month.keys(),
+            key=lambda x: datetime.strptime(x, '%B %Y')
+        )
+
+        # Build badge HTML for each month with count > 0
+        badges = []
+        for month in months:
+            count = unapproved_by_month[month]
+            if count > 0:
+                badges.append(f'''
+                    <span style="background: rgba(255,255,255,0.2); padding: 4px 12px; border-radius: 12px; font-size: 13px;">
+                        {month}: {count}
+                    </span>
+                ''')
+
+        if not badges:
+            return ""
+
+        return f'''
+        <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.2);">
+            <div style="font-size: 12px; opacity: 0.9; margin-bottom: 8px; text-transform: uppercase;">Approval Needed by Month</div>
+            <div style="display: flex; flex-wrap: wrap; gap: 10px;">
+                {''.join(badges)}
+            </div>
+        </div>
+        '''
+
     def _build_review_email_html(self, transactions_html: str, summary_stats: Dict) -> str:
         """Build complete HTML email for transaction review"""
         # Get next email time
@@ -242,6 +283,11 @@ class GmailService:
             next_email = "Sunday at 5 PM"
         else:
             next_email = "Tomorrow at 5 PM"
+
+        # Build monthly breakdown HTML
+        monthly_breakdown_html = self._build_monthly_breakdown_html(
+            summary_stats.get('unapproved_by_month', {})
+        )
 
         html = f"""
         <!DOCTYPE html>
@@ -438,27 +484,27 @@ class GmailService:
                             <div class="summary-label">Uncategorized</div>
                         </div>
                         <div class="summary-item">
-                            <div class="summary-value">${abs(summary_stats.get('total_amount', 0)):,.2f}</div>
-                            <div class="summary-label">Total Amount</div>
+                            <div class="summary-value" style="color: #ffcc80;">{summary_stats.get('unapproved_count', 0)}</div>
+                            <div class="summary-label">Need Approval</div>
                         </div>
                         <div class="summary-item">
-                            <div class="summary-value">{summary_stats.get('accounts_affected', 0)}</div>
-                            <div class="summary-label">Accounts</div>
+                            <div class="summary-value">{summary_stats.get('amazon_unapproved_count', 0)}</div>
+                            <div class="summary-label">Amazon</div>
                         </div>
                         <div class="summary-item">
                             <div class="summary-value">{summary_stats.get('oldest_days', 0)}</div>
                             <div class="summary-label">Days Old</div>
                         </div>
                     </div>
+                    {monthly_breakdown_html}
                 </div>
 
                 <div class="transactions-section">
-                    <h2>Transactions Needing Categorization</h2>
                     {transactions_html}
                 </div>
 
                 <div class="next-email">
-                    📧 Next email: {next_email}
+                    Next email: {next_email}
                 </div>
 
                 <div class="footer">

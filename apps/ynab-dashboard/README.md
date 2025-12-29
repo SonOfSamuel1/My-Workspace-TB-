@@ -13,7 +13,7 @@ A Next.js web application for managing YNAB transactions with deep linking suppo
 
 ## Deployment
 
-Deployed on Netlify at: https://ynab-reviewer.netlify.app
+Deployed on Vercel at: https://ynab-dashboard.vercel.app
 
 ## Local Development
 
@@ -48,7 +48,7 @@ This dashboard receives deep links from:
 - **ynab-transaction-reviewer** - Daily YNAB transaction review emails
 - **weekly-budget-report** - Weekly budget summary emails
 
-Email links format: `https://ynab-reviewer.netlify.app/transactions/{transaction_id}`
+Email links format: `https://ynab-dashboard.vercel.app/transactions/{transaction_id}`
 
 ## Tech Stack
 

@@ -3,15 +3,22 @@ Split Transaction Analyzer
 
 Detects transactions that likely need to be split and suggests
 appropriate split amounts and categories.
+
+REFACTORED: Now uses BudgetDataContext for all category lookups
+instead of making API calls. This reduces API calls to 0.
 """
 
 import re
 import logging
-from typing import List, Dict, Optional, Tuple
+from typing import List, Dict, Optional, Tuple, TYPE_CHECKING
 from dataclasses import dataclass
 from datetime import datetime
 
-from ynab_service import Transaction
+# Import Transaction from data_context (new location)
+from data_context import Transaction, BudgetDataContext
+
+if TYPE_CHECKING:
+    from ynab_service import YNABService
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -28,17 +35,28 @@ class SplitSuggestion:
 
 
 class SplitAnalyzer:
-    """Analyzes transactions to detect and suggest splits"""
+    """
+    Analyzes transactions to detect and suggest splits.
 
-    def __init__(self, ynab_service):
+    REFACTORED: Uses pre-fetched BudgetDataContext instead of making
+    API calls for category lookups.
+    """
+
+    def __init__(self, data_context: BudgetDataContext = None, ynab_service: 'YNABService' = None):
         """
         Initialize split analyzer
 
         Args:
-            ynab_service: YNAB service instance
+            data_context: Pre-fetched budget data context (preferred)
+            ynab_service: YNAB service instance (legacy, for backward compatibility)
         """
-        self.ynab = ynab_service
+        self.context = data_context
+        self.ynab = ynab_service  # Keep for backward compatibility
         self._build_split_patterns()
+
+        # Cache for categories and category map
+        self._categories_cache = None
+        self._category_map_cache = None
 
     def _build_split_patterns(self):
         """Build patterns for detecting splittable transactions"""
@@ -102,6 +120,46 @@ class SplitAnalyzer:
             }
         }
 
+    def _get_categories(self) -> Dict[str, List[Dict]]:
+        """
+        Get categories from context or YNAB service (cached).
+
+        This ensures we only make 1 API call max, regardless of
+        how many times it's called.
+        """
+        # Prefer context (no API calls)
+        if self.context is not None:
+            return self.context.get_categories_formatted()
+
+        # Fallback to YNAB service with caching
+        if self._categories_cache is None and self.ynab is not None:
+            self._categories_cache = self.ynab.get_categories()
+
+        return self._categories_cache or {}
+
+    def _get_category_map(self) -> Dict[str, str]:
+        """
+        Get category name to ID map.
+
+        Returns: Dict mapping category name to category ID
+        """
+        if self._category_map_cache is not None:
+            return self._category_map_cache
+
+        # Build from context if available
+        if self.context is not None:
+            self._category_map_cache = dict(self.context.category_name_to_id)
+            return self._category_map_cache
+
+        # Build from categories
+        categories = self._get_categories()
+        self._category_map_cache = {}
+        for group, cats in categories.items():
+            for cat in cats:
+                self._category_map_cache[cat['name']] = cat['id']
+
+        return self._category_map_cache
+
     def analyze_for_split(self, transaction: Transaction) -> Optional[List[SplitSuggestion]]:
         """
         Analyze a transaction to determine if it should be split
@@ -134,6 +192,9 @@ class SplitAnalyzer:
 
     def _check_merchant_patterns(self, transaction: Transaction) -> Optional[List[SplitSuggestion]]:
         """Check if merchant matches known split patterns"""
+        if not transaction.payee_name:
+            return None
+
         payee_lower = transaction.payee_name.lower()
 
         for merchant_key, merchant_info in self.split_merchants.items():
@@ -160,12 +221,8 @@ class SplitAnalyzer:
         suggestions = []
         amount = abs(transaction.amount)
 
-        # Get categories
-        categories = self.ynab.get_categories()
-        category_map = {}
-        for group, cats in categories.items():
-            for cat in cats:
-                category_map[cat['name']] = cat['id']
+        # Get category map using cached helper (no API call)
+        category_map = self._get_category_map()
 
         # Special handling for different merchants
         if merchant_key == 'amazon':
@@ -333,6 +390,9 @@ class SplitAnalyzer:
 
     def _check_tip_pattern(self, transaction: Transaction) -> Optional[List[SplitSuggestion]]:
         """Check for restaurant/tip split pattern"""
+        if not transaction.payee_name:
+            return None
+
         payee_lower = transaction.payee_name.lower()
 
         for pattern_info in [self.common_patterns['tip_split']]:
@@ -348,8 +408,8 @@ class SplitAnalyzer:
                 base_amount = amount / (1 + tip_percentage)
                 tip_amount = amount - base_amount
 
-                # Get category IDs
-                categories = self.ynab.get_categories()
+                # Get category IDs using cached categories (no API call)
+                categories = self._get_categories()
                 dining_cat_id = None
                 tip_cat_id = None
 
@@ -404,12 +464,8 @@ class SplitAnalyzer:
         """Suggest a generic split for high-amount transactions"""
         amount = abs(transaction.amount)
 
-        # Get categories
-        categories = self.ynab.get_categories()
-        category_map = {}
-        for group, cats in categories.items():
-            for cat in cats:
-                category_map[cat['name']] = cat['id']
+        # Get category map using cached helper (no API call)
+        category_map = self._get_category_map()
 
         # Generic 60/40 split
         return [

@@ -4,6 +4,9 @@ YNAB Transaction Reviewer - Main Orchestrator
 
 Daily email system that pushes uncategorized YNAB transactions for review
 with smart suggestions and one-click categorization.
+
+REFACTORED: Now uses batch-first architecture with BudgetDataContext.
+API calls reduced from 100+ to 4-5 total, eliminating rate limit issues.
 """
 
 import os
@@ -19,11 +22,13 @@ from typing import Dict, List, Optional
 sys.path.insert(0, str(Path(__file__).parent))
 
 from ynab_service import YNABService
-from transaction_scanner import TransactionScanner
+from batch_fetcher import BatchDataFetcher
+from data_context import BudgetDataContext, Transaction
 from suggestion_engine import SuggestionEngine
 from split_analyzer import SplitAnalyzer
 from email_generator import EmailGenerator
-from gmail_service import GmailService
+
+# Note: TransactionScanner removed - using batch-first architecture now
 
 # Setup logging
 logging.basicConfig(
@@ -49,16 +54,25 @@ class TransactionReviewer:
 
         # Initialize services
         self.ynab = None
-        self.scanner = None
+        self.data_context = None  # Pre-fetched budget data (batch-first architecture)
         self.suggestion_engine = None
         self.split_analyzer = None
         self.email_generator = None
-        self.gmail = None
+        self.email_service = None
 
     def _load_config(self, config_path: str = None) -> Dict:
         """Load configuration from YAML file"""
         if not config_path:
-            config_path = Path(__file__).parent.parent / 'config' / 'config.yaml'
+            # Check if running in Lambda (flat structure) or locally
+            local_config = Path(__file__).parent / 'config' / 'config.yaml'
+            parent_config = Path(__file__).parent.parent / 'config' / 'config.yaml'
+            if local_config.exists():
+                config_path = local_config
+            elif parent_config.exists():
+                config_path = parent_config
+            else:
+                # Fallback to Lambda task directory
+                config_path = Path('/var/task/config/config.yaml')
 
         with open(config_path, 'r') as f:
             config = yaml.safe_load(f)
@@ -116,36 +130,53 @@ class TransactionReviewer:
             budget_id=self.config.get('ynab_budget_id')
         )
 
+        # BATCH-FIRST ARCHITECTURE: Fetch all data upfront (4 API calls total)
+        # This replaces 100+ per-transaction API calls that caused rate limiting
+        logger.info("Fetching complete budget context (batch-first architecture)...")
+        fetcher = BatchDataFetcher(self.ynab)
+        lookback_days = self.config['scanning'].get('lookback_days', 30)
+
+        # Fetch with longer history for better suggestion patterns
+        history_days = max(lookback_days, self.config.get('merchant_intelligence', {}).get('lookback_days', 365))
+        self.data_context = fetcher.fetch_complete_context(days_back=history_days)
+        logger.info(f"Context fetched: {self.data_context.transaction_count} transactions, "
+                   f"{len(self.data_context.uncategorized_transactions)} uncategorized, "
+                   f"{len(self.data_context.unapproved_transactions)} unapproved")
+
         # Determine data directory (use /tmp on Lambda)
         is_lambda = os.getenv('AWS_LAMBDA_FUNCTION_NAME') is not None
         data_dir = '/tmp/data' if is_lambda else 'data'
 
-        # Initialize scanner
-        self.scanner = TransactionScanner(
-            ynab_service=self.ynab,
-            state_file=f'{data_dir}/review_state.json'
-        )
-
-        # Initialize suggestion engine
+        # Initialize suggestion engine with context (no more per-transaction API calls)
         if self.config['suggestions']['enabled']:
             self.suggestion_engine = SuggestionEngine(
-                ynab_service=self.ynab,
+                data_context=self.data_context,
                 merchant_db_file=f'{data_dir}/merchants.json'
             )
 
-        # Initialize split analyzer
+        # Initialize split analyzer with context (no more per-transaction API calls)
         if self.config['split_detection']['enabled']:
             self.split_analyzer = SplitAnalyzer(
-                ynab_service=self.ynab
+                data_context=self.data_context
             )
 
-        # Initialize Gmail service
-        self.gmail = GmailService()
+        # Initialize email service (SES or Gmail based on environment)
+        use_ses = os.getenv('USE_SES', 'false').lower() == 'true'
+        if use_ses:
+            from ses_service import SESEmailService
+            sender_email = os.getenv('SES_SENDER_EMAIL', 'TERRANCE@GOODPORTION.ORG')
+            self.email_service = SESEmailService(sender_email=sender_email)
+            logger.info(f"Using AWS SES for email (sender: {sender_email})")
+        else:
+            from gmail_service import GmailService
+            self.email_service = GmailService()
+            logger.info("Using Gmail for email")
 
         # Initialize email generator
         self.email_generator = EmailGenerator(
-            gmail_service=self.gmail,
-            action_base_url=self.config['actions'].get('api_gateway_url')
+            email_service=self.email_service,
+            action_base_url=self.config['actions'].get('api_gateway_url'),
+            budget_id=self.ynab.budget_id
         )
 
         logger.info("All services initialized successfully")
@@ -187,64 +218,86 @@ class TransactionReviewer:
             self.initialize_services()
 
         try:
-            # Scan for uncategorized transactions
-            logger.info("Scanning for uncategorized transactions...")
+            # Use pre-fetched transactions from context (no additional API calls)
+            logger.info("Using pre-fetched transactions from context...")
 
-            # Check if we should include Saturday transactions (on Sunday)
-            include_saturday = (
-                self.is_sunday() and
-                self.config['schedule']['saturday_handling'] == 'include_in_sunday'
-            )
+            # Get transactions from context (already filtered)
+            transactions = self.data_context.uncategorized_transactions
+            unapproved_transactions = self.data_context.unapproved_transactions
 
-            if include_saturday:
-                logger.info("Including Saturday transactions in Sunday review")
-                # Look back 2 days to include Saturday
-                transactions = self.scanner.scan_for_uncategorized(days_back=2)
-            else:
-                transactions = self.scanner.scan_for_uncategorized(
-                    days_back=self.config['scanning']['lookback_days']
-                )
+            logger.info(f"Found {len(transactions)} uncategorized transactions")
+            logger.info(f"Found {len(unapproved_transactions)} unapproved transactions")
 
-            # Check if we have transactions to review
-            if not transactions and not self.config['notifications']['empty_report']:
-                logger.info("No uncategorized transactions found, skipping email")
-                return
+            # Check if we have any transactions to review
+            if not transactions and not unapproved_transactions:
+                if not self.config['notifications']['empty_report']:
+                    logger.info("No transactions found needing review, skipping email")
+                    return
 
-            # Generate suggestions for each transaction
+            # Generate suggestions for uncategorized transactions
             suggestions = {}
             split_suggestions = {}
 
             if transactions:
-                logger.info(f"Generating suggestions for {len(transactions)} transactions...")
+                logger.info(f"Generating suggestions for {len(transactions)} uncategorized transactions...")
 
                 for txn in transactions:
-                    # Generate category suggestions
-                    if self.suggestion_engine:
-                        category_suggestions = self.suggestion_engine.suggest_category(txn)
-                        if category_suggestions:
-                            suggestions[txn.id] = category_suggestions
+                    try:
+                        # Generate category suggestions
+                        if self.suggestion_engine:
+                            category_suggestions = self.suggestion_engine.suggest_category(txn)
+                            if category_suggestions:
+                                suggestions[txn.id] = category_suggestions
 
-                    # Check for split suggestions
-                    if self.split_analyzer:
-                        split_suggestion = self.split_analyzer.analyze_for_split(txn)
-                        if split_suggestion:
-                            split_suggestions[txn.id] = split_suggestion
+                        # Check for split suggestions
+                        if self.split_analyzer:
+                            split_suggestion = self.split_analyzer.analyze_for_split(txn)
+                            if split_suggestion:
+                                split_suggestions[txn.id] = split_suggestion
+                    except Exception as e:
+                        # Continue with other transactions even if one fails
+                        logger.warning(f"Error processing transaction {txn.payee_name}: {e}")
+
+            # Generate suggestions for unapproved transactions
+            unapproved_suggestions = {}
+            unapproved_splits = {}
+
+            if unapproved_transactions:
+                logger.info(f"Generating suggestions for {len(unapproved_transactions)} unapproved transactions...")
+
+                for txn in unapproved_transactions:
+                    try:
+                        # Generate category suggestions
+                        if self.suggestion_engine:
+                            category_suggestions = self.suggestion_engine.suggest_category(txn)
+                            if category_suggestions:
+                                unapproved_suggestions[txn.id] = category_suggestions
+
+                        # Check for split suggestions
+                        if self.split_analyzer:
+                            split_suggestion = self.split_analyzer.analyze_for_split(txn)
+                            if split_suggestion:
+                                unapproved_splits[txn.id] = split_suggestion
+                    except Exception as e:
+                        # Continue with other transactions even if one fails
+                        logger.warning(f"Error processing unapproved transaction {txn.payee_name}: {e}")
 
             # Get recipient email
             recipient_email = self.config['notifications']['recipient_email']
             if not recipient_email:
-                recipient_email = self.gmail.get_user_email()
+                recipient_email = os.getenv('RECIPIENT_EMAIL', 'terrancebrandon@me.com')
 
             if dry_run or self.config['development']['dry_run']:
                 logger.info("[DRY RUN] Would send email to: " + recipient_email)
-                logger.info(f"Transactions: {len(transactions)}")
+                logger.info(f"Uncategorized transactions: {len(transactions)}")
+                logger.info(f"Unapproved transactions: {len(unapproved_transactions)}")
                 logger.info(f"Suggestions generated: {len(suggestions)}")
                 logger.info(f"Split suggestions: {len(split_suggestions)}")
 
-                # Log sample transaction details
+                # Log sample uncategorized transaction details
                 if transactions:
                     sample = transactions[0]
-                    logger.info(f"\nSample transaction:")
+                    logger.info(f"\nSample uncategorized transaction:")
                     logger.info(f"  Payee: {sample.payee_name}")
                     logger.info(f"  Amount: ${abs(sample.amount):.2f}")
                     logger.info(f"  Date: {sample.date}")
@@ -253,16 +306,29 @@ class TransactionReviewer:
                     if sample.id in suggestions:
                         logger.info(f"  Top suggestion: {suggestions[sample.id][0].category_name} "
                                   f"({suggestions[sample.id][0].confidence:.0f}%)")
+
+                # Log sample unapproved transaction details
+                if unapproved_transactions:
+                    sample = unapproved_transactions[0]
+                    logger.info(f"\nSample unapproved transaction:")
+                    logger.info(f"  Payee: {sample.payee_name}")
+                    logger.info(f"  Amount: ${abs(sample.amount):.2f}")
+                    logger.info(f"  Date: {sample.date}")
+                    logger.info(f"  Account: {sample.account_name}")
+                    logger.info(f"  Category: {sample.category_name or 'None'}")
             else:
                 # Send the email
                 logger.info(f"Sending review email to {recipient_email}...")
 
-                if transactions:
+                if transactions or unapproved_transactions:
                     success = self.email_generator.generate_and_send_review_email(
                         to_email=recipient_email,
                         transactions=transactions,
                         suggestions=suggestions,
                         split_suggestions=split_suggestions,
+                        unapproved_transactions=unapproved_transactions,
+                        unapproved_suggestions=unapproved_suggestions,
+                        unapproved_splits=unapproved_splits,
                         is_sunday=self.is_sunday()
                     )
                 else:
@@ -271,20 +337,14 @@ class TransactionReviewer:
 
                 if success:
                     logger.info("Email sent successfully!")
-
-                    # Mark transactions as reviewed (sent for review)
-                    if transactions:
-                        txn_ids = [t.id for t in transactions]
-                        self.scanner.mark_as_reviewed(txn_ids)
                 else:
                     logger.error("Failed to send email")
 
-            # Log statistics
-            stats = self.scanner.get_statistics()
+            # Log statistics from data context
             logger.info("\n--- Review Statistics ---")
-            logger.info(f"Total reviewed: {stats['total_reviewed']}")
-            logger.info(f"Pending review: {stats['pending_review']}")
-            logger.info(f"Categorizations recorded: {stats['categorizations_recorded']}")
+            logger.info(f"Total transactions: {self.data_context.transaction_count}")
+            logger.info(f"Uncategorized: {len(self.data_context.uncategorized_transactions)}")
+            logger.info(f"Unapproved: {len(self.data_context.unapproved_transactions)}")
 
             if self.suggestion_engine:
                 merchant_stats = self.suggestion_engine.get_merchant_stats()
@@ -327,15 +387,14 @@ class TransactionReviewer:
         except Exception as e:
             issues.append(f"YNAB connection error: {e}")
 
-        # Test Gmail connection
+        # Test email service connection
         try:
-            if self.gmail.test_connection():
-                email = self.gmail.get_user_email()
-                logger.info(f"✓ Gmail connected: {email}")
+            if self.email_service.test_connection():
+                logger.info("✓ Email service connected")
             else:
-                issues.append("Gmail connection failed")
+                issues.append("Email service connection failed")
         except Exception as e:
-            issues.append(f"Gmail connection error: {e}")
+            issues.append(f"Email service connection error: {e}")
 
         # Check data directories
         data_dir = Path(__file__).parent.parent / 'data'
@@ -354,21 +413,18 @@ class TransactionReviewer:
 
     def show_stats(self):
         """Show current statistics"""
-        if not self.scanner:
+        if not self.data_context:
             self.initialize_services()
-
-        stats = self.scanner.get_statistics()
 
         print("\n" + "=" * 50)
         print("YNAB Transaction Reviewer - Statistics")
         print("=" * 50)
-        print(f"\nReview State:")
-        print(f"  Total reviewed: {stats['total_reviewed']}")
-        print(f"  Pending review: {stats['pending_review']}")
-        print(f"  Last scan: {stats.get('last_scan', 'Never')}")
-
-        if 'oldest_pending_days' in stats:
-            print(f"  Oldest pending: {stats['oldest_pending_days']} days")
+        print(f"\nTransaction State:")
+        print(f"  Total transactions: {self.data_context.transaction_count}")
+        print(f"  Uncategorized: {len(self.data_context.uncategorized_transactions)}")
+        print(f"  Unapproved: {len(self.data_context.unapproved_transactions)}")
+        print(f"  Categories tracked: {len(self.data_context.categories)}")
+        print(f"  Payees with history: {len(self.data_context.payee_category_histogram)}")
 
         if self.suggestion_engine:
             merchant_stats = self.suggestion_engine.get_merchant_stats()

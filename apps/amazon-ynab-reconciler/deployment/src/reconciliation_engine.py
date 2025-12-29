@@ -156,17 +156,20 @@ class ReconciliationEngine:
                     dry_run=self.dry_run
                 )
 
-            # Add flag for high-confidence matches
-            if match['confidence'] >= 95:
+            # Add flag based on email source account
+            source_account = match.get('amazon_data', {}).get('source_account', 'unknown')
+            if 'brittany' in source_account.lower() or 'mail.com' in source_account.lower():
+                # Purple for Brittany's mail.com account
                 self.ynab_service.add_flag_to_transaction(
                     transaction_id=transaction_id,
-                    flag_color='green',
+                    flag_color='purple',
                     dry_run=self.dry_run
                 )
-            elif match['confidence'] >= 85:
+            elif source_account != 'unknown':
+                # Blue for Terrance's Gmail accounts
                 self.ynab_service.add_flag_to_transaction(
                     transaction_id=transaction_id,
-                    flag_color='yellow',
+                    flag_color='blue',
                     dry_run=self.dry_run
                 )
 
@@ -339,3 +342,154 @@ class ReconciliationEngine:
                 })
 
         return warnings
+
+    def apply_batch_matches(self, batch_matches: List[Dict]) -> Dict:
+        """
+        Apply batch matches (split payments or consolidated charges) to YNAB.
+
+        Args:
+            batch_matches: List of batch match records from TransactionMatcher
+
+        Returns:
+            Processing statistics
+        """
+        logger.info(f"Applying {len(batch_matches)} batch matches (dry_run={self.dry_run})")
+
+        stats = {
+            'split_payments_processed': 0,
+            'consolidated_charges_processed': 0,
+            'successful_updates': 0,
+            'failed_updates': 0
+        }
+
+        for batch in batch_matches:
+            try:
+                if batch['type'] == 'split_payment':
+                    success = self._apply_split_payment(batch)
+                    if success:
+                        stats['split_payments_processed'] += 1
+                        stats['successful_updates'] += len(batch['ynab_transactions'])
+                    else:
+                        stats['failed_updates'] += len(batch['ynab_transactions'])
+
+                elif batch['type'] == 'consolidated_charge':
+                    success = self._apply_consolidated_charge(batch)
+                    if success:
+                        stats['consolidated_charges_processed'] += 1
+                        stats['successful_updates'] += 1
+                    else:
+                        stats['failed_updates'] += 1
+
+            except Exception as e:
+                logger.error(f"Error processing batch match: {str(e)}")
+                stats['failed_updates'] += 1
+
+        logger.info(
+            f"Batch reconciliation complete: {stats['split_payments_processed']} split payments, "
+            f"{stats['consolidated_charges_processed']} consolidated charges"
+        )
+
+        return stats
+
+    def _apply_split_payment(self, batch: Dict) -> bool:
+        """
+        Apply updates for a split payment (one Amazon order -> multiple YNAB charges).
+
+        Args:
+            batch: Split payment batch match record
+
+        Returns:
+            True if all updates successful
+        """
+        amazon_txn = batch['amazon_transaction']
+        ynab_txns = batch['ynab_transactions']
+
+        logger.info(
+            f"Processing split payment: Amazon order {amazon_txn.get('order_id', 'Unknown')} "
+            f"split into {len(ynab_txns)} YNAB transactions"
+        )
+
+        all_successful = True
+
+        # Update each YNAB transaction with the Amazon order info
+        for i, ynab_txn in enumerate(ynab_txns, 1):
+            # Prepare Amazon data with split payment notation
+            amazon_data = {
+                'order_id': amazon_txn.get('order_id'),
+                'items': amazon_txn.get('items', []),
+                'category': amazon_txn.get('category', 'Various'),
+                'is_split_payment': True,
+                'split_part': f"Part {i}/{len(ynab_txns)}",
+                'original_total': amazon_txn['total']
+            }
+
+            # Add split payment notation to memo
+            success = self.ynab_service.update_transaction_memo(
+                transaction_id=ynab_txn['id'],
+                amazon_data=amazon_data,
+                dry_run=self.dry_run
+            )
+
+            if success and not self.dry_run:
+                # Add orange flag to indicate split payment
+                self.ynab_service.add_flag_to_transaction(
+                    transaction_id=ynab_txn['id'],
+                    flag_color='orange',
+                    dry_run=self.dry_run
+                )
+
+            all_successful = all_successful and success
+
+        return all_successful
+
+    def _apply_consolidated_charge(self, batch: Dict) -> bool:
+        """
+        Apply updates for a consolidated charge (multiple Amazon orders -> one YNAB charge).
+
+        Args:
+            batch: Consolidated charge batch match record
+
+        Returns:
+            True if update successful
+        """
+        amazon_txns = batch['amazon_transactions']
+        ynab_txn = batch['ynab_transaction']
+
+        logger.info(
+            f"Processing consolidated charge: {len(amazon_txns)} Amazon orders "
+            f"consolidated into YNAB transaction"
+        )
+
+        # Combine all items from Amazon orders
+        all_items = []
+        order_ids = []
+        for amazon_txn in amazon_txns:
+            order_ids.append(amazon_txn.get('order_id', 'Unknown'))
+            all_items.extend(amazon_txn.get('items', []))
+
+        # Prepare consolidated Amazon data
+        amazon_data = {
+            'order_id': f"Multiple ({', '.join(order_ids[:3])}{'...' if len(order_ids) > 3 else ''})",
+            'items': all_items[:5],  # Limit to first 5 items for memo
+            'category': 'Multiple Orders',
+            'is_consolidated': True,
+            'order_count': len(amazon_txns),
+            'total_orders': ', '.join(order_ids)
+        }
+
+        # Update the YNAB transaction
+        success = self.ynab_service.update_transaction_memo(
+            transaction_id=ynab_txn['id'],
+            amazon_data=amazon_data,
+            dry_run=self.dry_run
+        )
+
+        if success and not self.dry_run:
+            # Add purple flag to indicate consolidated charge
+            self.ynab_service.add_flag_to_transaction(
+                transaction_id=ynab_txn['id'],
+                flag_color='purple',
+                dry_run=self.dry_run
+            )
+
+        return success

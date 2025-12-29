@@ -23,7 +23,7 @@ notifications:
 
 # Transaction scanning settings
 scanning:
-  lookback_days: 30  # How many days back to scan for transactions
+  lookback_days: 3650  # How many days back to scan (3650 = all time)
   exclude_accounts: []  # Account names to exclude from scanning
   exclude_categories: []  # Category names that don't need review
 
@@ -33,7 +33,7 @@ scanning:
 
 # Smart suggestion settings
 suggestions:
-  enabled: true
+  enabled: false
   min_confidence: 60  # Minimum confidence to show suggestion (0-100)
   max_suggestions: 3  # Maximum suggestions to show per transaction
 
@@ -44,9 +44,9 @@ suggestions:
 
 # Merchant intelligence settings
 merchant_intelligence:
-  enabled: true
-  use_historical: true  # Use historical transactions for suggestions
-  lookback_days: 365  # How far back to look for patterns
+  enabled: false
+  use_historical: false  # Use historical transactions for suggestions
+  lookback_days: 30  # How far back to look for patterns
 
   # Merchant type detection
   detect_merchant_type: true  # Try to identify merchant category
@@ -54,7 +54,7 @@ merchant_intelligence:
 
 # Split transaction detection
 split_detection:
-  enabled: true
+  enabled: false
   min_amount_for_split: 50.00  # Minimum amount to suggest splits
 
   # Merchant-specific settings
