@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-Re-authorize Gmail with correct scopes for sending email.
+Re-authorize Gmail with gmail.modify scope (send + list/trash).
 
 This script will:
 1. Delete any existing token
-2. Start OAuth flow with gmail.send scope
+2. Start OAuth flow with gmail.modify scope
 3. Save the new token
 """
 
@@ -20,7 +20,7 @@ from google.auth.transport.requests import Request
 from google_auth_oauthlib.flow import InstalledAppFlow
 
 # Gmail API scope for sending emails
-SCOPES = ['https://www.googleapis.com/auth/gmail.send']
+SCOPES = ['https://www.googleapis.com/auth/gmail.modify']
 
 def main():
     base_dir = Path(__file__).parent.parent

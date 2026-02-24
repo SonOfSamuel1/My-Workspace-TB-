@@ -29,7 +29,7 @@ from googleapiclient.errors import HttpError
 logger = logging.getLogger(__name__)
 
 # Gmail API scopes needed for sending emails
-SCOPES = ['https://www.googleapis.com/auth/gmail.send']
+SCOPES = ['https://www.googleapis.com/auth/gmail.modify']
 
 
 class GmailService:
@@ -134,6 +134,38 @@ class GmailService:
                 raise
 
         return self.service
+
+    def trash_previous_digests(self) -> int:
+        """Trash previous '[YNAB Review]' emails so only the newest remains."""
+        service = self.get_service()
+        query = 'subject:"[YNAB Review]"'
+        trashed = 0
+
+        try:
+            page_token = None
+            while True:
+                kwargs = {"userId": "me", "q": query}
+                if page_token:
+                    kwargs["pageToken"] = page_token
+
+                response = service.users().messages().list(**kwargs).execute()
+                messages = response.get("messages", [])
+                logger.info(f"YNAB digest search found {len(messages)} message(s)")
+
+                for msg in messages:
+                    service.users().messages().trash(
+                        userId="me", id=msg["id"]
+                    ).execute()
+                    logger.info(f"Trashed previous YNAB digest {msg['id']}")
+                    trashed += 1
+
+                page_token = response.get("nextPageToken")
+                if not page_token:
+                    break
+        except Exception as e:
+            logger.error(f"Error trashing previous YNAB digests: {e}")
+
+        return trashed
 
     def send_email(self,
                    to: str,

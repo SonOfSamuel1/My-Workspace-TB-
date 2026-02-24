@@ -36,6 +36,27 @@ def get_parameter(name: str, decrypt: bool = True) -> str:
         raise
 
 
+def load_gmail_credentials():
+    """Load Gmail OAuth2 credentials from Parameter Store for digest cleanup."""
+    import base64
+    try:
+        creds_b64 = get_parameter('/ynab-reviewer/gmail-credentials')
+        creds_path = '/tmp/gmail_credentials.json'
+        with open(creds_path, 'w') as f:
+            f.write(base64.b64decode(creds_b64).decode('utf-8'))
+        os.environ['GMAIL_CREDENTIALS_PATH'] = creds_path
+
+        token_b64 = get_parameter('/ynab-reviewer/gmail-token')
+        token_path = '/tmp/gmail_token.pickle'
+        with open(token_path, 'wb') as f:
+            f.write(base64.b64decode(token_b64))
+        os.environ['GMAIL_TOKEN_PATH'] = token_path
+        return True
+    except Exception as e:
+        logger.warning(f"Could not load Gmail credentials for cleanup: {e}")
+        return False
+
+
 def lambda_handler(event, context):
     """
     Lambda handler for daily review
@@ -74,6 +95,16 @@ def lambda_handler(event, context):
 
         # Use SES instead of Gmail
         os.environ['USE_SES'] = 'true'
+
+        # Trash previous YNAB digest emails via Gmail API
+        if load_gmail_credentials():
+            try:
+                from gmail_service import GmailService
+                gmail = GmailService()
+                trashed = gmail.trash_previous_digests()
+                logger.info(f"Trashed {trashed} previous YNAB digest(s)")
+            except Exception as e:
+                logger.warning(f"Could not trash previous digests: {e}")
 
         # Create reviewer instance
         reviewer = TransactionReviewer()

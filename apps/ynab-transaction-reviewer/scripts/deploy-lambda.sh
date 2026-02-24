@@ -45,9 +45,11 @@ echo "Note: Gmail credentials will be handled via Lambda layers or S3"
 echo "Installing dependencies..."
 cd "$PACKAGE_DIR"
 if [ -f "$PROJECT_DIR/requirements-lambda.txt" ]; then
-    python3 -m pip install -t . -r "$PROJECT_DIR/requirements-lambda.txt" --upgrade --quiet
+    python3 -m pip install -t . -r "$PROJECT_DIR/requirements-lambda.txt" --upgrade --quiet \
+        --platform manylinux2014_x86_64 --only-binary=:all: --python-version 3.9
 else
-    python3 -m pip install -t . -r "$PROJECT_DIR/requirements.txt" --upgrade --quiet
+    python3 -m pip install -t . -r "$PROJECT_DIR/requirements.txt" --upgrade --quiet \
+        --platform manylinux2014_x86_64 --only-binary=:all: --python-version 3.9
 fi
 
 # Remove unnecessary files

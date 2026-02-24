@@ -317,6 +317,15 @@ class TransactionReviewer:
                     logger.info(f"  Account: {sample.account_name}")
                     logger.info(f"  Category: {sample.category_name or 'None'}")
             else:
+                # Trash previous digest emails before sending new one
+                from gmail_service import GmailService as GmailSvc
+                if isinstance(self.email_service, GmailSvc):
+                    try:
+                        trashed = self.email_service.trash_previous_digests()
+                        logger.info(f"Trashed {trashed} previous YNAB digest(s)")
+                    except Exception as e:
+                        logger.warning(f"Could not trash previous digests: {e}")
+
                 # Send the email
                 logger.info(f"Sending review email to {recipient_email}...")
 
