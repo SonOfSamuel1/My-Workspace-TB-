@@ -7,7 +7,7 @@ Note: Reminders require Todoist Premium subscription.
 import json
 import logging
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any, Dict, List, Optional
 
 import requests
@@ -66,6 +66,14 @@ class TodoistService:
                 if not next_cursor:
                     break
                 params = {"query": filter_query, "cursor": next_cursor}
+
+            # Hard filter: only tasks with a due date on or before today
+            today_str = date.today().isoformat()
+            tasks = [
+                t
+                for t in tasks
+                if t.get("due") and t["due"].get("date", "") <= today_str
+            ]
 
             logger.info(
                 f"Found {len(tasks)} tasks due today or overdue with @{label_name} label"
