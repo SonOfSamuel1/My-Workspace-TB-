@@ -2,7 +2,7 @@
 # See https://pre-commit.com for more information
 
 default_language_version:
-  python: python3.11
+  python: python3
   node: 18.0.0
 
 repos:
@@ -31,7 +31,7 @@ repos:
     rev: v1.5.0
     hooks:
       - id: detect-secrets
-        args: ['--baseline', '.secrets.baseline']
+        args: ["--baseline", ".secrets.baseline"]
         exclude: package-lock.json
 
   # Python formatting and linting
@@ -39,7 +39,7 @@ repos:
     rev: 24.10.0
     hooks:
       - id: black
-        language_version: python3.11
+        language_version: python3
         files: ^(apps|utils)/.*\.py$
 
   - repo: https://github.com/PyCQA/isort

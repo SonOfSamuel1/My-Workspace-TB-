@@ -1,0 +1,7 @@
+[flake8]
+max-line-length = 127
+extend-ignore = E203
+per-file-ignores =
+    apps/*/src/email_builder.py:E501
+    apps/*/src/perplexity_service.py:E501
+    apps/*/src/events_main.py:E402

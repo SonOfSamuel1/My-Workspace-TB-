@@ -1,0 +1,127 @@
+homeschool_events:
+  # Search configuration
+  search:
+    area: "Gwinnett County, Georgia"
+    lookahead_days: 30
+    categories:
+      - field trips
+      - co-ops
+      - workshops
+      - classes
+      - meetups
+      - sports
+      - arts
+      - science fairs
+      - support groups
+      - library programs
+      - parks & rec
+    known_sources:
+      - "Gwinnett County Public Library"
+      - "Gwinnett Parks & Recreation"
+      - "Georgia Home Education Association (GHEA)"
+      - "Classical Conversations"
+      - "Gwinnett Homeschool Co-ops"
+      - "Gwinnett County Museums"
+      - "Hudgens Center for Art & Learning"
+      - "Gwinnett Environmental & Heritage Center"
+      - "Interactive Neighborhood for Kids (INK)"
+      - "Southeast Homeschool Expo"
+
+  # Location filter — keep events within ~60 min drive of zip 30019 (Dacula, GA)
+  location_filter:
+    enabled: true
+    origin_lat: 34.0065
+    origin_lon: -83.8988
+    max_radius_miles: 45 # ~60 min drive in suburban GA
+    # Fallback for events without coordinates
+    fallback_cities:
+      - Lawrenceville
+      - Duluth
+      - Suwanee
+      - Snellville
+      - Lilburn
+      - Norcross
+      - Buford
+      - Dacula
+      - Grayson
+      - Loganville
+      - Sugar Hill
+      - Auburn
+      - Braselton
+      - Berkeley Lake
+      - Peachtree Corners
+      - Rest Haven
+      - Stone Mountain
+    fallback_keywords:
+      - "Gwinnett"
+
+  # Relevance filter — reject events that aren't about homeschooling / kids education
+  relevance_filter:
+    enabled: true
+    required_keywords:
+      - homeschool
+      - home school
+      - homeschooling
+      - field trip
+      - fieldtrip
+      - co-op
+      - coop
+      - science symposium
+      - science parade
+      - science fair
+      - NE GA Science
+      - Classical Conversations
+      - kidpreneur
+      - nature immersion
+      - enrichment
+      - homeschool expo
+    exclude_keywords:
+      - homebuyer
+      - home buyer
+      - homebuying
+      - real estate
+      - mortgage
+      - listing agent
+      - CE class
+      - CE credit
+      - continuing education
+      - retirement planning
+      - salesforce
+      - exam prep
+      - certification course
+
+  # Event sources configuration
+  sources:
+    eventbrite:
+      enabled: true
+      url: "https://www.eventbrite.com/d/ga--gwinnett-county/homeschool/"
+      max_pages: 3
+    ga_state_parks:
+      enabled: false # No Gwinnett County parks in results — all statewide
+      url: "https://explore.gastateparks.org/Homeschool/Events"
+    gwinnett_library:
+      enabled: true
+      base_url: "https://gwinnettpl.libnet.info"
+      search_term: "homeschool"
+    perplexity:
+      enabled: false # Set true to supplement with AI search
+
+  # OpenRouter API configuration (only used if perplexity source is enabled)
+  perplexity:
+    primary_model: "perplexity/sonar-pro"
+    fallback_model: "perplexity/sonar-reasoning-pro"
+
+  # Email configuration
+  email:
+    subject_template: "Homeschool Events in Gwinnett County - {date_range}"
+    ses:
+      region: "us-east-1"
+      sender_email: "brandonhome.appdev@gmail.com"
+
+  # Timezone
+  timezone: "America/New_York"
+
+  # Logging
+  logging:
+    level: "INFO"
+    format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
