@@ -7,10 +7,10 @@ that are due today or overdue and have the @commit label.
 import logging
 import os
 import sys
-from datetime import datetime, date, time
+from datetime import date, datetime, time
 from typing import List, Tuple
-import pytz
 
+import pytz
 from todoist_service import TodoistService
 
 # Configure logging
@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 DEFAULT_LABEL = "commit"
 DEFAULT_TIMEZONE = "America/New_York"
 DEFAULT_REMINDER_TIMES = [
-    (8, 0),   # 8:00 AM
+    (8, 0),  # 8:00 AM
     (11, 0),  # 11:00 AM
     (16, 0),  # 4:00 PM
     (19, 0),  # 7:00 PM
@@ -36,14 +36,12 @@ def setup_logging(level: str = "INFO") -> None:
     logging.basicConfig(
         level=getattr(logging, level.upper()),
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-        handlers=[logging.StreamHandler(sys.stdout)]
+        handlers=[logging.StreamHandler(sys.stdout)],
     )
 
 
 def get_reminder_datetimes(
-    target_date: date,
-    reminder_hours: List[Tuple[int, int]],
-    timezone_str: str
+    target_date: date, reminder_hours: List[Tuple[int, int]], timezone_str: str
 ) -> List[datetime]:
     """Generate reminder datetime objects for the specified times.
 
@@ -60,16 +58,12 @@ def get_reminder_datetimes(
 
     reminder_datetimes = []
     for hour, minute in reminder_hours:
-        reminder_dt = tz.localize(
-            datetime.combine(target_date, time(hour, minute))
-        )
+        reminder_dt = tz.localize(datetime.combine(target_date, time(hour, minute)))
         # Only include reminders that are in the future
         if reminder_dt > now:
             reminder_datetimes.append(reminder_dt)
         else:
-            logger.info(
-                f"Skipping {hour:02d}:{minute:02d} reminder - time has passed"
-            )
+            logger.info(f"Skipping {hour:02d}:{minute:02d} reminder - time has passed")
 
     return reminder_datetimes
 
@@ -79,7 +73,7 @@ def process_tasks_and_create_reminders(
     label_name: str = DEFAULT_LABEL,
     timezone_str: str = DEFAULT_TIMEZONE,
     reminder_times: List[Tuple[int, int]] = None,
-    clear_existing: bool = True
+    clear_existing: bool = True,
 ) -> dict:
     """Fetch tasks with the specified label and create reminders.
 
@@ -102,10 +96,21 @@ def process_tasks_and_create_reminders(
         "tasks_found": 0,
         "reminders_created": 0,
         "reminders_deleted": 0,
-        "errors": []
+        "errors": [],
     }
 
     try:
+        # Set today as due date for any @commit tasks with no due date
+        logger.info(f"Checking for undated tasks with @{label_name} label...")
+        undated_tasks = service.get_undated_tasks_with_label(label_name)
+        for task in undated_tasks:
+            task_id = task["id"]
+            task_content = task.get("content", "Unknown task")[:50]
+            logger.info(
+                f"Setting due date to today for undated task: {task_content}..."
+            )
+            service.set_due_date_today(task_id)
+
         # Get tasks due today or overdue with the @commit label
         logger.info(f"Fetching tasks due today or overdue with @{label_name} label...")
         tasks = service.get_tasks_due_today_with_label(label_name)
@@ -116,9 +121,7 @@ def process_tasks_and_create_reminders(
             return results
 
         # Get reminder times that are still in the future
-        reminder_datetimes = get_reminder_datetimes(
-            today, reminder_times, timezone_str
-        )
+        reminder_datetimes = get_reminder_datetimes(today, reminder_times, timezone_str)
 
         if not reminder_datetimes:
             logger.info("All reminder times have passed for today")
@@ -151,9 +154,7 @@ def process_tasks_and_create_reminders(
             # Create new reminders at each specified time
             for reminder_dt in reminder_datetimes:
                 result = service.create_reminder(
-                    task_id=task_id,
-                    reminder_time=reminder_dt,
-                    timezone=timezone_str
+                    task_id=task_id, reminder_time=reminder_dt, timezone=timezone_str
                 )
 
                 if result:
@@ -224,7 +225,7 @@ def main():
         api_token=api_token,
         label_name=label_name,
         timezone_str=timezone_str,
-        reminder_times=reminder_times
+        reminder_times=reminder_times,
     )
 
     if results["errors"]:

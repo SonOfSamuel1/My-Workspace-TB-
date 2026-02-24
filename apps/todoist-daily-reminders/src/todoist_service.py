@@ -84,6 +84,66 @@ class TodoistService:
             logger.error(f"Failed to fetch tasks: {e}")
             raise
 
+    def get_undated_tasks_with_label(self, label_name: str) -> List[Dict[str, Any]]:
+        """Get all tasks with a specific label that have no due date.
+
+        Args:
+            label_name: The label name to filter by (without @)
+
+        Returns:
+            List of task dictionaries with no due date
+        """
+        filter_query = f"@{label_name} & no date"
+
+        try:
+            tasks = []
+            params = {"query": filter_query}
+            while True:
+                response = requests.get(
+                    f"{REST_API_BASE}/tasks/filter",
+                    headers=self.headers,
+                    params=params,
+                    timeout=30,
+                )
+                response.raise_for_status()
+                data = response.json()
+                tasks.extend(data.get("results", []))
+                next_cursor = data.get("next_cursor")
+                if not next_cursor:
+                    break
+                params = {"query": filter_query, "cursor": next_cursor}
+
+            logger.info(f"Found {len(tasks)} undated tasks with @{label_name} label")
+            return tasks
+
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Failed to fetch undated tasks: {e}")
+            raise
+
+    def set_due_date_today(self, task_id: str) -> bool:
+        """Set a task's due date to today.
+
+        Args:
+            task_id: The ID of the task to update
+
+        Returns:
+            True if update was successful, False otherwise
+        """
+        try:
+            response = requests.post(
+                f"{REST_API_BASE}/tasks/{task_id}",
+                headers=self.headers,
+                json={"due_string": "today"},
+                timeout=30,
+            )
+            response.raise_for_status()
+            logger.info(f"Set due date to today for task {task_id}")
+            return True
+
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Failed to set due date for task {task_id}: {e}")
+            return False
+
     def get_existing_reminders(self) -> List[Dict[str, Any]]:
         """Get all existing reminders using the Sync API.
 
