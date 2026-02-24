@@ -1,20 +1,22 @@
 """Todoist API service for fetching tasks and managing reminders.
 
-Uses both REST API v2 for fetching tasks and Sync API for reminders.
+Uses REST API v1 for fetching tasks and Sync API v1 for reminders.
 Note: Reminders require Todoist Premium subscription.
 """
 
+import json
 import logging
-import requests
 import uuid
-from typing import List, Dict, Any, Optional
-from datetime import datetime, date
+from datetime import datetime
+from typing import Any, Dict, List, Optional
+
+import requests
 
 logger = logging.getLogger(__name__)
 
 # API endpoints
-REST_API_BASE = "https://api.todoist.com/rest/v2"
-SYNC_API_BASE = "https://api.todoist.com/sync/v9"
+REST_API_BASE = "https://api.todoist.com/api/v1"
+SYNC_API_BASE = "https://api.todoist.com/api/v1"
 
 
 class TodoistService:
@@ -27,10 +29,12 @@ class TodoistService:
             api_token: Todoist API token
         """
         self.api_token = api_token
+        # REST API uses JSON; Sync API uses form-encoded (no Content-Type override)
         self.headers = {
             "Authorization": f"Bearer {api_token}",
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
         }
+        self.sync_headers = {"Authorization": f"Bearer {api_token}"}
 
     def get_tasks_due_today_with_label(self, label_name: str) -> List[Dict[str, Any]]:
         """Get all tasks due today or overdue that have a specific label.
@@ -46,15 +50,26 @@ class TodoistService:
         filter_query = f"(today | overdue) & @{label_name}"
 
         try:
-            response = requests.get(
-                f"{REST_API_BASE}/tasks",
-                headers=self.headers,
-                params={"filter": filter_query}
-            )
-            response.raise_for_status()
-            tasks = response.json()
+            tasks = []
+            params = {"query": filter_query}
+            while True:
+                response = requests.get(
+                    f"{REST_API_BASE}/tasks/filter",
+                    headers=self.headers,
+                    params=params,
+                    timeout=30,
+                )
+                response.raise_for_status()
+                data = response.json()
+                tasks.extend(data.get("results", []))
+                next_cursor = data.get("next_cursor")
+                if not next_cursor:
+                    break
+                params = {"query": filter_query, "cursor": next_cursor}
 
-            logger.info(f"Found {len(tasks)} tasks due today or overdue with @{label_name} label")
+            logger.info(
+                f"Found {len(tasks)} tasks due today or overdue with @{label_name} label"
+            )
             return tasks
 
         except requests.exceptions.RequestException as e:
@@ -70,11 +85,9 @@ class TodoistService:
         try:
             response = requests.post(
                 f"{SYNC_API_BASE}/sync",
-                headers=self.headers,
-                json={
-                    "sync_token": "*",
-                    "resource_types": ["reminders"]
-                }
+                headers=self.sync_headers,
+                data={"sync_token": "*", "resource_types": json.dumps(["reminders"])},
+                timeout=30,
             )
             response.raise_for_status()
             data = response.json()
@@ -88,10 +101,7 @@ class TodoistService:
             raise
 
     def create_reminder(
-        self,
-        task_id: str,
-        reminder_time: datetime,
-        timezone: str = "America/New_York"
+        self, task_id: str, reminder_time: datetime, timezone: str = "America/New_York"
     ) -> Optional[Dict[str, Any]]:
         """Create a reminder for a task at a specific time.
 
@@ -121,16 +131,17 @@ class TodoistService:
                     "date": due_string,
                     "timezone": timezone,
                     "is_recurring": False,
-                    "lang": "en"
-                }
-            }
+                    "lang": "en",
+                },
+            },
         }
 
         try:
             response = requests.post(
                 f"{SYNC_API_BASE}/sync",
-                headers=self.headers,
-                json={"commands": [command]}
+                headers=self.sync_headers,
+                data={"commands": json.dumps([command])},
+                timeout=30,
             )
             response.raise_for_status()
             result = response.json()
@@ -170,16 +181,15 @@ class TodoistService:
         command = {
             "type": "reminder_delete",
             "uuid": str(uuid.uuid4()),
-            "args": {
-                "id": reminder_id
-            }
+            "args": {"id": reminder_id},
         }
 
         try:
             response = requests.post(
                 f"{SYNC_API_BASE}/sync",
-                headers=self.headers,
-                json={"commands": [command]}
+                headers=self.sync_headers,
+                data={"commands": json.dumps([command])},
+                timeout=30,
             )
             response.raise_for_status()
             result = response.json()
@@ -197,9 +207,7 @@ class TodoistService:
             return False
 
     def get_reminders_for_task(
-        self,
-        task_id: str,
-        all_reminders: Optional[List[Dict[str, Any]]] = None
+        self, task_id: str, all_reminders: Optional[List[Dict[str, Any]]] = None
     ) -> List[Dict[str, Any]]:
         """Get existing reminders for a specific task.
 
@@ -215,7 +223,8 @@ class TodoistService:
 
         # Filter reminders for the specific task
         task_reminders = [
-            r for r in all_reminders
+            r
+            for r in all_reminders
             if r.get("item_id") == task_id and not r.get("is_deleted", False)
         ]
 
