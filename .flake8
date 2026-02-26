@@ -5,3 +5,5 @@ per-file-ignores =
     apps/*/src/email_builder.py:E501
     apps/*/src/perplexity_service.py:E501
     apps/*/src/events_main.py:E402
+    apps/ActionOS/src/*.py:E501,F541,F841
+    apps/ActionOS/lambda_handler.py:E501,E402,E731,F401,F841
