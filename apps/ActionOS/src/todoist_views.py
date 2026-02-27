@@ -21,6 +21,7 @@ VIEW_TITLES = {
     "inbox": "Inbox",
     "commit": "@commit Today",
     "p1": "Priority 1",
+    "p1nodate": "P1 — No Date",
     "bestcase": "Best Case Today",
 }
 
@@ -882,7 +883,8 @@ def build_view_html(
         "function doSetDueDate(taskId,dateValue,input){"
         "input.disabled=true;"
         f'fetch("{base_action_url}?action=due_date&task_id="+taskId+"&date="+encodeURIComponent(dateValue))'
-        ".then(function(r){if(r.ok){"
+        ".then(function(r){return r.json();})"
+        ".then(function(d){if(d.ok){"
         "input.disabled=false;"
         "input.style.borderColor='rgba(34,197,94,0.5)';"
         "setTimeout(function(){input.style.borderColor='';},1500);"
@@ -892,7 +894,8 @@ def build_view_html(
         "if(dateValue>today){"
         "showUndo(taskId,'Moved to '+dateValue+'.',function(){"
         f'fetch("{base_action_url}?action=due_date&task_id="+taskId+"&date="+encodeURIComponent(today))'
-        ".then(function(r2){if(r2.ok){input.disabled=false;input.value=today;"
+        ".then(function(r2){return r2.json();})"
+        ".then(function(d2){if(d2.ok){input.disabled=false;input.value=today;"
         "restoreCard(taskId);}else{removeCard(taskId);}})"
         ".catch(function(){removeCard(taskId);});});"
         "updateCount();}}"

@@ -4,6 +4,7 @@ Single Lambda serving all ActionOS routes:
 
 Web views (GET, token required):
   ?action=web                          → ActionOS shell (sidebar + iframes)
+  ?action=web&view=home&embed=1        → Home (aggregated sections)
   ?action=web&view=starred&embed=1     → Starred email cards
   ?action=web&view=unread&embed=1      → Unread email cards
   ?action=web&view=inbox&embed=1       → Todoist Inbox
@@ -34,6 +35,9 @@ Todoist create/update (POST, token required):
   ?action=update_task                  → Update task title/description
   ?action=create_todoist               → Create Todoist task from email
 
+Home actions (GET, token required):
+  ?action=home_reviewed&section=X&item_id=Y
+
 Calendar actions (GET/POST, token required):
   ?action=calendar_reviewed&event_id=X
   ?action=calendar_create_todoist      → Add calendar event as Todoist task
@@ -42,6 +46,9 @@ Calendar actions (GET/POST, token required):
 
 Starred email actions (POST, token required):
   ?action=starred_to_todoist           → Create Todoist task from starred email
+
+Search (GET, token required):
+  ?action=search&q=X                   → Search tasks + calendar events
 
 Misc (GET, token required):
   ?action=toggl_start                  → Start Toggl timer (POST body)
@@ -76,6 +83,7 @@ CALENDAR_STATE_BUCKET = os.environ.get("STATE_BUCKET", "gmail-unread-digest")
 CALENDAR_STATE_KEY = "calendar_reviewed_state.json"
 CHECKLIST_STATE_KEY = "actionos/calendar_checklists.json"
 FOLLOWUP_STATE_KEY = "actionos/followup_state.json"
+HOME_REVIEWED_STATE_KEY = "actionos/home_reviewed_state.json"
 
 _PAGE_STYLE = (
     "font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;"
@@ -686,6 +694,59 @@ def _save_followup_state(state: dict) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Home reviewed state helpers
+# ---------------------------------------------------------------------------
+
+
+def _load_home_reviewed_state() -> dict:
+    """Load home review state from S3, pruning expired entries."""
+    try:
+        bucket = os.environ.get("STATE_BUCKET", "gmail-unread-digest")
+        obj = _s3.get_object(Bucket=bucket, Key=HOME_REVIEWED_STATE_KEY)
+        state = json.loads(obj["Body"].read())
+    except Exception:
+        state = {}
+
+    # Prune expired entries
+    now = datetime.now(timezone.utc)
+    # Daily sections: expire after 2 days; 7-day sections: expire after 8 days
+    daily_sections = {"commit", "bestcase", "starred", "inbox"}
+    seven_day_sections = {"p1"}
+    pruned = {}
+    for section, items in state.items():
+        if not isinstance(items, dict):
+            continue
+        max_age_days = (
+            2
+            if section in daily_sections
+            else (8 if section in seven_day_sections else 2)
+        )
+        pruned_items = {}
+        for item_id, ts in items.items():
+            try:
+                reviewed_at = datetime.fromisoformat(ts)
+                if reviewed_at.tzinfo is None:
+                    reviewed_at = reviewed_at.replace(tzinfo=timezone.utc)
+                if (now - reviewed_at).days < max_age_days:
+                    pruned_items[item_id] = ts
+            except Exception:
+                pass
+        if pruned_items:
+            pruned[section] = pruned_items
+    return pruned
+
+
+def _save_home_reviewed_state(state: dict) -> None:
+    bucket = os.environ.get("STATE_BUCKET", "gmail-unread-digest")
+    _s3.put_object(
+        Bucket=bucket,
+        Key=HOME_REVIEWED_STATE_KEY,
+        Body=json.dumps(state),
+        ContentType="application/json",
+    )
+
+
+# ---------------------------------------------------------------------------
 # Todoist helpers
 # ---------------------------------------------------------------------------
 
@@ -878,6 +939,7 @@ def handle_action(event: dict) -> dict:
             "count_all",
             "backlog_label",
             "remove_backlog",
+            "search",
         }
         if _action_check in _api_actions:
             return {"statusCode": 403, "body": "Forbidden"}
@@ -1056,8 +1118,96 @@ def handle_action(event: dict) -> dict:
                     "body": f"<p>Error: {e}</p>",
                 }
 
+        elif view == "home":
+            try:
+                from calendar_service import CalendarService
+                from gmail_service import GmailService
+                from home_views import build_home_html
+                from todoist_service import TodoistService
+
+                service = TodoistService(todoist_token)
+                cal = CalendarService(
+                    os.environ["CALENDAR_CREDENTIALS_JSON"],
+                    os.environ["CALENDAR_TOKEN_JSON"],
+                )
+                gmail = GmailService()
+                today_str = datetime.now().strftime("%Y-%m-%d")
+
+                with ThreadPoolExecutor(max_workers=8) as ex:
+                    f_projects = ex.submit(service.get_all_projects)
+                    f_commit = ex.submit(service.get_tasks_by_label, "Commit")
+                    f_bestcase = ex.submit(service.get_tasks_by_label, "Best Case")
+                    f_p1 = ex.submit(service.get_tasks_by_priority, 4)
+                    f_inbox = ex.submit(service.get_inbox_tasks)
+                    f_calendar = ex.submit(cal.get_upcoming_events, 90)
+                    f_starred = ex.submit(gmail.get_starred_emails)
+                    f_unread = ex.submit(
+                        lambda: __import__("unread_main").get_unread_emails_for_web()
+                    )
+
+                projects = f_projects.result()
+
+                # Filter Todoist tasks to due <= today
+                def _due_today(tasks):
+                    return [
+                        t
+                        for t in tasks
+                        if t.get("due") and t["due"].get("date", "")[:10] <= today_str
+                    ]
+
+                commit_tasks = _due_today(f_commit.result())
+                bestcase_tasks = _due_today(f_bestcase.result())
+                p1_tasks = _due_today(f_p1.result())
+                inbox_tasks = f_inbox.result()
+                calendar_events = f_calendar.result()
+                starred_emails = f_starred.result()
+                try:
+                    unread_emails = f_unread.result()
+                except Exception:
+                    unread_emails = []
+
+                # Follow-up emails from S3 state
+                fu_state = _load_followup_state()
+                followup_emails = list(fu_state.get("emails", {}).values())
+
+                home_state = _load_home_reviewed_state()
+                cal_state = _load_calendar_state()
+
+                body = build_home_html(
+                    commit_tasks=commit_tasks,
+                    bestcase_tasks=bestcase_tasks,
+                    calendar_events=calendar_events,
+                    p1_tasks=p1_tasks,
+                    starred_emails=starred_emails,
+                    unread_emails=unread_emails,
+                    followup_emails=followup_emails,
+                    inbox_tasks=inbox_tasks,
+                    projects=projects,
+                    home_state=home_state,
+                    cal_state=cal_state,
+                    followup_state=fu_state,
+                    function_url=function_url,
+                    action_token=expected,
+                    embed=True,
+                )
+                return {
+                    "statusCode": 200,
+                    "headers": {
+                        "Content-Type": "text/html",
+                        "Cache-Control": "private, max-age=30",
+                    },
+                    "body": body,
+                }
+            except Exception as e:
+                logger.error(f"Home view failed: {e}", exc_info=True)
+                return {
+                    "statusCode": 200,
+                    "headers": {"Content-Type": "text/html"},
+                    "body": f"<p>Error: {e}</p>",
+                }
+
         # -- Todoist views (inbox / commit / p1 / bestcase) --
-        elif view in ("inbox", "commit", "p1", "bestcase"):
+        elif view in ("inbox", "commit", "p1", "p1nodate", "bestcase"):
             try:
                 from todoist_service import TodoistService
                 from todoist_views import build_view_html
@@ -1096,6 +1246,17 @@ def handle_action(event: dict) -> dict:
                         for t in all_p1
                         if t.get("due") and t["due"].get("date", "")[:10] <= today_str
                     ]
+                    tasks.sort(
+                        key=lambda t: t.get("created_at", "") or t.get("added_at", ""),
+                        reverse=True,
+                    )
+                elif view == "p1nodate":
+                    with ThreadPoolExecutor(max_workers=2) as executor:
+                        projects_future = executor.submit(service.get_all_projects)
+                        tasks_future = executor.submit(service.get_tasks_by_priority, 4)
+                    projects = projects_future.result()
+                    all_p1 = tasks_future.result()
+                    tasks = [t for t in all_p1 if not t.get("due")]
                     tasks.sort(
                         key=lambda t: t.get("created_at", "") or t.get("added_at", ""),
                         reverse=True,
@@ -1465,6 +1626,112 @@ def handle_action(event: dict) -> dict:
             return _error_json(str(e))
 
     # -----------------------------------------------------------------------
+    # Search — search Todoist tasks and calendar events
+    # -----------------------------------------------------------------------
+    elif action == "search":
+        q = (params.get("q") or "").strip()
+        if not q:
+            return {
+                "statusCode": 200,
+                "headers": {
+                    "Content-Type": "application/json",
+                    "Cache-Control": "no-cache",
+                },
+                "body": json.dumps({"tasks": [], "events": []}),
+            }
+        try:
+            from calendar_service import CalendarService
+            from todoist_service import TodoistService
+
+            service = TodoistService(todoist_token)
+            q_lower = q.lower()
+
+            def _fetch_tasks():
+                return service.get_all_tasks()
+
+            def _fetch_events():
+                try:
+                    cal_service = CalendarService(
+                        os.environ["CALENDAR_CREDENTIALS_JSON"],
+                        os.environ["CALENDAR_TOKEN_JSON"],
+                    )
+                    return cal_service.get_upcoming_events_cached(days=90)
+                except Exception as cal_err:
+                    logger.warning(f"Calendar search failed: {cal_err}")
+                    return []
+
+            # Parallel fetch
+            with ThreadPoolExecutor(max_workers=2) as pool:
+                fut_tasks = pool.submit(_fetch_tasks)
+                fut_events = pool.submit(_fetch_events)
+                all_tasks = fut_tasks.result()
+                all_events = fut_events.result()
+
+            # Build project lookup for task project names
+            projects = service.get_all_projects()
+            proj_map = {p["id"]: p.get("name", "") for p in projects}
+
+            # Filter tasks
+            matched_tasks = []
+            for t in all_tasks:
+                content = (t.get("content") or "").lower()
+                desc = (t.get("description") or "").lower()
+                if q_lower in content or q_lower in desc:
+                    due = t.get("due") or {}
+                    matched_tasks.append(
+                        {
+                            "id": t.get("id", ""),
+                            "content": t.get("content", ""),
+                            "description": t.get("description", ""),
+                            "priority": t.get("priority", 1),
+                            "due_date": due.get("date", ""),
+                            "labels": t.get("labels", []),
+                            "project_name": proj_map.get(t.get("project_id"), ""),
+                            "type": "task",
+                        }
+                    )
+                if len(matched_tasks) >= 25:
+                    break
+
+            # Filter events
+            matched_events = []
+            for ev in all_events:
+                title = (ev.get("title") or "").lower()
+                loc = (ev.get("location") or "").lower()
+                desc = (ev.get("description") or "").lower()
+                if q_lower in title or q_lower in loc or q_lower in desc:
+                    matched_events.append(
+                        {
+                            "id": ev.get("id", ""),
+                            "title": ev.get("title", ""),
+                            "start": ev.get("start", ""),
+                            "end": ev.get("end", ""),
+                            "location": ev.get("location", ""),
+                            "is_all_day": ev.get("is_all_day", False),
+                            "calendar_type": ev.get("calendar_type", ""),
+                            "type": "event",
+                        }
+                    )
+                if len(matched_events) >= 25:
+                    break
+
+            return {
+                "statusCode": 200,
+                "headers": {
+                    "Content-Type": "application/json",
+                    "Cache-Control": "no-cache",
+                },
+                "body": json.dumps({"tasks": matched_tasks, "events": matched_events}),
+            }
+        except Exception as e:
+            logger.error(f"search failed: {e}", exc_info=True)
+            return {
+                "statusCode": 200,
+                "headers": {"Content-Type": "application/json"},
+                "body": json.dumps({"tasks": [], "events": []}),
+            }
+
+    # -----------------------------------------------------------------------
     # Badge count_all — returns JSON counts for all sidebar tabs
     # -----------------------------------------------------------------------
     elif action == "count_all":
@@ -1505,6 +1772,12 @@ def handle_action(event: dict) -> dict:
                 "bestcase": _count_today_or_overdue(f_bc.result()),
                 "code": len(code_new_issues),
             }
+            # Home count: sum of all trackable sections (excludes inbox)
+            counts["home"] = (
+                counts.get("commit", 0)
+                + counts.get("bestcase", 0)
+                + counts.get("p1", 0)
+            )
 
             # Unread count from S3 state
             try:
@@ -1756,6 +2029,25 @@ def handle_action(event: dict) -> dict:
             return _ok_json()
         except Exception as e:
             logger.error(f"toggl_start failed: {e}", exc_info=True)
+            return _error_json(str(e))
+
+    elif action == "home_reviewed":
+        section = params.get("section", "")
+        item_id = params.get("item_id", "")
+        valid_sections = {"commit", "bestcase", "p1", "starred", "inbox"}
+        if not section or section not in valid_sections:
+            return _error_json("Invalid section")
+        if not item_id:
+            return _error_json("Missing item_id")
+        try:
+            state = _load_home_reviewed_state()
+            state.setdefault(section, {})[item_id] = datetime.now(
+                timezone.utc
+            ).isoformat()
+            _save_home_reviewed_state(state)
+            return _ok_json()
+        except Exception as e:
+            logger.error(f"home_reviewed failed: {e}", exc_info=True)
             return _error_json(str(e))
 
     # -----------------------------------------------------------------------
