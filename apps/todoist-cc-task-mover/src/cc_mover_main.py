@@ -1,6 +1,6 @@
-"""Core logic for moving cc- prefixed tasks to the Claude Code project.
+"""Core logic for moving cc-prefixed tasks to the Claude Code project.
 
-Scans Inbox and Inbox 2 for tasks starting with 'cc-' (case-insensitive)
+Scans Inbox and Inbox 2 for tasks starting with 'cc-' or 'cc ' (case-insensitive)
 and moves them to the 'Claude Code' project.
 """
 
@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 TARGET_PROJECT_NAME = "Claude Code"
 INBOX_2_NAME = "Inbox 2"
-CC_PREFIX = "cc-"
+CC_PREFIXES = ("cc-", "cc ")
 
 
 def setup_logging():
@@ -25,7 +25,7 @@ def setup_logging():
 
 
 def move_cc_tasks(api_token: str) -> Dict[str, Any]:
-    """Find cc- tasks in Inbox/Inbox 2 and move them to the Claude Code project.
+    """Find cc-/cc tasks in Inbox/Inbox 2 and move them to the Claude Code project.
 
     Returns:
         Dict with tasks_moved, tasks_scanned, source_breakdown, and errors.
@@ -80,15 +80,19 @@ def move_cc_tasks(api_token: str) -> Dict[str, Any]:
             results["tasks_scanned"] += 1
             content = task.get("content", "")
 
-            if content.lower().startswith(CC_PREFIX):
+            content_lower = content.lower()
+            matched_prefix = next(
+                (p for p in CC_PREFIXES if content_lower.startswith(p)), None
+            )
+            if matched_prefix:
                 task_id = task["id"]
                 logger.info(
                     f"Moving task '{content}' (id={task_id}) from {source_name}"
                 )
 
                 if service.move_task_to_project(task_id, target_id):
-                    # Strip the cc- prefix from the task name
-                    new_content = content[len(CC_PREFIX) :].strip()
+                    # Strip the cc prefix from the task name
+                    new_content = content[len(matched_prefix) :].strip()
                     if new_content:
                         if not service.update_task_content(task_id, new_content):
                             results["errors"].append(
