@@ -10,7 +10,7 @@
 export class ReportGenerator {
   constructor(config = {}) {
     this.config = config;
-    this.theme = config.theme || 'modern';
+    this.theme = config.theme || "modern";
     // Task index for reference numbers (#1, #2, etc.)
     this.taskIndex = new Map();
     this.taskCounter = 0;
@@ -70,11 +70,11 @@ export class ReportGenerator {
       }
     }
 
-    const date = new Date().toLocaleDateString('en-US', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
+    const date = new Date().toLocaleDateString("en-US", {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
     });
 
     return `
@@ -665,7 +665,8 @@ export class ReportGenerator {
    * Generate header section
    */
   generateHeader(date, analysis) {
-    const headline = analysis.recommendations.find(r => r.type === 'efficiency')?.description ||
+    const headline =
+      analysis.recommendations.find((r) => r.type === "efficiency")?.description ||
       `${analysis.summary.totalTasks} tasks to review - ${analysis.summary.aiAssistable} can be assisted`;
 
     return `
@@ -686,11 +687,15 @@ export class ReportGenerator {
 
     // Calculate time savings (AI + Comet)
     const aiTimeSavings = analysis.aiOpportunities.reduce(
-      (sum, opp) => sum + (opp.estimatedTimeSavings || 0), 0
+      (sum, opp) => sum + (opp.estimatedTimeSavings || 0),
+      0
     );
     const cometTimeSavings = analysis.comet?.totalTimeSavings || 0;
     const totalTimeSavings = aiTimeSavings + cometTimeSavings;
-    const hoursText = totalTimeSavings >= 60 ? `${Math.round(totalTimeSavings / 60)}h ${totalTimeSavings % 60}m` : `${totalTimeSavings}m`;
+    const hoursText =
+      totalTimeSavings >= 60
+        ? `${Math.round(totalTimeSavings / 60)}h ${totalTimeSavings % 60}m`
+        : `${totalTimeSavings}m`;
 
     return `
 <div class="section">
@@ -699,12 +704,16 @@ export class ReportGenerator {
     Quick Summary
   </h2>
 
-  ${totalTimeSavings > 0 ? `
+  ${
+    totalTimeSavings > 0
+      ? `
   <div class="time-banner">
     <div class="time">${hoursText}</div>
     <div class="label">Potential time savings with AI + Comet assistance</div>
   </div>
-  ` : ''}
+  `
+      : ""
+  }
 
   <div class="summary-grid">
     <div class="summary-card">
@@ -715,17 +724,21 @@ export class ReportGenerator {
       <div class="number">${aiAssistable}</div>
       <div class="label">Claude Can Help</div>
     </div>
-    ${cometDelegable > 0 ? `
+    ${
+      cometDelegable > 0
+        ? `
     <div class="summary-card" style="background: linear-gradient(135deg, #00d4ff 0%, #0099cc 100%); color: white;">
       <div class="number">${cometDelegable}</div>
       <div class="label">Comet Delegable</div>
     </div>
-    ` : `
+    `
+        : `
     <div class="summary-card">
       <div class="number">${requiresHuman}</div>
       <div class="label">Requires You</div>
     </div>
-    `}
+    `
+    }
     <div class="summary-card">
       <div class="number">${percentage}%</div>
       <div class="label">Automatable</div>
@@ -736,7 +749,7 @@ export class ReportGenerator {
     <div class="progress-bar" style="width: ${percentage}%;"></div>
   </div>
   <p style="text-align: center; font-size: 13px; color: #666; margin-top: 8px;">
-    ${aiAssistable} tasks by Claude${cometDelegable > 0 ? `, ${cometDelegable} by Comet browser` : ''}
+    ${aiAssistable} tasks by Claude${cometDelegable > 0 ? `, ${cometDelegable} by Comet browser` : ""}
   </p>
 </div>`;
   }
@@ -771,7 +784,7 @@ export class ReportGenerator {
   <p style="color: #666; margin-bottom: 20px; font-size: 14px;">
     These tasks are great candidates for AI assistance. Click any task to open in Todoist.
   </p>
-  ${opportunities.map(opp => this.generateOpportunityCard(opp)).join('')}
+  ${opportunities.map((opp) => this.generateOpportunityCard(opp)).join("")}
 </div>`;
   }
 
@@ -780,26 +793,27 @@ export class ReportGenerator {
    */
   generateOpportunityCard(opp) {
     const taskRef = this.getTaskRef(opp.task.id);
-    const priorityClass = opp.task.priority === 4 ? 'urgent' : opp.task.priority === 3 ? 'high' : '';
+    const priorityClass =
+      opp.task.priority === 4 ? "urgent" : opp.task.priority === 3 ? "high" : "";
     const priorityBadge = this.getPriorityBadge(opp.task.priority);
-    const confidenceBadge = opp.confidenceScore ? this.getConfidenceBadge(opp.confidenceScore) : '';
-    const cometBadge = opp.cometCanHelp ? this.generateCometBadge() : '';
+    const confidenceBadge = opp.confidenceScore ? this.getConfidenceBadge(opp.confidenceScore) : "";
+    const cometBadge = opp.cometCanHelp ? this.generateCometBadge() : "";
 
     return `
 <div class="task-card ${priorityClass}">
   <div class="task-header">
     <span style="background: #667eea; color: white; font-weight: bold; padding: 4px 10px; border-radius: 20px; font-size: 13px; margin-right: 10px;">#${taskRef}</span>
-    <a href="${opp.task.url}" target="_blank" class="task-title" style="color: inherit; text-decoration: none; flex: 1;">
-      ${this.escapeHtml(opp.task.content)}
-    </a>
+    <span class="task-title" style="flex: 1;">
+      ${this.linkifyContent(opp.task.content)}
+    </span>
     ${priorityBadge}
     ${cometBadge}
   </div>
   <div class="task-meta">
-    ${opp.task.project ? `<strong>${opp.task.project}</strong> &bull; ` : ''}
+    ${opp.task.project ? `<strong>${opp.task.project}</strong> &bull; ` : ""}
     ${opp.category} &bull;
-    ${opp.estimatedTimeSavings ? `Save ~${opp.estimatedTimeSavings} min` : ''}
-    ${opp.task.dueDate ? ` &bull; Due: ${this.formatDate(opp.task.dueDate)}` : ''}
+    ${opp.estimatedTimeSavings ? `Save ~${opp.estimatedTimeSavings} min` : ""}
+    ${opp.task.dueDate ? ` &bull; Due: ${this.formatDate(opp.task.dueDate)}` : ""}
     ${confidenceBadge}
   </div>
   <div class="task-suggestion">
@@ -808,9 +822,10 @@ export class ReportGenerator {
     </div>
     <p>${this.escapeHtml(opp.suggestion)}</p>
     <div class="action-items">
-      ${(opp.actionItems || []).slice(0, 4).map(item =>
-        `<span class="action-item">${this.escapeHtml(item)}</span>`
-      ).join('')}
+      ${(opp.actionItems || [])
+        .slice(0, 4)
+        .map((item) => `<span class="action-item">${this.escapeHtml(item)}</span>`)
+        .join("")}
     </div>
   </div>
   <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #e2e8f0; font-size: 12px; color: #667eea;">
@@ -824,11 +839,11 @@ export class ReportGenerator {
    * Get confidence badge HTML
    */
   getConfidenceBadge(score) {
-    if (!score || score < 0) return '';
+    if (!score || score < 0) return "";
     const percentage = Math.round(score * 100);
-    let color = '#48bb78'; // green for high
-    if (score < 0.7) color = '#ecc94b'; // yellow for medium
-    if (score < 0.5) color = '#a0aec0'; // gray for low
+    let color = "#48bb78"; // green for high
+    if (score < 0.7) color = "#ecc94b"; // yellow for medium
+    if (score < 0.5) color = "#a0aec0"; // gray for low
 
     return ` &bull; <span style="color: ${color}; font-size: 11px;">${percentage}% confident</span>`;
   }
@@ -840,7 +855,7 @@ export class ReportGenerator {
     const tasks = taskData.highPriority.slice(0, 5);
 
     if (tasks.length === 0) {
-      return '';
+      return "";
     }
 
     return `
@@ -849,7 +864,7 @@ export class ReportGenerator {
     <span class="section-icon">&#128293;</span>
     High Priority Tasks
   </h2>
-  ${tasks.map(task => this.generateSimpleTaskCard(task)).join('')}
+  ${tasks.map((task) => this.generateSimpleTaskCard(task)).join("")}
 </div>`;
   }
 
@@ -860,7 +875,7 @@ export class ReportGenerator {
     const tasks = taskData.overdue;
 
     if (tasks.length === 0) {
-      return '';
+      return "";
     }
 
     return `
@@ -872,7 +887,7 @@ export class ReportGenerator {
   <p style="color: #e53e3e; margin-bottom: 20px; font-size: 14px;">
     These ${tasks.length} task(s) are past their due date and need attention.
   </p>
-  ${tasks.map(task => this.generateSimpleTaskCard(task, 'overdue')).join('')}
+  ${tasks.map((task) => this.generateSimpleTaskCard(task, "overdue")).join("")}
 </div>`;
   }
 
@@ -883,7 +898,7 @@ export class ReportGenerator {
     const tasks = taskData.upcoming.slice(0, 5);
 
     if (tasks.length === 0) {
-      return '';
+      return "";
     }
 
     return `
@@ -892,36 +907,40 @@ export class ReportGenerator {
     <span class="section-icon">&#128197;</span>
     Coming Up This Week
   </h2>
-  ${tasks.map(task => this.generateSimpleTaskCard(task)).join('')}
-  ${taskData.upcoming.length > 5 ? `
+  ${tasks.map((task) => this.generateSimpleTaskCard(task)).join("")}
+  ${
+    taskData.upcoming.length > 5
+      ? `
   <p style="text-align: center; color: #666; font-size: 14px; margin-top: 15px;">
     + ${taskData.upcoming.length - 5} more tasks this week
-  </p>` : ''}
+  </p>`
+      : ""
+  }
 </div>`;
   }
 
   /**
    * Generate simple task card
    */
-  generateSimpleTaskCard(task, variant = '') {
+  generateSimpleTaskCard(task, variant = "") {
     const taskRef = this.getTaskRef(task.id);
     const priorityBadge = this.getPriorityBadge(task.priority);
-    const cometBadge = this.isCometDelegable(task.id) ? this.generateCometBadge() : '';
+    const cometBadge = this.isCometDelegable(task.id) ? this.generateCometBadge() : "";
 
     return `
 <div class="task-card ${variant}">
   <div class="task-header">
     <span style="background: #667eea; color: white; font-weight: bold; padding: 4px 10px; border-radius: 20px; font-size: 13px; margin-right: 10px;">#${taskRef}</span>
-    <a href="${task.url}" target="_blank" class="task-title" style="color: inherit; text-decoration: none; flex: 1;">
-      ${this.escapeHtml(task.content)}
-    </a>
+    <span class="task-title" style="flex: 1;">
+      ${this.linkifyContent(task.content)}
+    </span>
     ${priorityBadge}
     ${cometBadge}
   </div>
   <div class="task-meta">
-    ${task.project?.name ? `${task.project.name} &bull; ` : ''}
-    ${task.due?.date ? `Due: ${this.formatDate(task.due.date)}` : 'No due date'}
-    ${task.isOverdue ? ' &bull; <strong style="color: #e53e3e;">OVERDUE</strong>' : ''}
+    ${task.project?.name ? `${task.project.name} &bull; ` : ""}
+    ${task.due?.date ? `Due: ${this.formatDate(task.due.date)}` : "No due date"}
+    ${task.isOverdue ? ' &bull; <strong style="color: #e53e3e;">OVERDUE</strong>' : ""}
   </div>
   <div style="margin-top: 10px; font-size: 12px; color: #666;">
     Reply: <code style="background: #f1f5f9; padding: 2px 6px; border-radius: 4px;">complete #${taskRef}</code> or
@@ -934,17 +953,17 @@ export class ReportGenerator {
    * Generate recommendations section
    */
   generateRecommendationsSection(analysis) {
-    const recommendations = analysis.recommendations.filter(r => r.type !== 'efficiency');
+    const recommendations = analysis.recommendations.filter((r) => r.type !== "efficiency");
 
     if (recommendations.length === 0) {
-      return '';
+      return "";
     }
 
     const icons = {
-      priority: '&#127919;',
-      batch: '&#128230;',
-      urgent: '&#128680;',
-      default: '&#128161;'
+      priority: "&#127919;",
+      batch: "&#128230;",
+      urgent: "&#128680;",
+      default: "&#128161;",
     };
 
     return `
@@ -953,7 +972,9 @@ export class ReportGenerator {
     <span class="section-icon">&#128161;</span>
     Recommendations
   </h2>
-  ${recommendations.map(rec => `
+  ${recommendations
+    .map(
+      (rec) => `
   <div class="recommendation">
     <div class="recommendation-icon">${icons[rec.type] || icons.default}</div>
     <div class="recommendation-content">
@@ -961,7 +982,9 @@ export class ReportGenerator {
       <p>${this.escapeHtml(rec.description)}</p>
     </div>
   </div>
-  `).join('')}
+  `
+    )
+    .join("")}
 </div>`;
   }
 
@@ -973,7 +996,7 @@ export class ReportGenerator {
 
     // Don't show section if Comet is disabled or no opportunities
     if (!cometData?.enabled || !cometData?.opportunities?.length) {
-      return '';
+      return "";
     }
 
     const opportunities = cometData.opportunities.slice(0, 5);
@@ -1004,12 +1027,16 @@ export class ReportGenerator {
     </div>
   </div>
 
-  ${opportunities.map(opp => this.generateCometCard(opp)).join('')}
+  ${opportunities.map((opp) => this.generateCometCard(opp)).join("")}
 
-  ${cometData.delegableCount > 5 ? `
+  ${
+    cometData.delegableCount > 5
+      ? `
   <p style="text-align: center; color: #8892a0; font-size: 14px; margin-top: 15px;">
     + ${cometData.delegableCount - 5} more Comet-delegable tasks
-  </p>` : ''}
+  </p>`
+      : ""
+  }
 </div>`;
   }
 
@@ -1024,16 +1051,16 @@ export class ReportGenerator {
 <div class="comet-card">
   <div class="task-header">
     <span style="background: #00d4ff; color: #0d1117; font-weight: bold; padding: 4px 10px; border-radius: 20px; font-size: 13px; margin-right: 10px;">#${taskRef}</span>
-    <a href="${opp.task.url}" target="_blank" class="task-title" style="text-decoration: none; flex: 1;">
-      ${this.escapeHtml(opp.task.content)}
-    </a>
+    <span class="task-title" style="flex: 1;">
+      ${this.linkifyContent(opp.task.content)}
+    </span>
     ${priorityBadge}
     <span class="comet-category-badge">${opp.cometCategoryName || opp.cometCategory}</span>
   </div>
   <div class="task-meta">
-    ${opp.task.project ? `${opp.task.project} &bull; ` : ''}
+    ${opp.task.project ? `${opp.task.project} &bull; ` : ""}
     ${opp.cometCapability}
-    ${opp.task.dueDate ? ` &bull; Due: ${this.formatDate(opp.task.dueDate)}` : ''}
+    ${opp.task.dueDate ? ` &bull; Due: ${this.formatDate(opp.task.dueDate)}` : ""}
     &bull; <span style="color: #00d4ff;">~${opp.estimatedTime || opp.cometEstimatedTime || 20} min</span>
   </div>
 
@@ -1045,7 +1072,7 @@ export class ReportGenerator {
    * Generate Comet prompt box
    */
   generateCometPromptBox(prompt) {
-    if (!prompt) return '';
+    if (!prompt) return "";
 
     return `
 <div class="comet-prompt-container">
@@ -1069,10 +1096,10 @@ export class ReportGenerator {
    */
   generateFooter() {
     const now = new Date();
-    const timestamp = now.toLocaleString('en-US', {
-      timeZone: 'America/New_York',
-      dateStyle: 'medium',
-      timeStyle: 'short'
+    const timestamp = now.toLocaleString("en-US", {
+      timeZone: "America/New_York",
+      dateStyle: "medium",
+      timeStyle: "short",
     });
 
     return `
@@ -1096,9 +1123,9 @@ export class ReportGenerator {
       4: '<span class="task-priority priority-urgent">Urgent</span>',
       3: '<span class="task-priority priority-high">High</span>',
       2: '<span class="task-priority priority-medium">Medium</span>',
-      1: ''
+      1: "",
     };
-    return badges[priority] || '';
+    return badges[priority] || "";
   }
 
   /**
@@ -1112,29 +1139,58 @@ export class ReportGenerator {
 
     const diffDays = Math.ceil((date - today) / (1000 * 60 * 60 * 24));
 
-    if (diffDays === 0) return 'Today';
-    if (diffDays === 1) return 'Tomorrow';
-    if (diffDays === -1) return 'Yesterday';
+    if (diffDays === 0) return "Today";
+    if (diffDays === 1) return "Tomorrow";
+    if (diffDays === -1) return "Yesterday";
     if (diffDays < -1) return `${Math.abs(diffDays)} days ago`;
-    if (diffDays <= 7) return date.toLocaleDateString('en-US', { weekday: 'long' });
+    if (diffDays <= 7) return date.toLocaleDateString("en-US", { weekday: "long" });
 
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
   }
 
   /**
    * Escape HTML to prevent XSS
    */
   escapeHtml(text) {
-    if (!text) return '';
-    const div = { innerHTML: '' };
+    if (!text) return "";
+    const div = { innerHTML: "" };
     const entities = {
-      '&': '&amp;',
-      '<': '&lt;',
-      '>': '&gt;',
-      '"': '&quot;',
-      "'": '&#039;'
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#039;",
     };
-    return text.replace(/[&<>"']/g, char => entities[char]);
+    return text.replace(/[&<>"']/g, (char) => entities[char]);
+  }
+
+  /**
+   * HTML-escape text then convert markdown links and bare URLs into clickable <a> tags.
+   *
+   * Handles:
+   * - Todoist markdown links: [Title](https://...) and [Title](obsidian://...)
+   * - Bare URLs: https://example.com, obsidian://open?vault=...
+   */
+  linkifyContent(text) {
+    if (!text) return "";
+    let escaped = this.escapeHtml(text);
+
+    const schemes = "(?:https?|obsidian)";
+
+    // Convert markdown links [text](url) → <a>text</a>
+    // After escapeHtml, &amp; may appear in URLs — the regex accounts for that.
+    escaped = escaped.replace(
+      new RegExp(`\\[([^\\]]+)\\]\\((${schemes}://[^)]+)\\)`, "g"),
+      '<a href="$2" target="_blank" rel="noopener" style="color:#667eea;text-decoration:underline;">$1</a>'
+    );
+
+    // Linkify remaining bare URLs not already inside href="..."
+    escaped = escaped.replace(
+      new RegExp(`(?<!href=")(?<!">)(${schemes}://[^\\s<)]+)`, "g"),
+      '<a href="$1" target="_blank" rel="noopener" style="color:#667eea;text-decoration:underline;">$1</a>'
+    );
+
+    return escaped;
   }
 }
 
