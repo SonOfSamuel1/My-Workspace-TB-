@@ -1,0 +1,106 @@
+/* BibleRef Linker - Reading View Links */
+a.bibleref-link {
+  color: var(--text-accent);
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+a.bibleref-link:hover {
+  text-decoration-style: solid;
+}
+
+/* BibleRef Linker - Live Preview Decorations */
+.bibleref-cm-link {
+  color: var(--text-accent);
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.bibleref-cm-link:hover {
+  text-decoration-style: solid;
+}
+
+.bibleref-cm-icon {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 2px;
+  vertical-align: baseline;
+  cursor: pointer;
+  opacity: 0.6;
+}
+
+.bibleref-cm-icon:hover {
+  opacity: 1;
+}
+
+.bibleref-cm-icon svg {
+  width: 14px;
+  height: 14px;
+  fill: var(--text-accent);
+}
+
+/* BibleRef Linker - Verse Popover */
+.bibleref-popover {
+  position: fixed;
+  z-index: var(--layer-popover);
+  max-width: 400px;
+  min-width: 200px;
+  padding: 12px 16px;
+  background-color: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 8px;
+  box-shadow: var(--shadow-s);
+  font-size: var(--font-ui-small);
+  line-height: 1.5;
+  pointer-events: auto;
+}
+
+.bibleref-popover-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.bibleref-popover-title {
+  font-weight: var(--font-semibold);
+  color: var(--text-normal);
+}
+
+.bibleref-popover-translation {
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+
+.bibleref-popover-text {
+  color: var(--text-normal);
+  white-space: pre-wrap;
+}
+
+.bibleref-popover-loading {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.bibleref-popover-error {
+  color: var(--text-error);
+}
+
+.bibleref-popover-footer {
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px solid var(--background-modifier-border);
+  text-align: right;
+}
+
+.bibleref-popover-footer a {
+  font-size: var(--font-ui-smaller);
+  color: var(--text-accent);
+}

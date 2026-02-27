@@ -8,10 +8,10 @@ Reads JT- teaching notes from S3 and extracts structured content:
 - Core content for context
 """
 
-import re
 import logging
+import re
 from pathlib import Path
-from typing import Optional
+
 import boto3
 from botocore.exceptions import ClientError
 
@@ -56,6 +56,8 @@ class ObsidianReader:
         verse = self._extract_verse(raw)
         if not verse and self._book_study_path:
             verse = self._find_verse_from_vault_backlinks(title, self._book_study_path)
+        # If verse is just a reference with no body text, fetch the actual verse
+        verse = self._resolve_verse_body(verse)
         core_content = self._extract_core_content(raw)
 
         return {
@@ -205,6 +207,57 @@ class ObsidianReader:
                     result = "\n".join(verse_lines).strip()
                     logger.info(f"Found verse via backlink in {md_file.name}")
                     return self._clean_obsidian_syntax(result)
+        return ""
+
+    def _resolve_verse_body(self, verse: str) -> str:
+        """If verse is only a reference with no body text, fetch the body from Bible API."""
+        if not verse:
+            return verse
+
+        non_empty = [
+            line_item for line_item in verse.strip().splitlines() if line_item.strip()
+        ]
+        if len(non_empty) > 1:
+            return verse  # Already has body text
+
+        # Single non-empty line — check if it matches a Bible reference pattern
+        ref_pattern = re.compile(
+            r"^(?:\d\s+)?[A-Z]\w+(?:\s+\w+)?\s+\d+[:\d\u2013\-,\s]*(?:\([^)]+\))?$"
+        )
+        if not ref_pattern.match(verse.strip()):
+            return verse
+
+        body = self._fetch_verse_text(verse.strip())
+        if body:
+            return f'{verse.strip()}\n"{body}"'
+        return verse
+
+    def _fetch_verse_text(self, reference: str) -> str:
+        """Fetch verse text from bible-api.com given a reference like 'Matthew 5:44 (ESV)'."""
+        import json
+        import urllib.request
+
+        # Strip translation in parentheses: "Matthew 5:44 (ESV)" → "Matthew 5:44"
+        ref = re.sub(r"\s*\([^)]+\)\s*$", "", reference.strip())
+        query = ref.replace(" ", "+")
+        url = f"https://bible-api.com/{query}"
+
+        try:
+            req = urllib.request.Request(
+                url, headers={"User-Agent": "JT-Newsletter/1.0"}
+            )
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+
+            text = data.get("text", "").strip()
+            # Collapse whitespace for clean single-paragraph display
+            text = re.sub(r"\s+", " ", text).strip()
+            if text:
+                logger.info(f"Fetched verse text for '{reference}': {text[:80]}...")
+                return text
+        except Exception as e:
+            logger.warning(f"Could not fetch verse text for '{reference}': {e}")
+
         return ""
 
     def _extract_core_content(self, content: str) -> str:

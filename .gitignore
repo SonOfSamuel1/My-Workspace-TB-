@@ -133,6 +133,10 @@ pnpm-debug.log*
 .aws/
 *.zip
 lambda-deployment.zip
+lambda_package/
+deployment/package/
+.env.vercel
+output/
 
 # ================================
 # Temporary Files
@@ -172,3 +176,12 @@ tmp/
 
 # Local Netlify folder
 .netlify
+
+# ================================
+# Spec-Kit
+# ================================
+.specify/extensions/.cache/
+
+# macOS duplicate files (e.g. "file 2.py")
+* 2.*
+* [0-9].*

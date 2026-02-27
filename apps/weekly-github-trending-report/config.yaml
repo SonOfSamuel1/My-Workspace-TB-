@@ -1,0 +1,43 @@
+github_trending_report:
+  enabled: true
+  schedule: "cron(0 23 ? * FRI *)" # Friday 11pm UTC = 6pm EST
+  timezone: "America/New_York"
+
+  api:
+    timeout: 30
+    queries:
+      # Brand-new repos exploding in the last week
+      - name: "new_breakouts"
+        query_template: "created:>{date} stars:>20"
+        sort: "stars"
+        per_page: 30
+      # Young repos (last 30 days) gaining fast, capped to avoid mega-repos
+      - name: "rising_stars"
+        query_template: "created:>{date_30d} stars:50..10000"
+        sort: "stars"
+        per_page: 30
+      # Active mid-tier repos (not the same top-100 every week)
+      - name: "active_mid_tier"
+        query_template: "pushed:>{date} stars:200..15000"
+        sort: "updated"
+        per_page: 30
+
+  report:
+    max_repos: 15
+    lookback_days: 7
+
+  rotation:
+    cooldown_weeks: 3 # Suppress repos seen in the last N weeks
+    seen_repos_file: "seen_repos.json"
+
+  email:
+    subject_template: "GitHub Weekly Trending - {date}"
+
+  ses:
+    sender_email: "brandonhome.appdev@gmail.com"
+    region: "us-east-1"
+
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file: "logs/github_trending.log"

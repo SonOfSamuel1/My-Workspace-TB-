@@ -54,6 +54,18 @@ _SVG_RECORD = (
     '<svg style="display:inline-block;vertical-align:middle" width="10" height="10" '
     'viewBox="0 0 10 10"><circle cx="5" cy="5" r="4" fill="currentColor"/></svg>'
 )
+_CC_ICON_SVG = (
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 9 7" width="18" height="14" '
+    'shape-rendering="crispEdges">'
+    '<rect x="2" y="0" width="5" height="5" fill="#c47840"/>'
+    '<rect x="3" y="1" width="1" height="1" fill="#1a1005"/>'
+    '<rect x="5" y="1" width="1" height="1" fill="#1a1005"/>'
+    '<rect x="0" y="3" width="2" height="2" fill="#c47840"/>'
+    '<rect x="7" y="3" width="2" height="2" fill="#c47840"/>'
+    '<rect x="2" y="5" width="2" height="2" fill="#c47840"/>'
+    '<rect x="5" y="5" width="2" height="2" fill="#c47840"/>'
+    "</svg>"
+)
 
 
 def _days_ago(date_str: str) -> str:
@@ -444,17 +456,37 @@ def build_cards_html(
             meta_parts.append(from_addr.replace("@", "&#64;"))
         info_html = " &middot; ".join(meta_parts)
 
-        # Action row: mark read + skip inbox + date picker + priority + move to todoist dropdown
+        # Assign CC button — copy email info to clipboard for Claude Code
+        safe_subject_cc = subject.replace("'", "\\'").replace('"', "&quot;")
+        safe_from_cc = from_addr.replace("'", "\\'").replace('"', "&quot;")
+        safe_gmail_cc = gmail_link.replace("'", "\\'").replace('"', "&quot;")
+        assign_cc_btn = (
+            "<button onclick=\"event.stopPropagation();doCopyEmailForClaude(this,'"
+            + safe_subject_cc
+            + "','"
+            + safe_from_cc
+            + "','"
+            + safe_gmail_cc
+            + "')\" "
+            'class="action-pill assign-cc-btn" title="Assign CC" '
+            'style="display:inline-flex;align-items:center;justify-content:center;'
+            "padding:5px 10px;min-height:36px;background:rgba(196,120,64,0.10);"
+            "border:1px solid rgba(196,120,64,0.25);border-radius:6px;"
+            'cursor:pointer;">' + _CC_ICON_SVG + "</button>"
+        )
+
+        # Action row: mark read + skip inbox + assign cc + date picker + priority + move to todoist dropdown
         action_parts = []
         if markread_btn:
             action_parts.append(markread_btn)
         if skip_inbox_btn:
             action_parts.append(skip_inbox_btn)
+        action_parts.append(assign_cc_btn)
         # Date picker (calendar icon button wrapping a hidden native date input)
         date_input = (
             '<label class="action-pill due-date-wrap"'
             ' style="color:var(--accent-l);background:var(--accent-bg);font-size:12px;'
-            "padding:5px 10px;border:1px solid var(--accent-b);border-radius:6px;cursor:pointer;"
+            "padding:5px 10px;min-height:36px;border:1px solid var(--accent-b);border-radius:6px;cursor:pointer;"
             'display:inline-flex;align-items:center;gap:4px;position:relative;"'
             ' onclick="event.stopPropagation()">'
             + _SVG_CALENDAR
@@ -505,7 +537,7 @@ def build_cards_html(
                 )
                 action_parts.append(btn)
         else:
-            # Unread view: Priority dropdown + Move to Todoist
+            # Unread view: Priority dropdown + Best Case + Move to Todoist
             # Priority dropdown (stored locally on card)
             priority_select = (
                 '<select class="action-pill priority-picker"'
@@ -520,11 +552,29 @@ def build_cards_html(
                 "</select>"
             )
             action_parts.append(priority_select)
+            safe_subject = subject.replace("'", "\\'").replace('"', "&quot;")
+            safe_from = from_addr.replace("'", "\\'").replace('"', "&quot;")
+            safe_gmail = gmail_link.replace("'", "\\'").replace('"', "&quot;")
+            safe_date = date_received.replace("'", "\\'").replace('"', "&quot;")
+            # Best Case button
+            bestcase_btn = (
+                '<button class="action-pill" '
+                'style="color:var(--purple);background:var(--purple-bg);border:1px solid var(--purple-b);" '
+                "onclick=\"event.stopPropagation();doStarredAction(this,'bestcase','"
+                + msg_id
+                + "','"
+                + safe_subject
+                + "','"
+                + safe_from
+                + "','"
+                + safe_gmail
+                + "','"
+                + safe_date
+                + "')\">"
+                "Best Case</button>"
+            )
+            action_parts.append(bestcase_btn)
             if projects:
-                safe_subject = subject.replace("'", "\\'").replace('"', "&quot;")
-                safe_from = from_addr.replace("'", "\\'").replace('"', "&quot;")
-                safe_gmail = gmail_link.replace("'", "\\'").replace('"', "&quot;")
-                safe_date = date_received.replace("'", "\\'").replace('"', "&quot;")
                 move_select = (
                     '<select class="action-pill" style="color:var(--accent-l);background:var(--accent-bg);border:1px solid var(--accent-b);"'
                     ' onclick="event.stopPropagation()"'
@@ -570,7 +620,7 @@ def build_cards_html(
         checkbox = (
             '<input type="checkbox" class="select-cb" '
             'onclick="event.stopPropagation();updateSelection()" '
-            'style="width:18px;height:18px;margin-right:10px;cursor:pointer;flex-shrink:0;">'
+            'style="display:none;width:18px;height:18px;margin-right:10px;cursor:pointer;flex-shrink:0;">'
         )
 
         # Build menu button HTML (mobile only - hidden on desktop via CSS)
@@ -704,23 +754,57 @@ def build_web_html(
         'var _IC_REC=\'<svg style="display:inline-block;vertical-align:middle" width="10" height="10" viewBox="0 0 10 10"><circle cx="5" cy="5" r="4" fill="currentColor"/></svg>\';'
         'var _IC_PLAY=\'<svg style="display:inline-block;vertical-align:middle" width="10" height="10" viewBox="0 0 10 10" fill="currentColor"><polygon points="2,1 9,5 2,9"/></svg>\';'
         "var _cs=getComputedStyle(document.documentElement);function cv(n){return _cs.getPropertyValue(n).trim();}"
+        "var _activeCard=null;"
         "function openEmail(card){"
         "if(document.activeElement&&document.activeElement.classList.contains('select-cb'))return;"
         "var url=card.getAttribute('data-open-url');"
         "if(!url)return;"
+        "_activeCard=card;"
         "var all=document.querySelectorAll('.email-card');"
-        "for(var i=0;i<all.length;i++){all[i].style.background='';all[i].classList.remove('active-email');}"
+        "for(var i=0;i<all.length;i++){all[i].style.background='var(--bg-s1)';all[i].classList.remove('active-email');}"
         "card.style.background=cv('--accent-hbg');card.classList.add('active-email');"
         "var pane=document.getElementById('viewer-pane');"
         "var frame=document.getElementById('viewer-frame');"
         "frame.src=url+'&embed=1';"
         "document.getElementById('viewer-placeholder').style.display='none';"
         "frame.style.display='block';"
+        # Set up viewer header buttons from card data
+        "var vmr=document.getElementById('viewer-markread-btn');"
+        "var vsk=document.getElementById('viewer-skip-btn');"
+        "var msgId=card.getAttribute('data-msg-id')||'';"
+        "var markBtn=card.querySelector('button[onclick*=\"doMarkRead\"]');"
+        "if(markBtn&&msgId){vmr.style.display='';vmr.disabled=false;vmr.textContent='Mark Read';}else{vmr.style.display='none';}"
+        "var skipBtn=card.querySelector('button[onclick*=\"doSkipInbox\"]');"
+        "if(skipBtn){vsk.style.display='';vsk.disabled=false;vsk.textContent='Skip Inbox';}else{vsk.style.display='none';}"
+        # Wire up viewer CC buttons with card data
+        "var vccs=document.querySelectorAll('.viewer-cc-btn');"
+        "var vccSubj=card.getAttribute('data-subject')||'';"
+        "var vccFrom=card.getAttribute('data-from')||'';"
+        "var vccGmail=card.getAttribute('data-gmail-link')||'';"
+        "for(var j=0;j<vccs.length;j++){vccs[j].setAttribute('data-subject',vccSubj);vccs[j].setAttribute('data-from',vccFrom);vccs[j].setAttribute('data-gmail',vccGmail);vccs[j].style.display='';}"
         "if(window.innerWidth<=768){"
         "pane.style.display='flex';"
         "document.body.classList.add('viewer-open');"
         "try{window.parent.postMessage({type:'viewer-open'},'*');}catch(e){}"
         "}"
+        "}"
+        "function viewerMarkRead(){"
+        "if(!_activeCard)return;"
+        "var msgId=_activeCard.getAttribute('data-msg-id')||'';"
+        "var markBtn=_activeCard.querySelector('button[onclick*=\"doMarkRead\"]');"
+        "if(markBtn&&msgId){doMarkRead(markBtn,msgId);}"
+        "var btn=document.getElementById('viewer-markread-btn');"
+        "btn.disabled=true;btn.textContent='\\u2713 Done';"
+        "}"
+        "function viewerSkipInbox(){"
+        "if(!_activeCard)return;"
+        "var skipBtn=_activeCard.querySelector('button[onclick*=\"doSkipInbox\"]');"
+        "if(!skipBtn)return;"
+        "var onclick=skipBtn.getAttribute('onclick')||'';"
+        "var m=onclick.match(/doSkipInbox\\(this,'([^']+)','([^']+)'\\)/);"
+        "if(m){doSkipInbox(skipBtn,m[1],m[2]);}"
+        "var btn=document.getElementById('viewer-skip-btn');"
+        "btn.disabled=true;btn.textContent='\\u2713 Done';"
         "}"
         "function closeViewer(){"
         "var frame=document.getElementById('viewer-frame');"
@@ -728,7 +812,7 @@ def build_web_html(
         "frame.style.display='none';"
         "document.getElementById('viewer-placeholder').style.display='flex';"
         "var all=document.querySelectorAll('.email-card');"
-        "for(var i=0;i<all.length;i++){all[i].style.background='';all[i].classList.remove('active-email');}"
+        "for(var i=0;i<all.length;i++){all[i].style.background='var(--bg-s1)';all[i].classList.remove('active-email');}"
         "if(window.innerWidth<=768){"
         "document.getElementById('viewer-pane').style.display='none';"
         "document.body.classList.remove('viewer-open');"
@@ -744,6 +828,17 @@ def build_web_html(
         "setTimeout(function(){card.remove();updateCount();updateSelection();},300);"
         "},300);"
         "}"
+        "function doCopyEmailForClaude(btn,subject,fromAddr,gmailLink){"
+        "var orig=btn.innerHTML;"
+        "var msg='Please handle this email in my inbox:\\n\\nSubject: '+subject+'\\nFrom: '+fromAddr+(gmailLink?'\\nGmail: '+gmailLink:'');"
+        "navigator.clipboard.writeText(msg).then(function(){"
+        "btn.textContent='\\u2713';setTimeout(function(){btn.innerHTML=orig;},1500);"
+        "}).catch(function(){btn.textContent='!';setTimeout(function(){btn.innerHTML=orig;},1500);});}"
+        "function viewerCopyCC(btn){"
+        "var subject=btn.getAttribute('data-subject')||'';"
+        "var fromAddr=btn.getAttribute('data-from')||'';"
+        "var gmailLink=btn.getAttribute('data-gmail')||'';"
+        "doCopyEmailForClaude(btn,subject,fromAddr,gmailLink);}"
         "function doMarkRead(btn,msgId){"
         "btn.disabled=true;"
         "btn.style.background=cv('--border');"
@@ -1180,9 +1275,9 @@ def build_web_html(
     css = (
         "<style>"
         ":root{"
-        "--bg-base:#0e0e10;--bg-s0:#161618;--bg-s1:#1c1c1f;--bg-s2:#222225;"
-        "--text-1:#ececef;--text-2:#8b8b93;--text-3:#56565e;"
-        "--border:rgba(255,255,255,0.06);--border-h:rgba(255,255,255,0.10);"
+        "--bg-base:#1a1a1a;--bg-s0:#1c1c1e;--bg-s1:#252528;--bg-s2:#2c2c2e;"
+        "--text-1:#ffffff;--text-2:#8e8e93;--text-3:#48484a;"
+        "--border:rgba(255,255,255,0.08);--border-h:rgba(255,255,255,0.12);"
         "--accent:#6366f1;--accent-l:#818cf8;"
         "--accent-bg:rgba(99,102,241,0.10);--accent-b:rgba(99,102,241,0.20);"
         "--accent-hbg:rgba(99,102,241,0.08);"
@@ -1192,7 +1287,7 @@ def build_web_html(
         "--purple:#a78bfa;--purple-bg:rgba(167,139,250,0.10);--purple-b:rgba(167,139,250,0.20);"
         "--scrollbar:rgba(255,255,255,0.10);color-scheme:dark;}"
         "@media(prefers-color-scheme:light){:root{"
-        "--bg-base:#f5f5f5;--bg-s0:#fff;--bg-s1:#fff;--bg-s2:#f8f9fa;"
+        "--bg-base:#eeeef0;--bg-s0:#fff;--bg-s1:#fff;--bg-s2:#f5f5f7;"
         "--text-1:#202124;--text-2:#5f6368;--text-3:#80868b;"
         "--border:rgba(0,0,0,0.08);--border-h:rgba(0,0,0,0.15);"
         "--accent:#6366f1;--accent-l:#4f46e5;"
@@ -1208,9 +1303,9 @@ def build_web_html(
         + ".split-wrap{display:flex;height:"
         + split_height
         + ";overflow:hidden;}"
-        ".left-pane{flex:0 0 45%;min-width:0;overflow-y:auto;background:var(--bg-s0);}"
+        ".left-pane{flex:0 0 45%;min-width:0;overflow-y:auto;}"
         "#viewer-pane{display:flex;flex-direction:column;flex:1 1 55%;"
-        "border-left:1px solid var(--border);background:var(--bg-s1);position:relative;overflow:hidden;}"
+        "border-left:1px solid var(--border);background:var(--bg-base);position:relative;overflow:hidden;}"
         "#viewer-frame{width:100%;height:100%;border:none;display:none;}"
         ".close-btn{position:absolute;top:10px;right:14px;z-index:11;"
         "background:var(--border);border:none;cursor:pointer;font-size:20px;"
@@ -1219,20 +1314,25 @@ def build_web_html(
         ".close-btn:hover{background:var(--border-h);}"
         ".action-pill{border:none;cursor:pointer;font-weight:600;font-size:12px;"
         "padding:5px 14px;border-radius:6px;font-family:inherit;}"
-        ".select-all-row{display:flex;align-items:center;padding:10px 24px 0;"
-        "font-size:13px;color:var(--text-2);}"
-        ".select-all-row label{display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:500;}"
+        ".select-all-row{display:none;}"
+        ".select-all-row label{display:none;}"
+        ".select-cb{display:none;}"
         ".viewer-mobile-header{display:none;}"
         "@media(max-width:768px){"
         ".left-pane{flex:1 1 100%!important;}"
         "#viewer-pane{display:none;position:fixed;top:0;right:0;bottom:0;width:100%;z-index:10;"
         "border-left:none;flex-direction:column;}"
         ".close-btn{display:none!important;}"
-        ".viewer-mobile-header{display:flex;align-items:center;background:var(--bg-s0);"
-        "border-bottom:1px solid var(--border);padding:0 12px;height:52px;flex-shrink:0;z-index:12;}"
+        ".viewer-mobile-header{display:flex;align-items:center;background:transparent;"
+        "padding:0 12px;height:52px;flex-shrink:0;z-index:12;}"
         ".viewer-back-btn{display:flex;align-items:center;gap:6px;background:none;border:none;"
         "color:var(--accent-l);font-family:inherit;font-size:15px;font-weight:600;"
         "cursor:pointer;padding:8px 4px;touch-action:manipulation;}"
+        ".viewer-header-actions{display:flex;gap:8px;margin-left:auto;}"
+        ".viewer-action-btn{font-family:inherit;font-size:12px;font-weight:600;"
+        "padding:6px 12px;border-radius:6px;border:none;cursor:pointer;touch-action:manipulation;}"
+        ".viewer-markread{background:var(--ok-bg);color:var(--ok);border:1px solid var(--ok-b);}"
+        ".viewer-skip{background:var(--warn-bg);color:var(--warn);border:1px solid var(--warn-b);}"
         "#bulk-toolbar{left:10px!important;right:10px;transform:none!important;"
         "flex-wrap:wrap;justify-content:center;}"
         ".card-actions-inline{display:flex!important;gap:6px!important;margin-top:10px!important;max-width:100%;}"
@@ -1310,29 +1410,48 @@ def build_web_html(
         '<div class="left-pane">'
         '<div id="ptr-indicator"><div id="ptr-spinner"></div></div>'
         '<div style="max-width:700px;margin:0 auto;min-height:100%;">'
-        '<div style="padding:20px 24px 0;">'
+        '<div style="padding:12px 16px 0;">'
         '<div style="font-size:13px;color:var(--text-2);">'
         '<span id="item-count">' + str(count) + " item" + plural + "</span>"
         " &middot; " + today + "</div>"
-        '<div style="margin-top:14px;border-bottom:2px solid var(--accent);"></div>'
         "</div>"
         # Select all row
         + (
-            '<div class="select-all-row">'
+            '<div class="select-all-row" style="display:none">'
             '<label><input type="checkbox" id="select-all-cb" onclick="toggleSelectAll()"> Select All</label>'
             "</div>"
             if count > 0
             else ""
         )
-        + '<div style="padding:0 24px 24px;">'
+        + '<div style="padding:0 16px 16px;">'
         + content_section
         + "</div></div></div>"
         # Right pane: email viewer iframe
         '<div id="viewer-pane">'
-        '<button class="close-btn" onclick="closeViewer()" title="Close">&times;</button>'
+        # Desktop CC button (shown beside close-btn; hidden until email is opened)
+        + (
+            '<button class="viewer-cc-btn assign-cc-btn" title="Assign CC" '
+            'style="display:none;position:absolute;top:10px;right:58px;z-index:11;'
+            "padding:5px 8px;background:rgba(196,120,64,0.10);"
+            "border:1px solid rgba(196,120,64,0.25);border-radius:6px;"
+            'cursor:pointer;line-height:0;align-items:center;justify-content:center;" '
+            'onclick="viewerCopyCC(this)">' + _CC_ICON_SVG + "</button>"
+        )
+        + '<button class="close-btn" onclick="closeViewer()" title="Close">&times;</button>'
         # Mobile-only back header (replaces small × button on phones)
         '<div class="viewer-mobile-header">'
-        '<button class="viewer-back-btn" onclick="closeViewer()">&#8592; Back to list</button>'
+        '<button class="viewer-back-btn" onclick="closeViewer()">&#8592; Back</button>'
+        '<div class="viewer-header-actions">'
+        '<button id="viewer-markread-btn" class="viewer-action-btn viewer-markread" style="display:none;" onclick="viewerMarkRead()">Mark Read</button>'
+        '<button id="viewer-skip-btn" class="viewer-action-btn viewer-skip" style="display:none;" onclick="viewerSkipInbox()">Skip Inbox</button>'
+        + (
+            '<button class="viewer-cc-btn viewer-action-btn assign-cc-btn" title="Assign CC" '
+            'style="display:none;background:rgba(196,120,64,0.10);'
+            "border:1px solid rgba(196,120,64,0.25);"
+            'align-items:center;justify-content:center;" '
+            'onclick="viewerCopyCC(this)">' + _CC_ICON_SVG + "</button>"
+        )
+        + "</div>"
         "</div>"
         '<div id="viewer-placeholder" style="'
         "flex:1;display:flex;flex-direction:column;align-items:center;"

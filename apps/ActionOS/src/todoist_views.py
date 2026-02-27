@@ -29,6 +29,19 @@ _FONT = (
     "'Segoe UI',Roboto,sans-serif"
 )
 
+_CC_ICON_SVG = (
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 9 7" width="18" height="14" '
+    'shape-rendering="crispEdges">'
+    '<rect x="2" y="0" width="5" height="5" fill="#c47840"/>'
+    '<rect x="3" y="1" width="1" height="1" fill="#1a1005"/>'
+    '<rect x="5" y="1" width="1" height="1" fill="#1a1005"/>'
+    '<rect x="0" y="3" width="2" height="2" fill="#c47840"/>'
+    '<rect x="7" y="3" width="2" height="2" fill="#c47840"/>'
+    '<rect x="2" y="5" width="2" height="2" fill="#c47840"/>'
+    '<rect x="5" y="5" width="2" height="2" fill="#c47840"/>'
+    "</svg>"
+)
+
 
 def _relative_age(added_at):
     """Return a short relative age string like '3d' or '2h' from an ISO timestamp."""
@@ -183,10 +196,22 @@ def _build_task_card(
             f'<option value="{html.escape(pid)}"{selected}>'
             f"{html.escape(pname)}</option>"
         )
+    _move_icon = (
+        '<svg class="move-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" '
+        'stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+        '<line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/>'
+        '<line x1="8" y1="18" x2="21" y2="18"/>'
+        '<line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/>'
+        '<line x1="3" y1="18" x2="3.01" y2="18"/></svg>'
+    )
     move_select = (
-        f'<select class="action-select" '
-        f"onchange=\"event.stopPropagation();doMove('{task_id}',this.value,this)\" "
-        f'style="max-width:140px;">' + "".join(move_options) + "</select>"
+        f'<div class="move-pill">'
+        f"{_move_icon}"
+        f'<select class="move-pill-select" '
+        f"onchange=\"event.stopPropagation();doMove('{task_id}',this.value,this)\">"
+        + "".join(move_options)
+        + "</select>"
+        f"</div>"
     )
 
     # Priority dropdown
@@ -203,11 +228,25 @@ def _build_task_card(
     )
 
     # Due date input
+    _date_icon = (
+        '<svg class="date-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" '
+        'stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+        '<rect x="3" y="3" width="18" height="18" rx="3"/>'
+        '<line x1="3" y1="9" x2="21" y2="9"/>'
+        '<circle cx="12" cy="15.5" r="1.2" fill="currentColor" stroke="none"/></svg>'
+    )
+    has_date = bool(due_date)
+    icon_display = ' style="display:none"' if has_date else ""
+    input_display = "" if has_date else ' style="display:none"'
     due_date_input = (
-        f'<input type="date" class="action-select" value="{html.escape(due_date)}" '
+        f"<div class=\"date-pill\" onclick=\"this.querySelector('input').showPicker?this.querySelector('input').showPicker():this.querySelector('input').focus()\">"
+        f'<span class="date-icon-wrap"{icon_display}>{_date_icon}</span>'
+        f'<span class="date-label"{icon_display}>Date</span>'
+        f'<input type="date" class="date-pill-input" value="{html.escape(due_date)}" '
+        f"{input_display} "
         f'onclick="event.stopPropagation()" '
-        f"onchange=\"event.stopPropagation();doSetDueDate('{task_id}',this.value,this)\" "
-        f'style="max-width:140px;">'
+        f"onchange=\"event.stopPropagation();dateChanged(this,'{task_id}')\">"
+        f"</div>"
     )
 
     # Complete button
@@ -306,6 +345,14 @@ def _build_task_card(
                 "Best Case</button>"
             )
 
+    # Assign CC button — copy task info to clipboard for Claude Code (all views)
+    copy_claude_btn = (
+        f'<button class="assign-cc-btn" title="Assign CC" '
+        f"onclick=\"event.stopPropagation();doCopyForClaude('{task_id}','{content}',this)\">"
+        + _CC_ICON_SVG
+        + "</button>"
+    )
+
     # Detect email-originated tasks for split-pane viewer
     gmail_link = _extract_gmail_link(description)
     msg_id_field = _extract_msg_id(description)
@@ -331,7 +378,7 @@ def _build_task_card(
 
     # Checkbox for multi-select
     checkbox = (
-        '<input type="checkbox" class="select-cb" '
+        '<input type="checkbox" class="select-cb" style="display:none" '
         'onclick="event.stopPropagation();updateSelection()">'
     )
 
@@ -356,7 +403,7 @@ def _build_task_card(
         f'<div class="card-content">'
         f'<div class="task-title">{content_linked}</div>'
         f'<div class="task-meta">{meta_line}</div>'
-        f'<div class="task-actions">{move_select}{priority_select}{due_date_input}{complete_btn}{commit_btn}{bestcase_btn}{backlog_btn}</div>'
+        f'<div class="task-actions">{move_select}{priority_select}{due_date_input}{complete_btn}{commit_btn}{bestcase_btn}{backlog_btn}{copy_claude_btn}</div>'
         f"</div></div>"
         f'<div class="undo-bar" style="display:none;"></div>'
         f"</div>"
@@ -420,7 +467,7 @@ def build_view_html(
         )
 
     # Action base URL
-    base_action_url = function_url.rstrip("/") + f"?token={html.escape(action_token)}"
+    base_action_url = function_url.rstrip("/")
 
     # Header bar (hidden in embed mode)
     header_html = ""
@@ -438,7 +485,7 @@ def build_view_html(
     if tasks:
         subheader_html = (
             '<div class="subheader">'
-            '<label class="select-all-label">'
+            '<label class="select-all-label" style="display:none">'
             '<input type="checkbox" id="select-all-cb" onclick="toggleSelectAll()">'
             " Select All</label>"
             f'<span id="task-count-display" style="margin-left:auto;font-size:12px;color:var(--text-2);">'
@@ -469,9 +516,9 @@ def build_view_html(
         f"<title>{html.escape(title)}</title>"
         "<style>"
         ":root{"
-        "--bg-base:#0e0e10;--bg-s0:#161618;--bg-s1:#1c1c1f;--bg-s2:#222225;"
-        "--text-1:#ececef;--text-2:#8b8b93;--text-3:#56565e;"
-        "--border:rgba(255,255,255,0.06);--border-h:rgba(255,255,255,0.10);"
+        "--bg-base:#1a1a1a;--bg-s0:#1c1c1e;--bg-s1:#252528;--bg-s2:#2c2c2e;"
+        "--text-1:#ffffff;--text-2:#8e8e93;--text-3:#48484a;"
+        "--border:rgba(255,255,255,0.08);--border-h:rgba(255,255,255,0.12);"
         "--accent:#6366f1;--accent-l:#818cf8;"
         "--accent-bg:rgba(99,102,241,0.10);--accent-b:rgba(99,102,241,0.20);"
         "--accent-hbg:rgba(99,102,241,0.08);"
@@ -481,7 +528,7 @@ def build_view_html(
         "--purple:#a78bfa;--purple-bg:rgba(167,139,250,0.10);--purple-b:rgba(167,139,250,0.20);"
         "--scrollbar:rgba(255,255,255,0.10);color-scheme:dark;}"
         "@media(prefers-color-scheme:light){:root{"
-        "--bg-base:#f5f5f5;--bg-s0:#fff;--bg-s1:#fff;--bg-s2:#f8f9fa;"
+        "--bg-base:#eeeef0;--bg-s0:#fff;--bg-s1:#fff;--bg-s2:#f5f5f7;"
         "--text-1:#202124;--text-2:#5f6368;--text-3:#80868b;"
         "--border:rgba(0,0,0,0.08);--border-h:rgba(0,0,0,0.15);"
         "--accent:#6366f1;--accent-l:#4f46e5;"
@@ -506,16 +553,13 @@ def build_view_html(
         "padding:6px 14px;border-radius:6px;cursor:pointer;}"
         ".refresh-btn:hover{background:var(--border-h);}"
         # Subheader
-        ".subheader{display:flex;align-items:center;padding:10px 16px;"
-        "font-size:13px;color:var(--text-2);border-bottom:1px solid var(--border);"
-        "background:var(--bg-s0);max-width:700px;margin:0 auto;}"
-        ".select-all-label{display:flex;align-items:center;gap:6px;cursor:pointer;"
-        "font-weight:500;}"
+        ".subheader{display:none;}"
+        ".select-all-label{display:none;}"
         # Split-pane layout
         f".split-wrap{{display:flex;height:{split_height};overflow:hidden;}}"
         ".left-pane{flex:0 0 45%;overflow-y:auto;}"
         "#viewer-pane{display:flex;flex-direction:column;flex:1 1 55%;"
-        "border-left:1px solid var(--border);background:var(--bg-s1);position:relative;}"
+        "border-left:1px solid var(--border);background:var(--bg-base);position:relative;}"
         "#viewer-frame{flex:1;border:none;width:100%;display:none;}"
         "#detail-content{flex:1;overflow-y:auto;padding:24px;display:none;}"
         ".close-btn{position:absolute;top:10px;right:14px;z-index:10;"
@@ -539,7 +583,7 @@ def build_view_html(
         "overflow:hidden;}"
         ".card-row{display:flex;align-items:flex-start;gap:10px;}"
         ".card-content{flex:1;min-width:0;}"
-        ".select-cb{width:18px;height:18px;margin-top:2px;cursor:pointer;flex-shrink:0;}"
+        ".select-cb{display:none;}"
         ".task-title{font-size:15px;font-weight:600;color:var(--text-1);"
         "line-height:1.4;margin-bottom:4px;word-break:break-word;}"
         ".task-title a{font-weight:500;}"
@@ -550,6 +594,29 @@ def build_view_html(
         "border:1px solid var(--border);border-radius:6px;background:var(--bg-s2);"
         "color:var(--text-1);cursor:pointer;}"
         ".action-select:focus{outline:none;border-color:rgba(99,102,241,0.5);box-shadow:0 0 0 2px rgba(99,102,241,0.15);}"
+        ".move-pill{display:inline-flex;align-items:center;gap:6px;"
+        "background:var(--bg-s2);border:1px solid var(--border-h);border-radius:100px;"
+        "padding:6px 12px;cursor:pointer;transition:border-color .15s;flex-shrink:0;}"
+        ".move-pill:hover{border-color:var(--text-3);}"
+        ".move-icon{flex-shrink:0;color:var(--text-2);}"
+        ".move-pill-select{font-family:inherit;font-size:12px;font-weight:500;"
+        "background:transparent;border:none;color:var(--text-2);cursor:pointer;"
+        "-webkit-appearance:none;appearance:none;outline:none;padding:0;"
+        "max-width:90px;}"
+        ".date-pill{display:inline-flex;align-items:center;gap:6px;position:relative;"
+        "background:var(--bg-s2);border:1px solid var(--border-h);border-radius:100px;"
+        "padding:6px 12px;cursor:pointer;transition:border-color .15s;flex-shrink:0;}"
+        ".date-pill:hover{border-color:var(--text-3);}"
+        ".date-icon-wrap{display:inline-flex;align-items:center;flex-shrink:0;}"
+        ".date-icon{color:var(--text-2);}"
+        ".date-label{font-size:12px;font-weight:500;color:var(--text-2);}"
+        ".date-pill-input{font-family:inherit;font-size:12px;font-weight:500;"
+        "background:transparent;border:none;color:var(--text-2);cursor:pointer;"
+        "-webkit-appearance:none;appearance:none;outline:none;padding:0;"
+        "color-scheme:dark;max-width:110px;}"
+        ".date-pill-input::-webkit-calendar-picker-indicator{opacity:0;position:absolute;"
+        "right:0;width:100%;height:100%;cursor:pointer;}"
+        "@media(prefers-color-scheme:light){.date-pill-input{color-scheme:light;}}"
         ".complete-btn{font-family:inherit;font-size:12px;font-weight:600;"
         "padding:5px 14px;border-radius:6px;"
         "background:var(--ok-bg);color:var(--ok);border:1px solid var(--ok-b);cursor:pointer;"
@@ -572,6 +639,11 @@ def build_view_html(
         ".bestcase-btn.active{background:var(--ok-bg);color:var(--ok);border-color:var(--ok-b);cursor:default;}"
         ".bestcase-btn.remove{background:var(--ok-bg);color:var(--ok);border-color:var(--ok-b);}"
         ".bestcase-btn.remove:hover{background:var(--err-bg);color:var(--err);border-color:var(--err-b);}"
+        ".assign-cc-btn{display:inline-flex;align-items:center;justify-content:center;"
+        "padding:5px 8px;border-radius:6px;"
+        "background:rgba(196,120,64,0.10);border:1px solid rgba(196,120,64,0.25);"
+        "cursor:pointer;transition:background .15s;line-height:0;}"
+        ".assign-cc-btn:hover{background:rgba(196,120,64,0.25);}"
         ".task-card.undo-state .card-row{display:none;}"
         ".undo-bar{display:flex;align-items:center;justify-content:center;"
         "gap:10px;padding:12px 0;font-size:13px;color:var(--text-2);}"
@@ -599,7 +671,7 @@ def build_view_html(
         ".detail-title-editable:focus{background:var(--bg-s2);box-shadow:0 0 0 2px rgba(99,102,241,0.3);}"
         ".detail-desc-editable{width:100%;font-family:inherit;font-size:14px;color:var(--text-1);"
         "background:var(--bg-s2);border:1px solid var(--border);border-radius:6px;"
-        "padding:8px 10px;resize:none;line-height:1.5;margin-bottom:8px;overflow:hidden;}"
+        "padding:8px 10px;resize:vertical;line-height:1.5;margin-bottom:8px;min-height:100px;}"
         ".detail-desc-editable:focus{outline:none;border-color:rgba(99,102,241,0.5);}"
         ".detail-meta{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;}"
         ".detail-meta-tag{display:inline-block;padding:4px 10px;border-radius:6px;"
@@ -614,15 +686,46 @@ def build_view_html(
         ".detail-action-btn{font-family:inherit;font-size:13px;font-weight:600;"
         "padding:8px 18px;border:none;border-radius:8px;cursor:pointer;}"
         ".view-email-btn{background:var(--accent-bg);color:var(--accent-l);border:1px solid var(--accent-b);}"
+        ".detail-attachments{margin-top:16px;}"
+        ".detail-attachments .detail-section-label{margin-bottom:10px;}"
+        ".attachment-grid{display:flex;flex-wrap:wrap;gap:10px;}"
+        ".attachment-item{border-radius:8px;border:1px solid var(--border);overflow:hidden;"
+        "background:var(--bg-s2);}"
+        ".attachment-item img{display:block;max-width:100%;height:auto;cursor:pointer;}"
+        ".attachment-item a{display:flex;align-items:center;gap:8px;padding:10px 14px;"
+        "color:var(--accent-l);text-decoration:none;font-size:13px;font-weight:500;}"
+        ".attachment-item a:hover{background:var(--border);}"
+        ".attachment-file-icon{width:20px;height:20px;flex-shrink:0;}"
+        ".comment-text{font-size:13px;color:var(--text-2);padding:8px 0;line-height:1.5;}"
+        "#lb-overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;"
+        "z-index:1000;background:rgba(0,0,0,0.92);flex-direction:column;"
+        "align-items:center;justify-content:center;touch-action:none;}"
+        "#lb-overlay.lb-open{display:flex;}"
+        "#lb-img{max-width:95vw;max-height:85vh;object-fit:contain;"
+        "border-radius:4px;-webkit-user-drag:none;}"
+        "#lb-close{position:absolute;top:14px;right:18px;font-size:32px;"
+        "color:#fff;background:none;border:none;cursor:pointer;line-height:1;opacity:0.85;}"
+        "#lb-close:hover{opacity:1;}"
+        "#lb-prev,#lb-next{position:absolute;top:50%;transform:translateY(-50%);"
+        "font-size:28px;color:rgba(255,255,255,0.7);background:none;border:none;"
+        "cursor:pointer;padding:12px 16px;-webkit-user-select:none;user-select:none;}"
+        "#lb-prev{left:4px;}#lb-next{right:4px;}"
+        "#lb-prev:hover,#lb-next:hover{color:#fff;}"
+        "#lb-counter{position:absolute;bottom:16px;color:rgba(255,255,255,0.6);"
+        "font-size:13px;font-family:inherit;}"
         "@media(max-width:768px){"
         ".task-actions{gap:6px;}"
         ".action-select,.complete-btn{font-size:11px;padding:4px 6px;}"
+        ".move-pill{padding:4px 10px 4px 8px;}"
+        ".move-pill-select{font-size:11px;}"
+        ".date-pill{padding:4px 10px 4px 8px;}"
+        ".date-pill-input{font-size:11px;}"
         ".left-pane{flex:1 1 100%!important;}"
         "#viewer-pane{display:none;position:fixed;top:0;left:0;right:0;bottom:0;z-index:200;"
         "border-left:none;}"
         ".close-btn{display:none!important;}"
-        ".viewer-mobile-header{display:flex;align-items:center;background:var(--bg-s0);"
-        "border-bottom:1px solid var(--border);padding:0 12px;height:52px;flex-shrink:0;z-index:12;}"
+        ".viewer-mobile-header{display:flex;align-items:center;background:transparent;"
+        "padding:0 12px;height:52px;flex-shrink:0;z-index:12;}"
         "#bulk-toolbar{left:10px;right:10px;transform:none;flex-wrap:wrap;"
         "justify-content:center;}"
         "}"
@@ -651,6 +754,16 @@ def build_view_html(
         "</div>"
         '<div id="detail-content"></div>'
         '<iframe id="viewer-frame" src="about:blank"></iframe>'
+        '<div id="lb-overlay" role="dialog" aria-modal="true"'
+        ' onclick="if(event.target===this)closeLightbox()">'
+        '<button id="lb-close" onclick="closeLightbox()" aria-label="Close">&times;</button>'
+        '<button id="lb-prev" onclick="lightboxNav(-1)" aria-label="Previous"'
+        ' style="display:none;">&#8249;</button>'
+        '<img id="lb-img" src="" alt="">'
+        '<button id="lb-next" onclick="lightboxNav(1)" aria-label="Next"'
+        ' style="display:none;">&#8250;</button>'
+        '<span id="lb-counter"></span>'
+        "</div>"
         "</div>" + "</div>"  # end split-wrap
         # Bulk toolbar
         + '<div id="bulk-toolbar">'
@@ -664,6 +777,15 @@ def build_view_html(
         # JavaScript
         + "<script>"
         "var _cs=getComputedStyle(document.documentElement);function cv(n){return _cs.getPropertyValue(n).trim();}"
+        'var _ccIcon=\'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 9 7" width="18" height="14" shape-rendering="crispEdges">'
+        '<rect x="2" y="0" width="5" height="5" fill="#c47840"/>'
+        '<rect x="3" y="1" width="1" height="1" fill="#1a1005"/>'
+        '<rect x="5" y="1" width="1" height="1" fill="#1a1005"/>'
+        '<rect x="0" y="3" width="2" height="2" fill="#c47840"/>'
+        '<rect x="7" y="3" width="2" height="2" fill="#c47840"/>'
+        '<rect x="2" y="5" width="2" height="2" fill="#c47840"/>'
+        '<rect x="5" y="5" width="2" height="2" fill="#c47840"/>'
+        "</svg>';"
         f'var viewName="{view_name}";'
         "var taskCount="
         + str(count)
@@ -726,10 +848,10 @@ def build_view_html(
         "var origProjectId=card?card.getAttribute('data-project-id'):'';"
         "var projName=sel.options[sel.selectedIndex].text;"
         "sel.disabled=true;"
-        f'fetch("{base_action_url}&action=move&task_id="+taskId+"&project_id="+projectId)'
+        f'fetch("{base_action_url}?action=move&task_id="+taskId+"&project_id="+projectId)'
         ".then(function(r){if(r.ok){"
         "showUndo(taskId,'Moved to '+projName+'.',function(){"
-        f'fetch("{base_action_url}&action=move&task_id="+taskId+"&project_id="+origProjectId)'
+        f'fetch("{base_action_url}?action=move&task_id="+taskId+"&project_id="+origProjectId)'
         ".then(function(r2){if(r2.ok){sel.disabled=false;sel.selectedIndex=0;"
         "restoreCard(taskId);}else{removeCard(taskId);}})"
         ".catch(function(){removeCard(taskId);});});"
@@ -739,7 +861,7 @@ def build_view_html(
         # Priority action
         "function doSetPriority(taskId,priority,sel){"
         "sel.disabled=true;"
-        f'fetch("{base_action_url}&action=priority&task_id="+taskId+"&priority="+priority)'
+        f'fetch("{base_action_url}?action=priority&task_id="+taskId+"&priority="+priority)'
         ".then(function(r){if(r.ok){"
         "sel.disabled=false;"
         "}else{"
@@ -747,9 +869,19 @@ def build_view_html(
         '.catch(function(){sel.disabled=false;alert("Priority update failed");});'
         "}"
         # Due date action
+        "function dateChanged(input,taskId){"
+        "var pill=input.closest('.date-pill');"
+        "var ico=pill.querySelector('.date-icon-wrap');"
+        "var lbl=pill.querySelector('.date-label');"
+        "if(input.value){"
+        "input.style.display='';if(ico)ico.style.display='none';if(lbl)lbl.style.display='none';"
+        "}else{"
+        "input.style.display='none';if(ico)ico.style.display='';if(lbl)lbl.style.display='';"
+        "}"
+        "doSetDueDate(taskId,input.value,input);}"
         "function doSetDueDate(taskId,dateValue,input){"
         "input.disabled=true;"
-        f'fetch("{base_action_url}&action=due_date&task_id="+taskId+"&date="+encodeURIComponent(dateValue))'
+        f'fetch("{base_action_url}?action=due_date&task_id="+taskId+"&date="+encodeURIComponent(dateValue))'
         ".then(function(r){if(r.ok){"
         "input.disabled=false;"
         "input.style.borderColor='rgba(34,197,94,0.5)';"
@@ -757,8 +889,13 @@ def build_view_html(
         # Commit view: auto-remove card when date pushed to future
         "if(viewName==='commit'&&dateValue){"
         "var today=new Date().toISOString().slice(0,10);"
-        "if(dateValue>today){removeCard(taskId);updateCount();}"
-        "}"
+        "if(dateValue>today){"
+        "showUndo(taskId,'Moved to '+dateValue+'.',function(){"
+        f'fetch("{base_action_url}?action=due_date&task_id="+taskId+"&date="+encodeURIComponent(today))'
+        ".then(function(r2){if(r2.ok){input.disabled=false;input.value=today;"
+        "restoreCard(taskId);}else{removeCard(taskId);}})"
+        ".catch(function(){removeCard(taskId);});});"
+        "updateCount();}}"
         "}else{"
         'input.disabled=false;alert("Due date update failed");}})'
         '.catch(function(){input.disabled=false;alert("Due date update failed");});'
@@ -766,10 +903,10 @@ def build_view_html(
         # Complete action
         "function doComplete(taskId,btn){"
         "btn.disabled=true;btn.textContent='...';"
-        f'fetch("{base_action_url}&action=complete&task_id="+taskId)'
+        f'fetch("{base_action_url}?action=complete&task_id="+taskId)'
         ".then(function(r){if(r.ok){"
         "showUndo(taskId,'Completed.',function(){"
-        f'fetch("{base_action_url}&action=reopen&task_id="+taskId)'
+        f'fetch("{base_action_url}?action=reopen&task_id="+taskId)'
         ".then(function(r2){if(r2.ok){btn.disabled=false;btn.textContent='Complete';"
         "restoreCard(taskId);}else{removeCard(taskId);}})"
         ".catch(function(){removeCard(taskId);});});"
@@ -780,7 +917,7 @@ def build_view_html(
         # Commit action
         "function doCommit(taskId,btn){"
         "btn.disabled=true;btn.textContent='...';"
-        f'fetch("{base_action_url}&action=commit_label&task_id="+taskId)'
+        f'fetch("{base_action_url}?action=commit_label&task_id="+taskId)'
         ".then(function(r){return r.json();})"
         ".then(function(d){"
         "if(d.ok){"
@@ -805,7 +942,7 @@ def build_view_html(
         # Best Case action
         "function doBestCase(taskId,btn){"
         "btn.disabled=true;btn.textContent='...';"
-        f'fetch("{base_action_url}&action=bestcase_label&task_id="+taskId)'
+        f'fetch("{base_action_url}?action=bestcase_label&task_id="+taskId)'
         ".then(function(r){return r.json();})"
         ".then(function(d){"
         "if(d.ok){"
@@ -829,7 +966,7 @@ def build_view_html(
         # Remove Best Case action
         "function doRemoveBestCase(taskId,btn){"
         "btn.disabled=true;btn.textContent='...';"
-        f'fetch("{base_action_url}&action=remove_bestcase&task_id="+taskId)'
+        f'fetch("{base_action_url}?action=remove_bestcase&task_id="+taskId)'
         ".then(function(r){return r.json();})"
         ".then(function(d){"
         "if(d.ok){"
@@ -848,12 +985,18 @@ def build_view_html(
         # Remove Commit action
         "function doRemoveCommit(taskId,btn){"
         "btn.disabled=true;btn.textContent='...';"
-        f'fetch("{base_action_url}&action=remove_commit&task_id="+taskId)'
+        f'fetch("{base_action_url}?action=remove_commit&task_id="+taskId)'
         ".then(function(r){return r.json();})"
         ".then(function(d){"
         "if(d.ok){"
-        # In commit view: remove card immediately; otherwise just toggle button back
-        "if(viewName==='commit'){removeCard(taskId);updateCount();}else{"
+        # In commit view: show undo then remove; otherwise just toggle button back
+        "if(viewName==='commit'){"
+        "showUndo(taskId,'Commit removed.',function(){"
+        f'fetch("{base_action_url}?action=commit_label&task_id="+taskId)'
+        ".then(function(r2){if(r2.ok){btn.disabled=false;btn.textContent='Remove Commit';"
+        "restoreCard(taskId);}else{removeCard(taskId);}})"
+        ".catch(function(){removeCard(taskId);});});"
+        "updateCount();}else{"
         "btn.textContent='Commit';"
         "btn.classList.remove('remove','committed');"
         "btn.style.background=cv('--warn-bg');btn.style.color=cv('--warn');"
@@ -869,10 +1012,17 @@ def build_view_html(
         # Task detail pane
         "function esc(s){var d=document.createElement('div');"
         "d.appendChild(document.createTextNode(String(s)));return d.innerHTML;}"
+        "function doCopyForClaude(taskId,taskTitle,btn){"
+        "var orig=btn.innerHTML;"
+        "var url='https://app.todoist.com/app/task/'+taskId;"
+        "var msg='Look at this task on Todoist and complete it: '+url;"
+        "navigator.clipboard.writeText(msg).then(function(){"
+        "btn.textContent='\\u2713';setTimeout(function(){btn.innerHTML=orig;},1500);"
+        "}).catch(function(){btn.textContent='!';setTimeout(function(){btn.innerHTML=orig;},1500);});}"
         # Update task title/description
         f"function doUpdateTask(taskId,payload,callback){{"
         f"payload.task_id=taskId;"
-        f'fetch("{base_action_url}&action=update_task",{{method:"POST",'
+        f'fetch("{base_action_url}?action=update_task",{{method:"POST",'
         f'headers:{{"Content-Type":"application/json"}},'
         f"body:JSON.stringify(payload)}})"
         f".then(function(r){{return r.json();}})"
@@ -918,7 +1068,7 @@ def build_view_html(
         "h+='</div>';"
         # Editable description
         "h+='<div class=\"detail-section-label\">Description</div>';"
-        'h+=\'<textarea class="detail-desc-editable" data-task-id="\'+esc(taskId)+\'" rows="1" placeholder="Add description...">\'+esc(description)+\'</textarea>\';'
+        'h+=\'<textarea class="detail-desc-editable" data-task-id="\'+esc(taskId)+\'" rows="4" placeholder="Add description...">\'+esc(description)+\'</textarea>\';'
         'h+=\'<button class="detail-action-btn detail-desc-save-btn" '
         'style="margin-bottom:8px;background:var(--accent-bg);color:var(--accent-l);border:1px solid var(--accent-b);">Save Description</button>\';'
         "h+='<div class=\"detail-actions\">';"
@@ -948,6 +1098,8 @@ def build_view_html(
         'style="background:rgba(167,139,250,0.10);color:#a78bfa;border:1px solid rgba(167,139,250,0.20);">Best Case</button>\';'
         "}"
         "if(openUrl)h+='<button class=\"detail-action-btn view-email-btn\">View Email</button>';"
+        'h+=\'<button class="detail-action-btn assign-cc-btn" title="Assign CC" '
+        "onclick=\"doCopyForClaude(\\x27'+esc(taskId)+'\\x27,\\x27'+esc(title).replace(/'/g,'\\\\\\x27')+'\\x27,this)\">'+_ccIcon+'</button>';"
         "h+='</div>';"
         "var dc=document.getElementById('detail-content');"
         "dc.innerHTML=h;"
@@ -1001,7 +1153,83 @@ def build_view_html(
         "if(window.innerWidth<=768){"
         "document.getElementById('viewer-pane').style.display='flex';"
         "}"
+        # Fetch and render attachments/comments
+        "loadTaskAttachments(taskId,dc);"
         "}"
+        "function loadTaskAttachments(taskId,container){"
+        f"fetch('{base_action_url}?action=task_comments&task_id='+encodeURIComponent(taskId))"
+        ".then(function(r){return r.json();})"
+        ".then(function(d){"
+        "if(!d.ok||!d.comments||!d.comments.length)return;"
+        "var ah='<div class=\"detail-attachments\">';"
+        "ah+='<div class=\"detail-section-label\">Attachments &amp; Comments</div>';"
+        "ah+='<div class=\"attachment-grid\">';"
+        "window._lbImgs=[];"
+        "d.comments.forEach(function(c){"
+        "var fa=c.file_attachment;"
+        "if(fa){"
+        "var ft=fa.file_type||'';"
+        "var fn=fa.file_name||'File';"
+        "var fu=fa.file_url||'';"
+        "var img=fa.image||'';"
+        "if(ft.indexOf('image/')===0&&(img||fu)){"
+        "var lbIdx=window._lbImgs.length;"
+        "window._lbImgs.push(fu||img);"
+        'ah+=\'<div class="attachment-item" style="cursor:pointer;" onclick="openLightbox(window._lbImgs,\'+lbIdx+\')">\';'
+        "ah+='<img src=\"'+(img||fu)+'\" alt=\"'+esc(fn)+'\" style=\"max-height:300px;\">';"
+        "ah+='</div>';"
+        "}else if(fu){"
+        "ah+='<div class=\"attachment-item\">';"
+        "ah+='<a href=\"'+fu+'\" target=\"_blank\">';"
+        'ah+=\'<svg class="attachment-file-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>\';'
+        "ah+=esc(fn)+'</a></div>';"
+        "}"
+        "}"
+        "if(c.content){"
+        "ah+='<div class=\"comment-text\">'+esc(c.content)+'</div>';"
+        "}"
+        "});"
+        "ah+='</div></div>';"
+        "container.insertAdjacentHTML('beforeend',ah);"
+        "}).catch(function(){});"
+        "}"
+        "var _lbUrls=[],_lbIdx=0;"
+        "function _lbRender(){"
+        "document.getElementById('lb-img').src=_lbUrls[_lbIdx];"
+        "var c=document.getElementById('lb-counter');"
+        "var p=document.getElementById('lb-prev');"
+        "var n=document.getElementById('lb-next');"
+        "if(_lbUrls.length>1){"
+        "c.textContent=(_lbIdx+1)+' / '+_lbUrls.length;"
+        "p.style.display='';n.style.display='';}"
+        "else{c.textContent='';p.style.display='none';n.style.display='none';}}"
+        "function _lbKey(e){"
+        "if(e.key==='Escape')closeLightbox();"
+        "if(e.key==='ArrowRight')lightboxNav(1);"
+        "if(e.key==='ArrowLeft')lightboxNav(-1);}"
+        "function openLightbox(urls,idx){"
+        "_lbUrls=urls;_lbIdx=idx;_lbRender();"
+        "document.getElementById('lb-overlay').classList.add('lb-open');"
+        "document.addEventListener('keydown',_lbKey);"
+        "window._lbTx=null;"
+        "window._lbTouchStart=function(e){window._lbTx=e.touches[0].clientX;};"
+        "window._lbTouchEnd=function(e){"
+        "if(window._lbTx===null)return;"
+        "var dx=e.changedTouches[0].clientX-window._lbTx;"
+        "if(Math.abs(dx)>50)lightboxNav(dx<0?1:-1);"
+        "window._lbTx=null;};"
+        "var ov=document.getElementById('lb-overlay');"
+        "ov.addEventListener('touchstart',window._lbTouchStart,{passive:true});"
+        "ov.addEventListener('touchend',window._lbTouchEnd,{passive:true});}"
+        "function closeLightbox(){"
+        "var ov=document.getElementById('lb-overlay');"
+        "ov.classList.remove('lb-open');"
+        "document.removeEventListener('keydown',_lbKey);"
+        "ov.removeEventListener('touchstart',window._lbTouchStart);"
+        "ov.removeEventListener('touchend',window._lbTouchEnd);}"
+        "function lightboxNav(dir){"
+        "_lbIdx=(_lbIdx+dir+_lbUrls.length)%_lbUrls.length;"
+        "_lbRender();}"
         "function showEmailInPane(url){"
         "document.getElementById('detail-content').style.display='none';"
         "document.getElementById('viewer-placeholder').style.display='none';"
@@ -1057,7 +1285,7 @@ def build_view_html(
         "var cards=getSelectedCards();"
         "cards.forEach(function(card){"
         "var taskId=card.getAttribute('data-task-id');"
-        f'fetch("{base_action_url}&action=move&task_id="+taskId+"&project_id="+projectId)'
+        f'fetch("{base_action_url}?action=move&task_id="+taskId+"&project_id="+projectId)'
         ".then(function(r){if(r.ok){card.classList.add('removing');"
         "setTimeout(function(){card.remove();updateCount();updateSelection();},350);"
         "}});"
@@ -1068,7 +1296,7 @@ def build_view_html(
         "var cards=getSelectedCards();"
         "cards.forEach(function(card){"
         "var taskId=card.getAttribute('data-task-id');"
-        f'fetch("{base_action_url}&action=complete&task_id="+taskId)'
+        f'fetch("{base_action_url}?action=complete&task_id="+taskId)'
         ".then(function(r){if(r.ok){card.classList.add('removing');"
         "setTimeout(function(){card.remove();updateCount();updateSelection();},350);"
         "}});"
@@ -1080,7 +1308,7 @@ def build_view_html(
         "cards.forEach(function(card){"
         "var taskId=card.getAttribute('data-task-id');"
         "var input=card.querySelector('input[type=date]');"
-        f'fetch("{base_action_url}&action=due_date&task_id="+taskId+"&date="+encodeURIComponent(dateValue))'
+        f'fetch("{base_action_url}?action=due_date&task_id="+taskId+"&date="+encodeURIComponent(dateValue))'
         ".then(function(r){if(r.ok&&input){"
         "input.value=dateValue;"
         "input.style.borderColor='rgba(34,197,94,0.5)';"

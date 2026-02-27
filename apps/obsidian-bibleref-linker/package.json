@@ -1,0 +1,28 @@
+{
+  "name": "obsidian-bibleref-linker",
+  "version": "1.0.0",
+  "description": "Obsidian plugin that auto-links Bible references to BibleRef.com with verse popover",
+  "main": "main.js",
+  "scripts": {
+    "dev": "node esbuild.config.mjs",
+    "build": "node esbuild.config.mjs production"
+  },
+  "keywords": [
+    "obsidian",
+    "bible",
+    "bibleref"
+  ],
+  "author": "Terrance Brandon",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@codemirror/language": "^6.0.0",
+    "@codemirror/state": "^6.0.0",
+    "@codemirror/view": "^6.0.0",
+    "builtin-modules": "^3.3.0",
+    "esbuild": "^0.19.0",
+    "obsidian": "latest",
+    "tslib": "2.6.2",
+    "typescript": "5.3.3"
+  }
+}

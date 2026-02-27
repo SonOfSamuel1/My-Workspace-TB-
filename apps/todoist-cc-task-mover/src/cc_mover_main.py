@@ -87,6 +87,13 @@ def move_cc_tasks(api_token: str) -> Dict[str, Any]:
                 )
 
                 if service.move_task_to_project(task_id, target_id):
+                    # Strip the cc- prefix from the task name
+                    new_content = content[len(CC_PREFIX) :].strip()
+                    if new_content:
+                        if not service.update_task_content(task_id, new_content):
+                            results["errors"].append(
+                                f"Moved but failed to rename task '{content}' (id={task_id})"
+                            )
                     results["tasks_moved"] += 1
                     moved_count += 1
                 else:

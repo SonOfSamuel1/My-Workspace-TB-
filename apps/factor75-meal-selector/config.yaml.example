@@ -1,0 +1,37 @@
+# Factor 75 Meal Selector Configuration
+
+factor75:
+  # Number of meals in your weekly plan
+  meal_count: 10
+
+  # Factor 75 website URLs
+  login_url: "https://www.factor75.com/login"
+  menu_url: "https://www.factor75.com/menu"
+
+  # Scraping settings
+  scraping:
+    timeout_ms: 30000
+    wait_between_actions_ms: 1000
+
+email:
+  # Email subject template (supports {date} placeholder)
+  subject_template: "Factor 75 Meal Selection - Week of {date}"
+
+  # Include meal images in email (increases email size)
+  include_images: true
+
+  # Reminder settings
+  reminder:
+    enabled: true
+    hours_before_deadline: 6
+
+schedule:
+  # How many hours before deadline to send the initial email
+  hours_before_deadline: 48
+
+  # How often to check for replies (minutes)
+  reply_check_interval: 15
+
+logging:
+  level: INFO
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"

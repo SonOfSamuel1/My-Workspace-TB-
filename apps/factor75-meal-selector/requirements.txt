@@ -1,0 +1,25 @@
+# Factor 75 Meal Selector Dependencies
+
+# AWS SDK
+boto3>=1.28.0
+
+# Google API (Gmail for reply polling)
+google-api-python-client>=2.100.0
+google-auth-oauthlib>=1.1.0
+google-auth-httplib2>=0.1.1
+
+# Configuration
+python-dotenv>=1.0.0
+PyYAML>=6.0.1
+
+# Timezone handling
+pytz>=2023.3
+
+# HTML templating
+Jinja2>=3.1.2
+
+# Date parsing
+python-dateutil>=2.8.2
+
+# Logging
+coloredlogs>=15.0.1

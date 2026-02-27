@@ -1,0 +1,7 @@
+cc_session_tracker:
+  todoist_project_name: "CC- Development in Progress"
+  lookback_days: 7
+  min_file_size: 5000
+  include_project_patterns: null # null = scan all projects
+  max_description_length: 4000
+  timezone: "America/New_York"

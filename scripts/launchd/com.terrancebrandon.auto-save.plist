@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.terrancebrandon.auto-save</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>/Users/terrancebrandon/Desktop/Code Projects (Official)/My Workspace/My-Workspace-TB-/My-Workspace-TB-/scripts/auto-save.sh</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/terrancebrandon/Desktop/Code Projects (Official)/My Workspace/My-Workspace-TB-/My-Workspace-TB-</string>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>KeepAlive</key>
+    <true/>
+
+    <key>StandardOutPath</key>
+    <string>/Users/terrancebrandon/Desktop/Code Projects (Official)/My Workspace/My-Workspace-TB-/My-Workspace-TB-/logs/auto-save/launchd-stdout.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>/Users/terrancebrandon/Desktop/Code Projects (Official)/My Workspace/My-Workspace-TB-/My-Workspace-TB-/logs/auto-save/launchd-stderr.log</string>
+
+    <key>ProcessType</key>
+    <string>Background</string>
+
+    <key>LowPriorityIO</key>
+    <true/>
+
+    <key>Nice</key>
+    <integer>10</integer>
+
+    <key>ThrottleInterval</key>
+    <integer>10</integer>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    </dict>
+</dict>
+</plist>

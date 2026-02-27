@@ -1,149 +1,98 @@
-# CLAUDE.md
+# My-Workspace-TB- Monorepo
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+## Structure
 
-## Build and Development Commands
+- **apps/** — Python automation systems, Node.js tools (entry point:
+  `src/<name>_main.py --validate|--generate`)
+- **servers/** — MCP servers (TypeScript, `src/index.ts` → `dist/index.js`)
+- **utils/** — Standalone scripts
+- **docs/** — Workspace documentation
 
-### Root Level (npm workspaces)
+## Common Commands
+
 ```bash
-npm run build                    # Build all workspaces (servers + email-assistant)
-npm run build:servers            # Build all MCP servers only
-npm test                         # Run tests across all workspaces
-npm run test:servers             # Run MCP server tests only
-npm run format                   # Format all TS/JS/JSON/MD files with Prettier
-npm run format:check             # Check formatting without changes
-npm run clean                    # Remove all node_modules and dist folders
+npm run build              # Build all workspaces
+npm test                   # Run all tests
+npm run format             # Prettier format all TS/JS/JSON/MD
 ```
 
-### MCP Servers (TypeScript)
-```bash
-cd servers/<server-name>
-npm install
-npm run build                    # Compile TypeScript to dist/
-npm run watch                    # Watch mode for development
-npm run dev                      # Build and run server
-npm start                        # Run compiled server
-```
+## Application Conventions
 
-### Python Applications
-```bash
-cd apps/<app-name>
-pip install -r requirements.txt
-python src/<main>.py --validate  # Validate configuration
-python src/<main>.py --generate  # Run generation/report
-```
+- Python entry points: `src/<name>_main.py` with `--validate` and `--generate`
+  flags
+- Config: `.env` or `config.yaml` per app; credentials in `credentials/`
+  (gitignored)
+- MCP servers: registered in `.mcp.json`, built with `npm run build`
 
-### Autonomous Email Assistant
-```bash
-npm run email-assistant:test         # Run email assistant tests
-npm run email-assistant:agent:start  # Start email agent
-npm run email-assistant:agent:test   # Test email agent
-```
+## Pre-commit Hooks
 
-## Architecture
+- **Python** (`apps/`, `utils/`): black, isort, flake8 (max-line-length=127),
+  bandit
+- **TypeScript** (`servers/`): prettier
 
-### Monorepo Structure
-- **apps/**: Self-contained applications (Python automation systems, Node.js tools)
-- **servers/**: MCP (Model Context Protocol) servers (TypeScript/Node.js)
-- **utils/**: Standalone utility scripts
-- **docs/**: Workspace-level documentation
+## Execution Model — ALWAYS FOLLOW
 
-### Application Patterns
+For any non-trivial task (more than a few-line fix), use this two-phase
+approach:
 
-**Python Applications** (love-brittany-tracker, weekly-budget-report, ynab-transaction-reviewer):
-- Entry point: `src/<name>_main.py`
-- Google API credentials: `credentials/credentials.json`
-- Config: `.env` or `config.yaml`
-- AWS Lambda deployment via `scripts/deploy-lambda-zip.sh`
+1. **Plan (Opus — you)**: Analyze the codebase, design an exact implementation
+   plan with specific file paths, diffs, and commands. Do not leave ambiguity.
+2. **Execute (Sonnet agents)**: Launch Task tool agents with `model: "sonnet"`
+   to carry out the plan. Use parallel agents for independent changes. Each
+   agent must receive exact instructions — no design decisions.
+   - **NEVER** set `model: "opus"` for any Task execution agent. Sonnet is the
+     mandatory default. Only switch to Opus for execution if the user
+     **explicitly** requests it in that message.
+3. **Review (Opus — you)**: Check agent results, fix any issues yourself if
+   needed.
 
-**MCP Servers** (TypeScript):
-- Single file: `src/index.ts`
-- Compiled output: `dist/index.js`
-- Registered in `.mcp.json` or Claude Desktop config
-- Uses `@modelcontextprotocol/sdk`
-
-**Node.js Applications** (autonomous-email-assistant, ynab-transaction-reviewer/web):
-- Jest for testing
-- Often deployed to AWS Lambda or have Next.js web components
-
-### Key Configuration Files
-- `.mcp.json` - MCP server registry for Claude Code
-- `.pre-commit-config.yaml` - Git hooks (black, isort, flake8 for Python; prettier for TS/JS)
-- `.lintstagedrc.json` - Staged file formatting
-- `package.json` - npm workspaces config
-
-### Pre-commit Hooks
-Python files in `apps/` and `utils/` are automatically formatted with:
-- black (formatting)
-- isort (import sorting)
-- flake8 (linting, max-line-length=127)
-- bandit (security)
-
-TypeScript/JS files in `servers/` use prettier.
-
-## Testing
-
-### MCP Servers
-```bash
-# Build first, then restart Claude Code/Desktop to test
-npm run build --workspace=servers/ynab-mcp-server
-# Test by asking Claude to use the server's tools
-```
-
-### Python Applications
-Most Python apps have `--validate` flags to test configuration without running full operations.
-
-### Email Assistant
-```bash
-cd apps/autonomous-email-assistant
-npm test                         # Run Jest tests
-npm run test:coverage           # Coverage report
-```
-
-## AWS Lambda Deployment
-
-Python applications with Lambda deployment have:
-```
-app/
-├── lambda_handler.py           # Lambda entry point
-├── scripts/deploy-lambda-zip.sh
-└── requirements-lambda.txt     # Lambda-specific deps
-```
-
-Deploy: `./scripts/deploy-lambda-zip.sh`
-
-## MCP Server Development
-
-Template for new MCP servers:
-```typescript
-import { Server } from "@modelcontextprotocol/sdk/server/index.js";
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-
-const server = new Server({ name: "your-server", version: "1.0.0" }, {
-  capabilities: { tools: {} }
-});
-
-// Register tools with server.setRequestHandler()
-const transport = new StdioServerTransport();
-await server.connect(transport);
-```
-
-tsconfig.json pattern:
-```json
-{
-  "compilerOptions": {
-    "target": "ES2022",
-    "module": "Node16",
-    "moduleResolution": "Node16",
-    "outDir": "./dist",
-    "rootDir": "./src",
-    "strict": true
-  }
-}
-```
+Skip this only for trivial changes (typos, single-line fixes, quick questions).
 
 ## Commit Conventions
 
-Commits in this repo are typically co-authored with Claude Code. When committing:
 - Clear, descriptive messages focusing on what and why
 - Include co-author footer for Claude-assisted commits
+
+## Spec-Driven Development
+
+For non-trivial features, use the spec-kit workflow: **specify → plan → tasks →
+implement**. This formalizes the Plan phase with persistent spec artifacts in
+`specs/`.
+
+- **Start here**: `/spec-workflow <feature description>` — routes to the right
+  phase
+- **Constitution**: `.specify/memory/constitution.md` — workspace principles
+  that guide all specs
+- **Specs directory**: `specs/` at repo root (shared across apps)
+- **Feature branches**: spec-kit creates numbered branches (e.g.,
+  `001-feature-name`)
+
+**When to use spec-kit**: New apps, major features, cross-app integrations,
+ambiguous requirements. **When to skip**: Bug fixes, config changes, single-file
+edits, clear scope (< 3 files).
+
+**Caution**: `/speckit-plan` runs `update-agent-context.sh` which can modify
+CLAUDE.md. Review changes after first use.
+
+## Skills (invoke with `/skill-name`)
+
+- `/new-mcp-server` — Scaffold a new MCP server
+- `/deploy-lambda` — Deploy a Python app to AWS Lambda
+- `/new-python-app` — Scaffold a new Python application
+- `/test-and-build` — All build, test, format commands reference
+- `/workspace-overview` — Full monorepo map with all apps, servers, and config
+- `/spec-workflow` — Single entry point for spec-driven development lifecycle
+- `/speckit-specify` — Create a feature spec from a description
+- `/speckit-plan` — Generate implementation plan from a spec
+- `/speckit-tasks` — Break a plan into actionable tasks
+- `/speckit-implement` — Execute implementation tasks
+- `/speckit-clarify` — Ask structured questions to de-risk ambiguity
+- `/speckit-analyze` — Cross-artifact consistency check
+- `/speckit-checklist` — Quality validation checklist
+- `/speckit-constitution` — View/update workspace principles
+- `/speckit-taskstoissues` — Convert tasks to GitHub issues
+
+## Recent Changes
+
+- 002-task-attachment-viewer: In-app image lightbox for Todoist task attachments
+  on mobile (front-end only, `todoist_views.py`)
