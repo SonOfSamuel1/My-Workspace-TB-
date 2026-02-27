@@ -152,8 +152,16 @@
 6. Administrative tasks
 7. Travel booking confirmations
 8. Expense receipts and invoices
+9. **ETA (Entrepreneurship Through Acquisition) emails** - Deal flow, broker listings, business-for-sale alerts, acquisition platform notifications, search fund newsletters, due diligence updates
 
 **Action:** Process, DRAFT response (do NOT send), save draft in Gmail, add to approval queue
+
+**Special Handling - ETA/Acquisition Emails:**
+- Label as "ETA/Acquisitions" and immediately archive (remove from inbox)
+- Do NOT draft a response - these are informational only
+- Collect the full email content (sender, subject, body) for the daily ETA digest
+- Extract key deal details when possible: business name, asking price, revenue, EBITDA/SDE, industry, location, broker name
+- Common ETA senders/platforms: BizBuySell, Axial, SearchFunder, Acquire.com (MicroAcquire), Empire Flippers, Quiet Light, FE International, Flippa, BusinessesForSale.com, DealStream, brokers/intermediaries, SBA lenders, search fund community newsletters, ETA/acquisition-related mailing lists, deal sourcing platforms
 
 ### TIER 3: DRAFT FOR APPROVAL
 **I draft, Terrance approves before sending:**
@@ -215,11 +223,12 @@
 4. **Completed** - Completed items (archived after labeling)
 5. **VIP** - Reserved for VIP contacts and always-escalate list
 
-### Specialized Labels (4)
+### Specialized Labels (5)
 6. **Meetings** - Calendar/scheduling related (mostly auto-handled)
 7. **Travel** - Travel bookings, itineraries, logistics
 8. **Expenses** - Receipts, invoices, reimbursements
 9. **Newsletters** - Subscriptions and digests (unsubscribe or archive)
+10. **ETA/Acquisitions** - Entrepreneurship Through Acquisition: deal flow, broker listings, business-for-sale alerts, search fund newsletters, acquisition platforms (auto-archived, included in daily ETA digest)
 
 ### Labeling Rules
 - Every email gets ONE primary label
@@ -617,6 +626,10 @@ Is it strategic partnership/donor/speaking/media/financial/HR/legal?
     ↓
 Is it meeting decline request?
     YES → Draft Tier 3, await approval
+    NO → Continue
+    ↓
+Is it an ETA (Entrepreneurship Through Acquisition) email? (deal flow, broker listing, acquisition platform, search fund newsletter)
+    YES → Label "ETA/Acquisitions", archive from inbox, collect for daily ETA digest
     NO → Continue
     ↓
 Is it routine (scheduling, vendor, newsletter, follow-up, info request)?

@@ -1,200 +1,273 @@
 /**
- * Brandon Family Calendar Report - AWS Lambda Handler
+ * AWS Lambda Calendar Report Automation
  *
- * Fetches upcoming events from Google Calendars and sends a weekly report
- * with four sections:
- * 1. Unique Events (next 90 days)
- * 2. Medical Appointments (next 12 months, keyword-based)
- * 3. Birthdays (next 60 days)
- * 4. Anniversaries (next 60 days)
+ * This Lambda function generates weekly calendar reports and sends them via email.
+ * Uses OAuth2 credentials for Google Calendar API access.
  */
 
-const { google } = require("googleapis");
-const { SESClient, SendEmailCommand } = require("@aws-sdk/client-ses");
-const { SSMClient, GetParameterCommand } = require("@aws-sdk/client-ssm");
-const moment = require("moment-timezone");
-const fs = require("fs");
-const path = require("path");
+const { google } = require('googleapis');
+const { SESClient, SendEmailCommand } = require('@aws-sdk/client-ses');
+const { SSMClient, GetParameterCommand, PutParameterCommand } = require('@aws-sdk/client-ssm');
+const moment = require('moment-timezone');
 
-// Configuration
-const TIMEZONE = process.env.TIMEZONE || "America/New_York";
+// ============================================================================
+// CONFIGURATION - Set via Lambda Environment Variables
+// ============================================================================
 
-// Medical keywords for filtering
+const CONFIG = {
+  // Google Calendar Configuration
+  UNIQUE_EVENTS_CALENDAR_ID: process.env.UNIQUE_EVENTS_CALENDAR_ID || 'primary',
+  BIRTHDAYS_ANNIVERSARIES_CALENDAR_ID: process.env.BIRTHDAYS_ANNIVERSARIES_CALENDAR_ID || 'primary',
+  MEDICAL_CALENDAR_ID: process.env.MEDICAL_CALENDAR_ID || 'primary',
+
+  // Email Configuration
+  EMAIL_TO: process.env.EMAIL_TO || '',
+  EMAIL_FROM: process.env.EMAIL_FROM || '',
+
+  // Timezone
+  TIMEZONE: process.env.TIMEZONE || 'America/New_York',
+
+  // Google OAuth2 Credentials (stored in SSM Parameter Store)
+  SSM_OAUTH_CREDENTIALS_PATH: process.env.SSM_OAUTH_CREDENTIALS_PATH || '/calendar-report/oauth-credentials',
+  SSM_OAUTH_TOKEN_PATH: process.env.SSM_OAUTH_TOKEN_PATH || '/calendar-report/oauth-token',
+
+  // AWS Configuration
+  AWS_REGION: process.env.AWS_REGION || 'us-east-1'
+};
+
+// Medical keywords for detection
 const MEDICAL_KEYWORDS = [
-  "dentist",
-  "dental",
-  "doctor",
-  "appointment",
-  "appt",
-  "PCP",
-  "pediatric",
-  "pediatrics",
-  "well visit",
-  "cleaning",
-  "ortho",
-  "orthodontist",
-  "PT",
-  "physical therapy",
-  "OT",
-  "occupational therapy",
-  "dermatology",
-  "derm",
-  "vision",
-  "eye exam",
-  "optometry",
-  "ophthalmology",
-  "ENT",
-  "GI",
-  "cardiology",
-  "urology",
-  "OB",
-  "OB/GYN",
-  "immunization",
-  "vaccine",
-  "shot",
-  "checkup",
-  "physical",
+  'dentist', 'dental', 'doctor', 'appointment', 'appt', 'PCP',
+  'pediatric', 'pediatrics', 'well visit', 'cleaning', 'ortho', 'orthodontist',
+  'PT', 'physical therapy', 'OT', 'occupational therapy',
+  'dermatology', 'derm', 'vision', 'eye exam', 'optometry', 'ophthalmology',
+  'ENT', 'GI', 'cardiology', 'urology', 'OB', 'OB/GYN',
+  'immunization', 'vaccine', 'shot', 'checkup', 'physical'
 ];
 
+// ============================================================================
+// EMAIL TEMPLATE
+// ============================================================================
+
+const EMAIL_TEMPLATE = `
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; line-height: 1.6; color: #374151; margin: 0; padding: 0; background-color: #f9fafb; }
+    .container { max-width: 640px; margin: 0 auto; padding: 24px; }
+    .header { background: #1e3a8a; color: white; padding: 32px 24px; border-radius: 8px 8px 0 0; text-align: center; }
+    .header h1 { margin: 0; font-size: 22px; font-weight: 500; letter-spacing: -0.025em; }
+    .header p { margin: 8px 0 0 0; font-size: 13px; color: #93c5fd; }
+    .content { background-color: #ffffff; padding: 24px; border-left: 1px solid #e5e7eb; border-right: 1px solid #e5e7eb; }
+    .section { background-color: #ffffff; padding: 0 0 0 16px; margin-bottom: 32px; border-left: 3px solid #1e3a8a; }
+    .section:last-child { margin-bottom: 0; }
+    .section-header { color: #111827; font-size: 15px; font-weight: 600; margin: 0 0 16px 0; padding-bottom: 12px; border-bottom: 1px solid #e5e7eb; letter-spacing: 0.02em; }
+    .section-dot { display: inline-block; width: 8px; height: 8px; background-color: #1e3a8a; border-radius: 50%; margin-right: 10px; vertical-align: middle; }
+    .section-title { vertical-align: middle; }
+    .event { padding: 14px 0; border-bottom: 1px solid #f3f4f6; }
+    .event:last-child { border-bottom: none; padding-bottom: 0; }
+    .event-date { font-weight: 600; color: #111827; font-size: 13px; text-transform: uppercase; letter-spacing: 0.03em; }
+    .event-time { color: #6b7280; font-size: 12px; margin-left: 8px; font-weight: 400; }
+    .event-title { color: #374151; font-size: 15px; margin-top: 4px; }
+    .event-title-link { color: #1e3a8a; font-size: 15px; margin-top: 4px; text-decoration: none; }
+    .event-location { color: #9ca3af; font-size: 13px; margin-top: 4px; font-style: italic; }
+    .no-events { color: #9ca3af; text-align: center; padding: 24px 0; font-size: 14px; }
+    .footer { background-color: #f9fafb; padding: 20px 24px; text-align: center; font-size: 12px; color: #6b7280; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px; }
+    .btn-regenerate { display: inline-block; background-color: #1e3a8a; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-size: 14px; font-weight: 500; margin-top: 16px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Brandon Family Calendar Report</h1>
+      <p>Generated on {{REPORT_DATE}}</p>
+    </div>
+    <div class="content">
+      {{SECTIONS}}
+    </div>
+    <div class="footer">
+      Generated automatically<br>
+      Reports sent: Wednesdays at 5am ET & Saturdays at 7pm ET<br>
+      <a href="https://08m0wxuzoh.execute-api.us-east-1.amazonaws.com/regenerate" class="btn-regenerate">Regenerate Report</a>
+    </div>
+  </div>
+</body>
+</html>
+`;
+
+// ============================================================================
+// SSM & OAUTH HELPERS
+// ============================================================================
+
+const ssmClient = new SSMClient({ region: CONFIG.AWS_REGION });
+
 /**
- * Create authenticated Google Calendar client
+ * Get parameter from SSM Parameter Store
  */
-async function getCalendarClient() {
-  const SCOPES = ["https://www.googleapis.com/auth/calendar.readonly"];
-
-  // Method 1: Service Account credentials from environment
-  if (process.env.GOOGLE_CLIENT_EMAIL && process.env.GOOGLE_PRIVATE_KEY) {
-    console.log("Using service account credentials from environment");
-    const auth = new google.auth.GoogleAuth({
-      credentials: {
-        type: "service_account",
-        client_email: process.env.GOOGLE_CLIENT_EMAIL,
-        private_key: process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, "\n"),
-      },
-      scopes: SCOPES,
-    });
-    return google.calendar({ version: "v3", auth });
-  }
-
-  // Method 2: OAuth credentials from local files
-  if (process.env.GOOGLE_CREDENTIALS_PATH && process.env.GOOGLE_TOKEN_PATH) {
-    console.log("Using OAuth credentials from files");
-    const credentialsPath = path.resolve(process.env.GOOGLE_CREDENTIALS_PATH);
-    const tokenPath = path.resolve(process.env.GOOGLE_TOKEN_PATH);
-
-    if (fs.existsSync(credentialsPath) && fs.existsSync(tokenPath)) {
-      const credentials = JSON.parse(fs.readFileSync(credentialsPath, "utf8"));
-      const token = JSON.parse(fs.readFileSync(tokenPath, "utf8"));
-
-      const { client_id, client_secret, redirect_uris } =
-        credentials.installed || credentials.web;
-
-      const oAuth2Client = new google.auth.OAuth2(
-        client_id,
-        client_secret,
-        redirect_uris ? redirect_uris[0] : "http://localhost"
-      );
-      oAuth2Client.setCredentials(token);
-
-      return google.calendar({ version: "v3", auth: oAuth2Client });
-    }
-  }
-
-  // Method 3: SSM Parameter Store (for Lambda)
-  console.log("Fetching credentials from SSM Parameter Store");
-  const ssmClient = new SSMClient({ region: process.env.AWS_REGION });
-
+async function getSSMParameter(name) {
   try {
-    const credentialsCommand = new GetParameterCommand({
-      Name: process.env.SSM_OAUTH_CREDENTIALS_PATH,
-      WithDecryption: true,
+    const command = new GetParameterCommand({
+      Name: name,
+      WithDecryption: true
     });
-    const credentialsResponse = await ssmClient.send(credentialsCommand);
-    const credentials = JSON.parse(credentialsResponse.Parameter.Value);
-
-    if (credentials.type === "service_account") {
-      const auth = new google.auth.GoogleAuth({
-        credentials,
-        scopes: SCOPES,
-      });
-      return google.calendar({ version: "v3", auth });
-    }
-
-    const tokenCommand = new GetParameterCommand({
-      Name: process.env.SSM_OAUTH_TOKEN_PATH,
-      WithDecryption: true,
-    });
-    const tokenResponse = await ssmClient.send(tokenCommand);
-    const token = JSON.parse(tokenResponse.Parameter.Value);
-
-    const { client_id, client_secret, redirect_uris } =
-      credentials.installed || credentials.web;
-
-    const oAuth2Client = new google.auth.OAuth2(
-      client_id,
-      client_secret,
-      redirect_uris ? redirect_uris[0] : "http://localhost"
-    );
-    oAuth2Client.setCredentials(token);
-
-    return google.calendar({ version: "v3", auth: oAuth2Client });
+    const response = await ssmClient.send(command);
+    return response.Parameter.Value;
   } catch (error) {
-    console.error("Failed to get credentials from SSM:", error.message);
-    throw new Error("Unable to retrieve Google credentials");
+    console.error(`Error getting SSM parameter ${name}:`, error.message);
+    throw error;
   }
 }
 
 /**
- * Fetch events from a calendar
+ * Update parameter in SSM Parameter Store
  */
-async function fetchCalendarEvents(calendar, calendarId, timeMin, timeMax) {
-  if (!calendarId) {
-    return [];
+async function updateSSMParameter(name, value) {
+  try {
+    const command = new PutParameterCommand({
+      Name: name,
+      Value: value,
+      Type: 'SecureString',
+      Overwrite: true
+    });
+    await ssmClient.send(command);
+    console.log(`Updated SSM parameter: ${name}`);
+  } catch (error) {
+    console.error(`Error updating SSM parameter ${name}:`, error.message);
+    throw error;
   }
+}
 
+/**
+ * Create authenticated Google Calendar client using OAuth2
+ */
+async function getCalendarClient() {
+  // Get OAuth credentials from SSM
+  const credentialsJson = await getSSMParameter(CONFIG.SSM_OAUTH_CREDENTIALS_PATH);
+  const credentials = JSON.parse(credentialsJson);
+
+  // Get OAuth token from SSM
+  const tokenJson = await getSSMParameter(CONFIG.SSM_OAUTH_TOKEN_PATH);
+  const token = JSON.parse(tokenJson);
+
+  const { client_id, client_secret } = credentials.installed || credentials.web || credentials;
+
+  // Create OAuth2 client
+  const oauth2Client = new google.auth.OAuth2(
+    client_id,
+    client_secret,
+    'http://localhost'
+  );
+
+  // Set credentials
+  oauth2Client.setCredentials({
+    access_token: token.access_token,
+    refresh_token: token.refresh_token,
+    expiry_date: token.expiry_date
+  });
+
+  // Handle token refresh
+  oauth2Client.on('tokens', async (tokens) => {
+    console.log('Token refreshed');
+    const updatedToken = {
+      ...token,
+      access_token: tokens.access_token,
+      expiry_date: tokens.expiry_date
+    };
+    if (tokens.refresh_token) {
+      updatedToken.refresh_token = tokens.refresh_token;
+    }
+    // Save updated token to SSM
+    await updateSSMParameter(CONFIG.SSM_OAUTH_TOKEN_PATH, JSON.stringify(updatedToken));
+  });
+
+  return google.calendar({ version: 'v3', auth: oauth2Client });
+}
+
+// ============================================================================
+// CALENDAR EVENT FUNCTIONS
+// ============================================================================
+
+/**
+ * Get events from a specific calendar
+ */
+async function getEventsFromCalendar(calendar, calendarId, startDate, endDate) {
   try {
     const response = await calendar.events.list({
       calendarId: calendarId,
-      timeMin: timeMin.toISOString(),
-      timeMax: timeMax.toISOString(),
+      timeMin: startDate.toISOString(),
+      timeMax: endDate.toISOString(),
       singleEvents: true,
-      orderBy: "startTime",
+      orderBy: 'startTime',
+      maxResults: 2500
     });
 
-    return (response.data.items || []).map((event) => ({
-      title: event.summary || "(No title)",
-      startTime: event.start.dateTime || event.start.date,
-      endTime: event.end.dateTime || event.end.date,
-      isAllDay: !event.start.dateTime,
-      location: event.location || "",
-      description: event.description || "",
-      htmlLink: event.htmlLink || "",
-      eventId: event.id || "",
-    }));
+    const events = response.data.items || [];
+
+    return events.map(event => {
+      const isAllDay = !event.start.dateTime;
+      let startTime, endTime;
+
+      if (isAllDay) {
+        // For all-day events, parse date as local to avoid timezone shift
+        // event.start.date is like "2025-12-01"
+        const [year, month, day] = event.start.date.split('-').map(Number);
+        startTime = new Date(year, month - 1, day);
+        const [endYear, endMonth, endDay] = event.end.date.split('-').map(Number);
+        endTime = new Date(endYear, endMonth - 1, endDay);
+      } else {
+        // For timed events, dateTime includes timezone info
+        startTime = new Date(event.start.dateTime);
+        endTime = new Date(event.end.dateTime);
+      }
+
+      return {
+        title: event.summary || 'Untitled',
+        startTime,
+        endTime,
+        isAllDay,
+        location: event.location || '',
+        description: event.description || '',
+        id: event.id,
+        htmlLink: event.htmlLink || ''
+      };
+    });
+
   } catch (error) {
-    console.error(`Error fetching calendar ${calendarId}:`, error.message);
+    console.error(`Error accessing calendar ${calendarId}:`, error.message);
     return [];
   }
 }
 
 /**
- * Check if event is medical-related
+ * Get all calendars accessible to the user
  */
-function isMedicalEvent(event) {
-  const searchText = `${event.title} ${event.description}`.toLowerCase();
-  return MEDICAL_KEYWORDS.some((keyword) =>
-    searchText.includes(keyword.toLowerCase())
-  );
+async function getAllCalendars(calendar) {
+  try {
+    const response = await calendar.calendarList.list();
+    return response.data.items || [];
+  } catch (error) {
+    console.error('Error listing calendars:', error.message);
+    return [];
+  }
 }
 
 /**
- * Remove duplicates based on title and date
+ * Check if an event is medical-related
  */
-function removeDuplicates(events) {
+function isMedicalEvent(event) {
+  const searchText = `${event.title} ${event.description}`.toLowerCase();
+  return MEDICAL_KEYWORDS.some(keyword => searchText.includes(keyword.toLowerCase()));
+}
+
+/**
+ * Remove duplicates and collapse recurring events
+ */
+function removeDuplicatesAndCollapseRecurring(events) {
   const seen = new Map();
 
   for (const event of events) {
-    const dateKey = moment(event.startTime).tz(TIMEZONE).format("YYYY-MM-DD");
+    const dateKey = moment(event.startTime).tz(CONFIG.TIMEZONE).format('YYYY-MM-DD');
     const key = `${event.title.toLowerCase().trim()}_${dateKey}`;
 
     if (!seen.has(key)) {
@@ -206,333 +279,334 @@ function removeDuplicates(events) {
 }
 
 /**
- * Sort events by date
+ * Sort events chronologically
  */
 function sortEventsByDate(events) {
-  return events.sort(
-    (a, b) => new Date(a.startTime) - new Date(b.startTime)
-  );
+  return events.sort((a, b) => a.startTime - b.startTime);
+}
+
+// ============================================================================
+// SECTION GENERATORS
+// ============================================================================
+
+/**
+ * Section 1: Unique Events (next 90 days)
+ */
+async function generateUniqueEventsSection(calendar) {
+  console.log('Generating Unique Events section...');
+
+  const startDate = new Date();
+  const endDate = new Date();
+  endDate.setDate(endDate.getDate() + 90);
+
+  const events = await getEventsFromCalendar(calendar, CONFIG.UNIQUE_EVENTS_CALENDAR_ID, startDate, endDate);
+  const uniqueEvents = removeDuplicatesAndCollapseRecurring(events);
+  const sortedEvents = sortEventsByDate(uniqueEvents);
+
+  return buildSectionHtml('1. Unique Events — Next 90 Days', sortedEvents);
 }
 
 /**
- * Format time in 12-hour format
+ * Section 2: Medical Appointments (next 12 months)
  */
-function formatTime12Hour(dateStr) {
-  const date = moment(dateStr).tz(TIMEZONE);
-  return date.format("h:mma").toLowerCase();
+async function generateMedicalSection(calendar) {
+  console.log('Generating Medical section...');
+
+  const startDate = new Date();
+  const endDate = new Date();
+  endDate.setFullYear(endDate.getFullYear() + 1);
+
+  // Get events from the dedicated Medical Appointments calendar
+  const events = await getEventsFromCalendar(calendar, CONFIG.MEDICAL_CALENDAR_ID, startDate, endDate);
+  const uniqueEvents = removeDuplicatesAndCollapseRecurring(events);
+  const sortedEvents = sortEventsByDate(uniqueEvents);
+
+  return buildSectionHtml('2. Medical — Next 12 Months', sortedEvents);
 }
 
 /**
- * Escape HTML special characters
+ * Section 3: Birthdays (next 60 days)
  */
-function escapeHtml(text) {
-  if (!text) return "";
-  return text
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
+async function generateBirthdaysSection(calendar) {
+  console.log('Generating Birthdays section...');
+
+  const startDate = new Date();
+  const endDate = new Date();
+  endDate.setDate(endDate.getDate() + 60);
+
+  const events = await getEventsFromCalendar(calendar, CONFIG.BIRTHDAYS_ANNIVERSARIES_CALENDAR_ID, startDate, endDate);
+
+  const birthdayEvents = events.filter(event => {
+    const title = event.title.toLowerCase();
+    return title.includes('birthday') || title.includes('bday') || title.includes('born');
+  });
+
+  const uniqueEvents = removeDuplicatesAndCollapseRecurring(birthdayEvents);
+  const sortedEvents = sortEventsByDate(uniqueEvents);
+
+  return buildSectionHtml('3. Birthdays — Next 60 Days', sortedEvents);
+}
+
+/**
+ * Section 4: Anniversaries (next 60 days)
+ */
+async function generateAnniversariesSection(calendar) {
+  console.log('Generating Anniversaries section...');
+
+  const startDate = new Date();
+  const endDate = new Date();
+  endDate.setDate(endDate.getDate() + 60);
+
+  const events = await getEventsFromCalendar(calendar, CONFIG.BIRTHDAYS_ANNIVERSARIES_CALENDAR_ID, startDate, endDate);
+
+  const anniversaryEvents = events.filter(event => {
+    const title = event.title.toLowerCase();
+    return title.includes('anniversary') || title.includes('anniv');
+  });
+
+  const uniqueEvents = removeDuplicatesAndCollapseRecurring(anniversaryEvents);
+  const sortedEvents = sortEventsByDate(uniqueEvents);
+
+  return buildSectionHtml('4. Anniversaries — Next 60 Days', sortedEvents);
+}
+
+// ============================================================================
+// HTML FORMATTING FUNCTIONS
+// ============================================================================
+
+/**
+ * Build HTML for a section
+ */
+function buildSectionHtml(sectionTitle, events) {
+  // Remove number prefix if present (e.g., "1. Unique Events" -> "Unique Events")
+  const titleText = sectionTitle.replace(/^\d+\.\s*/, '');
+
+  const headerHtml = `<span class="section-dot"></span><span class="section-title">${titleText}</span>`;
+
+  if (events.length === 0) {
+    return `
+      <div class="section">
+        <h2 class="section-header">${headerHtml}</h2>
+        <div class="no-events">None</div>
+      </div>
+    `;
+  }
+
+  const eventHtml = events.map(event => formatEventHtml(event)).join('');
+
+  return `
+    <div class="section">
+      <h2 class="section-header">${headerHtml}</h2>
+      ${eventHtml}
+    </div>
+  `;
 }
 
 /**
  * Format a single event as HTML
  */
 function formatEventHtml(event) {
-  const dateStr = moment(event.startTime)
-    .tz(TIMEZONE)
-    .format("ddd, MMM D, YYYY")
-    .toUpperCase();
-
+  let dateStr;
   let timeStr;
+
   if (event.isAllDay) {
-    timeStr = "ALL DAY";
+    // For all-day events, use moment without timezone conversion (date is already correct)
+    dateStr = moment(event.startTime).format('ddd, MMM D, YYYY');
+    timeStr = 'All day';
   } else {
-    const startTime = formatTime12Hour(event.startTime).toUpperCase();
-    const endTime = formatTime12Hour(event.endTime).toUpperCase();
+    // For timed events, convert to configured timezone
+    dateStr = moment(event.startTime).tz(CONFIG.TIMEZONE).format('ddd, MMM D, YYYY');
+    const startTime = formatTime12Hour(event.startTime);
+    const endTime = formatTime12Hour(event.endTime);
     timeStr = `${startTime} - ${endTime}`;
   }
 
   const locationHtml = event.location
     ? `<div class="event-location">${escapeHtml(event.location)}</div>`
-    : "";
+    : '';
 
-  // Create event title with link if available
+  // Make title a clickable link to Google Calendar if htmlLink is available
   const titleHtml = event.htmlLink
-    ? `<a href="${event.htmlLink}" class="event-title">${escapeHtml(event.title)}</a>`
-    : `<div class="event-title">${escapeHtml(event.title)}</div>`;
+    ? `<a href="${event.htmlLink}" class="event-title-link">${escapeHtml(event.title)}</a>`
+    : `<span class="event-title">${escapeHtml(event.title)}</span>`;
 
   return `
     <div class="event">
       <div class="event-date">
-        ${dateStr}<span class="event-time">${timeStr}</span>
+        ${dateStr}
+        <span class="event-time">${timeStr}</span>
       </div>
-      ${titleHtml}
+      <div class="event-title">${titleHtml}</div>
       ${locationHtml}
     </div>
   `;
 }
 
 /**
- * Build HTML for a section
+ * Format time in 12-hour format
  */
-function buildSectionHtml(sectionTitle, events) {
-  if (events.length === 0) {
-    return `
-      <div class="section">
-        <h2 class="section-header">${sectionTitle}</h2>
-        <div class="section-content">
-          <div class="no-events">None</div>
-        </div>
-      </div>
-    `;
-  }
-
-  const eventHtml = events.map((event) => formatEventHtml(event)).join("");
-
-  return `
-    <div class="section">
-      <h2 class="section-header">${sectionTitle}</h2>
-      <div class="section-content">
-        ${eventHtml}
-      </div>
-    </div>
-  `;
+function formatTime12Hour(date) {
+  return moment(date).tz(CONFIG.TIMEZONE).format('h:mma');
 }
 
 /**
- * Generate all four sections
+ * Escape HTML special characters
  */
-async function generateSections(calendar) {
-  const now = moment().tz(TIMEZONE);
-  const sections = [];
-
-  // Section 1: Unique Events — Next 90 Days
-  console.log("Generating Section 1: Unique Events...");
-  const uniqueEventsEnd = now.clone().add(90, "days");
-  const uniqueEvents = await fetchCalendarEvents(
-    calendar,
-    process.env.UNIQUE_EVENTS_CALENDAR_ID,
-    now,
-    uniqueEventsEnd
-  );
-  const uniqueSorted = sortEventsByDate(removeDuplicates(uniqueEvents));
-  console.log(`Found ${uniqueSorted.length} unique events`);
-  sections.push(buildSectionHtml("Unique Events — Next 90 Days", uniqueSorted));
-
-  // Section 2: Medical — Next 12 Months (from dedicated Medical calendar only)
-  console.log("Generating Section 2: Medical...");
-  const medicalEnd = now.clone().add(12, "months");
-  const medicalEvents = await fetchCalendarEvents(
-    calendar,
-    process.env.MEDICAL_CALENDAR_ID,
-    now,
-    medicalEnd
-  );
-  const medicalSorted = sortEventsByDate(removeDuplicates(medicalEvents));
-  console.log(`Found ${medicalSorted.length} medical appointments`);
-  sections.push(buildSectionHtml("Medical — Next 12 Months", medicalSorted));
-
-  // Section 3: Birthdays — Next 60 Days
-  console.log("Generating Section 3: Birthdays...");
-  const birthdaysEnd = now.clone().add(60, "days");
-  const birthdayEvents = await fetchCalendarEvents(
-    calendar,
-    process.env.BIRTHDAYS_ANNIVERSARIES_CALENDAR_ID,
-    now,
-    birthdaysEnd
-  );
-  const birthdays = birthdayEvents.filter((event) => {
-    const title = event.title.toLowerCase();
-    return title.includes("birthday") || title.includes("bday") || title.includes("born");
-  });
-  const birthdaysSorted = sortEventsByDate(removeDuplicates(birthdays));
-  console.log(`Found ${birthdaysSorted.length} birthdays`);
-  sections.push(buildSectionHtml("Birthdays — Next 60 Days", birthdaysSorted));
-
-  // Section 4: Anniversaries — Next 60 Days
-  console.log("Generating Section 4: Anniversaries...");
-  const anniversariesEnd = now.clone().add(60, "days");
-  const anniversaryEvents = await fetchCalendarEvents(
-    calendar,
-    process.env.BIRTHDAYS_ANNIVERSARIES_CALENDAR_ID,
-    now,
-    anniversariesEnd
-  );
-  const anniversaries = anniversaryEvents.filter((event) => {
-    const title = event.title.toLowerCase();
-    return title.includes("anniversary") || title.includes("anniv");
-  });
-  const anniversariesSorted = sortEventsByDate(removeDuplicates(anniversaries));
-  console.log(`Found ${anniversariesSorted.length} anniversaries`);
-  sections.push(buildSectionHtml("Anniversaries — Next 60 Days", anniversariesSorted));
-
-  return {
-    sections,
-    totalEvents:
-      uniqueSorted.length +
-      medicalSorted.length +
-      birthdaysSorted.length +
-      anniversariesSorted.length,
-  };
+function escapeHtml(text) {
+  if (!text) return '';
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
 }
 
-/**
- * Generate HTML email content
- */
-function generateEmailHTML(sections, reportDate, lambdaFunctionUrl) {
-  // Use the Lambda function URL if provided, otherwise use a placeholder
-  const regenerateUrl = lambdaFunctionUrl || process.env.LAMBDA_FUNCTION_URL || "#";
-
-  return `
-<!DOCTYPE html>
-<html>
-<head>
-  <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f5f5f5; }
-    .container { max-width: 700px; margin: 0 auto; padding: 20px; }
-    .header { background-color: #1a365d; color: white; padding: 30px 20px; border-radius: 8px 8px 0 0; text-align: center; }
-    .header h1 { margin: 0; font-size: 26px; font-weight: 500; }
-    .header p { margin: 10px 0 0 0; font-size: 14px; color: #a0aec0; }
-    .content { background-color: white; padding: 25px 30px; border: 1px solid #e2e8f0; border-top: none; }
-    .section { padding: 0; margin-bottom: 30px; background-color: #ffffff; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); overflow: hidden; }
-    .section:last-child { margin-bottom: 0; }
-    .section-header { background-color: #f1f5f9; color: #1e293b; font-size: 16px; font-weight: 600; padding: 14px 20px; margin: 0; border-bottom: 1px solid #e2e8f0; text-transform: uppercase; letter-spacing: 0.5px; }
-    .section-content { padding: 5px 20px 15px 20px; }
-    .event { padding: 15px 0; border-bottom: 1px solid #e2e8f0; }
-    .event:last-child { border-bottom: none; }
-    .event-date { font-weight: 700; color: #1a202c; font-size: 14px; letter-spacing: 0.5px; }
-    .event-time { color: #718096; font-size: 14px; margin-left: 15px; font-weight: 400; }
-    .event-title { color: #3182ce; font-size: 16px; margin-top: 6px; text-decoration: none; display: block; }
-    .event-title:hover { text-decoration: underline; }
-    a.event-title { color: #3182ce; }
-    .event-location { color: #a0aec0; font-size: 13px; margin-top: 4px; font-style: italic; }
-    .no-events { color: #a0aec0; font-style: italic; padding: 10px 0; }
-    .footer { background-color: #f7fafc; padding: 25px 30px; text-align: center; border: 1px solid #e2e8f0; border-top: none; border-radius: 0 0 8px 8px; }
-    .regenerate-btn { display: inline-block; background-color: #3182ce; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 14px; margin-bottom: 15px; }
-    .regenerate-btn:hover { background-color: #2c5282; }
-    .footer-text { font-size: 12px; color: #718096; margin-top: 10px; }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <div class="header">
-      <h1>Brandon Family Calendar Report</h1>
-      <p>Generated on ${reportDate}</p>
-    </div>
-    <div class="content">
-      ${sections.join("\n")}
-    </div>
-    <div class="footer">
-      <a href="${regenerateUrl}" class="regenerate-btn">Regenerate Report</a>
-      <div class="footer-text">Generated automatically by Brandon Family Calendar Automation</div>
-    </div>
-  </div>
-</body>
-</html>
-`;
-}
+// ============================================================================
+// EMAIL SENDING
+// ============================================================================
 
 /**
- * Generate plain text email content
+ * Send email using AWS SES
  */
-function generateEmailText(sections, reportDate) {
-  let text = `📅 WEEKLY CALENDAR REPORT\n`;
-  text += `Generated on ${reportDate}\n`;
-  text += `${"=".repeat(50)}\n\n`;
+async function sendEmail(subject, htmlBody) {
+  const sesClient = new SESClient({ region: CONFIG.AWS_REGION });
 
-  // Parse sections to extract text (simplified version)
-  text += "See HTML version for full details.\n";
+  // Support multiple recipients (comma-separated)
+  const toAddresses = CONFIG.EMAIL_TO.split(',').map(email => email.trim());
 
-  text += `\n${"=".repeat(50)}\n`;
-  text += `Generated automatically by Brandon Family Calendar Automation\n`;
-  text += `Next report: Next Saturday at 7:00pm ET\n`;
-
-  return text;
-}
-
-/**
- * Send email via AWS SES
- */
-async function sendEmail(htmlContent, textContent, eventCount) {
-  const sesClient = new SESClient({ region: process.env.AWS_REGION });
-
-  const toAddresses = process.env.EMAIL_TO.split(",").map((email) =>
-    email.trim()
-  );
-  const fromAddress = process.env.EMAIL_FROM;
-
-  const now = moment().tz(TIMEZONE);
-  const subject = `Brandon Family Calendar Report - ${now.format("MMM D, YYYY")}`;
-
-  const command = new SendEmailCommand({
+  const params = {
+    Source: CONFIG.EMAIL_FROM,
     Destination: {
-      ToAddresses: toAddresses,
+      ToAddresses: toAddresses
     },
     Message: {
+      Subject: {
+        Data: subject,
+        Charset: 'UTF-8'
+      },
       Body: {
         Html: {
-          Charset: "UTF-8",
-          Data: htmlContent,
+          Data: htmlBody,
+          Charset: 'UTF-8'
         },
         Text: {
-          Charset: "UTF-8",
-          Data: textContent,
-        },
-      },
-      Subject: {
-        Charset: "UTF-8",
-        Data: subject,
-      },
-    },
-    Source: fromAddress,
-  });
-
-  const response = await sesClient.send(command);
-  console.log("Email sent successfully:", response.MessageId);
-  return response;
-}
-
-/**
- * Lambda handler
- */
-exports.handler = async (event, context) => {
-  console.log("Starting Weekly Calendar Report generation");
-  console.log("Event:", JSON.stringify(event));
+          Data: 'Please view this email in an HTML-compatible email client.',
+          Charset: 'UTF-8'
+        }
+      }
+    }
+  };
 
   try {
+    const command = new SendEmailCommand(params);
+    const response = await sesClient.send(command);
+    console.log('Email sent successfully:', response.MessageId);
+    return response;
+  } catch (error) {
+    console.error('Error sending email:', error);
+    throw error;
+  }
+}
+
+// ============================================================================
+// MAIN REPORT GENERATION
+// ============================================================================
+
+/**
+ * Main function that generates and sends the weekly calendar report
+ */
+async function generateWeeklyReport() {
+  console.log('Starting calendar report generation...');
+
+  try {
+    // Validate configuration
+    if (!CONFIG.EMAIL_TO || !CONFIG.EMAIL_FROM) {
+      throw new Error('EMAIL_TO and EMAIL_FROM must be configured');
+    }
+
+    // Initialize Google Calendar client with OAuth
+    console.log('Initializing Google Calendar client...');
     const calendar = await getCalendarClient();
-    const now = moment().tz(TIMEZONE);
-    const reportDate = now.format("dddd, MMMM D, YYYY [at] h:mm A z");
+
+    const reportDate = moment().tz(CONFIG.TIMEZONE).format('dddd, MMMM D, YYYY [at] h:mm A z');
 
     // Generate all four sections
-    const { sections, totalEvents } = await generateSections(calendar);
-    console.log(`Total events found: ${totalEvents}`);
+    const sections = [];
+    sections.push(await generateUniqueEventsSection(calendar));
+    sections.push(await generateMedicalSection(calendar));
+    sections.push(await generateBirthdaysSection(calendar));
+    sections.push(await generateAnniversariesSection(calendar));
 
-    // Generate email content
-    const htmlContent = generateEmailHTML(sections, reportDate);
-    const textContent = generateEmailText(sections, reportDate);
+    // Build email
+    const emailHtml = EMAIL_TEMPLATE
+      .replace('{{REPORT_DATE}}', reportDate)
+      .replace('{{SECTIONS}}', sections.join('\n'));
+
+    const subject = `Brandon Family Calendar Report - ${moment().tz(CONFIG.TIMEZONE).format('MMM D, YYYY')}`;
 
     // Send email
-    await sendEmail(htmlContent, textContent, totalEvents);
+    await sendEmail(subject, emailHtml);
+
+    console.log(`Report sent successfully to ${CONFIG.EMAIL_TO}`);
 
     return {
       statusCode: 200,
       body: JSON.stringify({
-        message: "Calendar report sent successfully",
-        eventCount: totalEvents,
-        timestamp: new Date().toISOString(),
-      }),
+        message: 'Calendar report generated and sent successfully',
+        timestamp: new Date().toISOString()
+      })
     };
+
   } catch (error) {
-    console.error("Error generating calendar report:", error);
+    console.error('Error generating report:', error);
+
+    // Try to send error notification if email is configured
+    if (CONFIG.EMAIL_TO && CONFIG.EMAIL_FROM) {
+      try {
+        await sendEmail(
+          'Calendar Report Error',
+          `<p>There was an error generating your calendar report:</p><pre>${error.message}</pre><p>Please check your AWS Lambda logs.</p>`
+        );
+      } catch (emailError) {
+        console.error('Failed to send error notification:', emailError);
+      }
+    }
 
     return {
       statusCode: 500,
       body: JSON.stringify({
-        message: "Failed to generate calendar report",
+        message: 'Error generating calendar report',
         error: error.message,
-      }),
+        timestamp: new Date().toISOString()
+      })
     };
   }
+}
+
+// ============================================================================
+// LAMBDA HANDLER
+// ============================================================================
+
+/**
+ * AWS Lambda handler function
+ */
+exports.handler = async (event, context) => {
+  console.log('Lambda function invoked');
+  console.log('Event:', JSON.stringify(event, null, 2));
+
+  return await generateWeeklyReport();
 };
+
+// For local testing
+if (require.main === module) {
+  generateWeeklyReport()
+    .then(result => {
+      console.log('Result:', result);
+      process.exit(0);
+    })
+    .catch(error => {
+      console.error('Error:', error);
+      process.exit(1);
+    });
+}
