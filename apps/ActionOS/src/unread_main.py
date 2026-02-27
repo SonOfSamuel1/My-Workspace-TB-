@@ -252,8 +252,9 @@ def run_mark_read(msg_id: str) -> Dict[str, Any]:
 
     state = load_state(S3_BUCKET)
 
-    gmail.mark_read(msg_id)
-    logger.info(f"Marked Gmail message {msg_id} as read")
+    read_label_id = gmail.get_or_create_label("Read Emails")
+    gmail.mark_read(msg_id, move_label_id=read_label_id)
+    logger.info(f"Marked Gmail message {msg_id} as read and moved to Read Emails")
 
     if msg_id in state["emails"]:
         del state["emails"][msg_id]

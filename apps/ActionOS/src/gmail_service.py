@@ -248,14 +248,53 @@ class GmailService:
         ).execute()
         logger.info(f"Unstarred Gmail message {message_id}")
 
-    def mark_read(self, message_id: str) -> None:
-        """Remove the UNREAD label from a Gmail message."""
+    def get_or_create_label(self, label_name: str) -> str:
+        """Return the label ID for *label_name*, creating it if it doesn't exist."""
         if not self.service:
             self.connect()
+        labels = (
+            self.service.users().labels().list(userId="me").execute().get("labels", [])
+        )
+        for label in labels:
+            if label["name"] == label_name:
+                return label["id"]
+        created = (
+            self.service.users()
+            .labels()
+            .create(
+                userId="me",
+                body={
+                    "name": label_name,
+                    "labelListVisibility": "labelShow",
+                    "messageListVisibility": "show",
+                },
+            )
+            .execute()
+        )
+        logger.info(f"Created Gmail label '{label_name}' ({created['id']})")
+        return created["id"]
+
+    def mark_read(self, message_id: str, move_label_id: Optional[str] = None) -> None:
+        """Mark a Gmail message as read and optionally move it out of the inbox.
+
+        Args:
+            message_id: Gmail message ID.
+            move_label_id: If provided, remove from INBOX and add this label.
+        """
+        if not self.service:
+            self.connect()
+        remove = ["UNREAD"]
+        add: List[str] = []
+        if move_label_id:
+            remove.append("INBOX")
+            add.append(move_label_id)
+        body: Dict[str, Any] = {"removeLabelIds": remove}
+        if add:
+            body["addLabelIds"] = add
         self.service.users().messages().modify(
             userId="me",
             id=message_id,
-            body={"removeLabelIds": ["UNREAD"]},
+            body=body,
         ).execute()
         logger.info(f"Marked Gmail message {message_id} as read")
 
