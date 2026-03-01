@@ -2361,6 +2361,12 @@ def handle_action(event: dict) -> dict:
             # Mark email as read + unstar
             if msg_id:
                 try:
+                    from unread_main import run_mark_read
+
+                    run_mark_read(msg_id)
+                except Exception as _me:
+                    logger.warning(f"Mark read after starred_to_todoist failed: {_me}")
+                try:
                     from gmail_service import GmailService
 
                     gmail = GmailService()
