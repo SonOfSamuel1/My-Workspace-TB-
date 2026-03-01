@@ -124,11 +124,11 @@ aws lambda create-function \
 ## Step 5: Create EventBridge Schedule
 
 ```bash
-# Create the rule (8 AM UTC daily)
+# Create the rule (2 AM UTC / 6 PM PST daily)
 aws events put-rule \
     --name daily-ai-news-schedule \
-    --schedule-expression "cron(0 8 * * ? *)" \
-    --description "Trigger daily AI news report"
+    --schedule-expression "cron(0 2 * * ? *)" \
+    --description "Trigger daily AI news report at 6 PM PST"
 
 # Add Lambda as target
 aws events put-targets \

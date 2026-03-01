@@ -177,6 +177,7 @@ tmp/
 # Local Netlify folder
 .netlify
 
+
 # ================================
 # Spec-Kit
 # ================================
@@ -185,3 +186,5 @@ tmp/
 # macOS duplicate files (e.g. "file 2.py")
 * 2.*
 * [0-9].*
+
+My-Workspace-TB-

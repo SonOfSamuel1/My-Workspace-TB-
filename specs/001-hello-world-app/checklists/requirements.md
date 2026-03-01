@@ -1,7 +1,7 @@
-# Specification Quality Checklist: Todoist Task Attachment Viewer (Mobile)
+# Specification Quality Checklist: Hello World Test App
 
 **Purpose**: Validate specification completeness and quality before proceeding to planning
-**Created**: 2026-02-27
+**Created**: 2026-02-26
 **Feature**: [spec.md](../spec.md)
 
 ## Content Quality
@@ -31,4 +31,5 @@
 
 ## Notes
 
-All items pass. Ready to proceed to `/speckit-plan`.
+- All items pass. Spec is ready for `/speckit-plan`.
+- Note: FR-003 mentions `src/hello_world_main.py` which is a workspace convention reference, not an implementation prescription. This is acceptable as it describes the expected interface contract.
