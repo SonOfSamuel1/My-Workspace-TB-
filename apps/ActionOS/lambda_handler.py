@@ -866,6 +866,24 @@ def handle_action(event: dict) -> dict:
         }
 
     # -----------------------------------------------------------------------
+    # Gmail redirect — 302 to mail.google.com so iOS universal links open
+    # the Gmail app with the specific thread.  No auth required; the Gmail
+    # URL itself is harmless.
+    # -----------------------------------------------------------------------
+    if params.get("action") == "gmail_open":
+        _thread = params.get("thread_id", "")
+        if _thread:
+            _gmail_url = f"https://mail.google.com/mail/u/0/#inbox/{_thread}"
+            return {
+                "statusCode": 302,
+                "headers": {
+                    "Location": _gmail_url,
+                    "Cache-Control": "no-store",
+                },
+                "body": "",
+            }
+
+    # -----------------------------------------------------------------------
     # Login route — no auth required
     # -----------------------------------------------------------------------
     if params.get("action") == "login":

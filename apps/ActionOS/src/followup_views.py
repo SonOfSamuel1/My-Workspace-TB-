@@ -131,12 +131,22 @@ def _build_followup_card(
 
     gmail_btn = ""
     if gmail_link:
-        gmail_btn = (
-            f'<a href="{gmail_link}" class="gcal-link" '
-            f"onclick=\"event.preventDefault();event.stopPropagation();"
-            f"window.top.open('{gmail_link}','_blank')\">"
-            f"Open in Gmail \u2197</a>"
-        )
+        _gl_tid = gmail_link.split("#inbox/")[-1] if "#inbox/" in gmail_link else ""
+        if _gl_tid:
+            _redir = html.escape(
+                base_url + "?action=gmail_open&thread_id=" + urllib.parse.quote(_gl_tid)
+            )
+            gmail_btn = (
+                f'<a href="{_redir}" target="_top" class="gcal-link" '
+                f'onclick="event.stopPropagation()">'
+                f"Open in Gmail \u2197</a>"
+            )
+        else:
+            gmail_btn = (
+                f'<a href="{gmail_link}" target="_top" class="gcal-link" '
+                f'onclick="event.stopPropagation()">'
+                f"Open in Gmail \u2197</a>"
+            )
 
     # Assign CC button — copy email info to clipboard for Claude Code
     safe_subject_cc = subject.replace("'", "\\'")
