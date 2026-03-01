@@ -344,10 +344,11 @@ def _build_event_card(
             f"Open in Calendar \u2197</a>"
         )
 
-    # Prep Timer button for today's timed events
+    # Countdown timer button for today's timed events (triggers iOS Live Activity)
     timer_btn = ""
     if _is_upcoming_timed_event(event):
         start_iso = html.escape(event.get("start", ""))
+        title_for_timer = html.escape(event.get("title", "Event"))
         _timer_svg = (
             '<svg class="timer-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" '
             'stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">'
@@ -360,8 +361,9 @@ def _build_event_card(
         timer_btn = (
             f'<button class="timer-btn" id="tmr-{idx}" '
             f'data-start="{start_iso}" '
+            f'data-title="{title_for_timer}" '
             f'onclick="doPrepTimer(this)">'
-            f'{_timer_svg} <span class="timer-label">Prep Timer</span></button>'
+            f'{_timer_svg} <span class="timer-label">Countdown</span></button>'
         )
 
     card_extra = " reviewed-card" if reviewed else " unreviewed-card"
@@ -930,7 +932,7 @@ def build_calendar_html(
         "function _timerLabel(secs){"
         "if(secs<=0)return 'Starting soon';"
         "var h=Math.floor(secs/3600);var m=Math.floor((secs%3600)/60);var s=secs%60;"
-        "if(h>0)return h+'h '+m+'m '+s+'s';"
+        "if(h>0)return h+'h '+m+'m';"
         "if(m>0)return m+'m '+s+'s';"
         "return s+'s';}"
         "function _setTimerText(btn,txt){"
@@ -946,22 +948,24 @@ def build_calendar_html(
         "if(secs<=0){"
         "_setTimerText(btn,'Starting soon');btn.classList.add('expired');"
         "return;}"
-        "_setTimerText(btn,_timerLabel(secs)+' set');"
+        "var title=btn.getAttribute('data-title')||'Event';"
+        "_setTimerText(btn,_timerLabel(secs)+' \u2713');"
         "btn.style.background=cv('--ok-bg');btn.style.color=cv('--ok');"
         "btn.style.borderColor=cv('--ok-b');"
-        "window.top.location.href='shortcuts://run-shortcut?name=Prep%20Timer&input=text&text='+secs;"
+        "var payload=secs+'|'+title;"
+        "window.top.open('shortcuts://run-shortcut?name=Prep%20Timer&input=text&text='+encodeURIComponent(payload));"
         "setTimeout(function(){_setTimerText(btn,_timerLabel(_calcPrepSec(btn)));"
         "btn.style.background='';btn.style.color='';btn.style.borderColor='';},3000);}"
-        "function initTimerBtns(){"
+        "function _tickTimers(){"
         "var btns=document.querySelectorAll('.timer-btn');"
         "for(var i=0;i<btns.length;i++){"
-        "var s=btns[i].getAttribute('data-start');"
-        "if(!s)continue;"
+        "if(btns[i].classList.contains('expired'))continue;"
         "var secs=_calcPrepSec(btns[i]);"
         "if(secs<=0){_setTimerText(btns[i],'Starting soon');btns[i].classList.add('expired');}"
         "else{_setTimerText(btns[i],_timerLabel(secs));}"
         "}}"
-        "initTimerBtns();"
+        "_tickTimers();"
+        "setInterval(_tickTimers,1000);"
         "</script>"
         "</body></html>"
     )
