@@ -1877,12 +1877,13 @@ def handle_action(event: dict) -> dict:
                     or t["due"].get("date", "")[:10] <= today
                 )
 
-            with ThreadPoolExecutor(max_workers=5) as ex:
+            with ThreadPoolExecutor(max_workers=6) as ex:
                 f_inbox = ex.submit(service.get_inbox_tasks)
                 f_commit = ex.submit(service.get_tasks_by_label, "Commit")
                 f_p1 = ex.submit(service.get_tasks_by_priority, 4)
                 f_bc = ex.submit(service.get_tasks_by_label, "Best Case")
                 f_code = ex.submit(service.get_code_project_tasks)
+                f_all = ex.submit(service.get_all_tasks)
 
             code_tasks, _cp, _cc = f_code.result()
             # Only count untagged new issues for the badge
@@ -1905,6 +1906,9 @@ def handle_action(event: dict) -> dict:
                 + counts.get("bestcase", 0)
                 + counts.get("p1", 0)
             )
+
+            # Due-today count: all tasks due today or overdue across all projects
+            counts["due_today"] = _count_today_or_overdue(f_all.result())
 
             # Unread count from S3 state
             try:

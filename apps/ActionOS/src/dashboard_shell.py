@@ -189,6 +189,10 @@ def build_shell_html(
         ".header-title-link{color:var(--text-1);font-size:17px;font-weight:600;letter-spacing:-0.2px;"
         "text-decoration:none;cursor:pointer;}"
         ".header-title-link:hover{color:var(--accent-l);}"
+        ".due-today-badge{display:inline-flex;align-items:center;gap:4px;background:var(--ok-bg);color:var(--ok);"
+        "font-size:12px;font-weight:700;padding:3px 10px;border-radius:12px;border:1px solid var(--ok-b);"
+        "margin-left:10px;white-space:nowrap;}"
+        ".due-today-badge.zero{background:var(--border);color:var(--text-2);border-color:var(--border);}"
         ".refresh-btn{background:var(--border);border:1px solid var(--border);color:var(--text-1);"
         "font-size:13px;font-weight:600;padding:6px 14px;border-radius:6px;cursor:pointer;flex-shrink:0;}"
         ".refresh-btn:hover{background:var(--border-h);}"
@@ -345,6 +349,7 @@ def build_shell_html(
         ".header{flex-wrap:nowrap;padding:10px 16px;gap:12px;"
         "background:transparent;border-bottom:none;align-items:center;}"
         ".header-title-link{display:none;}"
+        ".due-today-badge{margin-left:0;font-size:11px;padding:2px 8px;}"
         ".section-picker{display:flex;border:none;border-radius:20px;"
         "background:var(--bg-s1);border:1px solid var(--border);"
         "height:40px;padding:0 14px;}"
@@ -466,6 +471,8 @@ def build_shell_html(
         '<div class="header">'
         f'<a class="header-title-link" href="{function_url.rstrip("/")}?action=web" '
         f'onclick="goHome(event)">ActionOS</a>'
+        '<span class="due-today-badge zero" id="due-today-badge">'
+        '<span id="due-today-count">...</span> due today</span>'
         # Mobile section picker (hidden on desktop)
         + f'<button class="section-picker" id="section-picker" onclick="toggleSectionPicker()">'
         f'<span class="section-picker-label" id="section-picker-label">{first_label}</span>'
@@ -1091,6 +1098,12 @@ def build_shell_html(
         "}"
         "}"
         "});"
+        "if(d.due_today!==undefined){"
+        "var dtc=document.getElementById('due-today-count');"
+        "var dtb=document.getElementById('due-today-badge');"
+        "if(dtc)dtc.textContent=d.due_today;"
+        "if(dtb){if(d.due_today>0){dtb.classList.remove('zero');}else{dtb.classList.add('zero');}}"
+        "}"
         "}).catch(function(){});}"
         "loadAllBadges();"
         # Service worker registration + push notification setup
