@@ -5,6 +5,7 @@ and iframes for all ActionOS views. All iframes point back to the
 same unified Lambda function URL.
 """
 
+import html
 from typing import List, Tuple
 
 _FONT = (
@@ -45,6 +46,7 @@ def build_shell_html(
         ("bestcase", "Best Case", f"{base}?action=web&view=bestcase&embed=1", False),
         ("calendar", "Calendar", f"{base}?action=web&view=calendar&embed=1", False),
         ("followup", "Follow-up", f"{base}?action=web&view=followup&embed=1", False),
+        ("sabbath", "Sabbath", f"{base}?action=web&view=sabbath&embed=1", False),
         ("code", "Code", f"{base}?action=web&view=code&embed=1", False),
     ]
 
@@ -62,16 +64,27 @@ def build_shell_html(
         )
 
     # Generate iframe HTML (lazy: non-first tabs use dark placeholder)
-    # Use about:blank with matching background instead of default white to
+    # Use srcdoc with matching background instead of about:blank to
     # prevent white flash while iframe content loads from Lambda.
+    _dark_srcdoc = (
+        "<html><head><style>"
+        "html,body{margin:0;background:#1a1a1a;color-scheme:dark}"
+        "@media(prefers-color-scheme:light){html,body{background:#eeeef0;color-scheme:light}}"
+        "</style></head><body></body></html>"
+    )
     iframes_html = ""
     for i, (tid, _label, url, preload) in enumerate(tabs):
         display = "" if i == 0 else "display:none;"
-        src = url if preload else "about:blank"
-        iframes_html += (
-            f'<iframe id="frame-{tid}" src="{src}" style="{display}"'
-            f' data-src="{url}"></iframe>'
-        )
+        if preload:
+            iframes_html += (
+                f'<iframe id="frame-{tid}" src="{url}" style="{display}"'
+                f' data-src="{url}"></iframe>'
+            )
+        else:
+            iframes_html += (
+                f'<iframe id="frame-{tid}" srcdoc="{html.escape(_dark_srcdoc)}" style="{display}"'
+                f' data-src="{url}"></iframe>'
+            )
 
     # Tab URLs JSON for lazy loading
     tab_urls_json = (
@@ -95,6 +108,7 @@ def build_shell_html(
         "p1nodate": '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="9" y1="14" x2="15" y2="20"/><line x1="15" y1="14" x2="9" y2="20"/></svg>',
         "bestcase": '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.5 5.5L19 10l-5.5 1.5L12 17l-1.5-5.5L5 10l5.5-1.5L12 3z"/><path d="M19 15l.5 2 2 .5-2 .5-.5 2-.5-2-2-.5 2-.5.5-2z"/></svg>',
         "calendar": '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>',
+        "sabbath": '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2c-1 4-4 6-4 10a4 4 0 0 0 8 0c0-4-3-6-4-10z"/><line x1="12" y1="16" x2="12" y2="22"/></svg>',
         "code": '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>',
         "followup": '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg>',
     }
@@ -494,7 +508,7 @@ def build_shell_html(
         '<button class="section-dd-edit-btn" id="section-dd-edit-btn" onclick="toggleEditMode()">Edit</button>'
         "</div>" + dropdown_items_html + "</div>"
         # Mobile FAB + bottom sheet (Todoist-style with SVG icons)
-        '<button class="qa-fab" id="qa-fab" onclick="openMobileSheet()">'
+        '<button class="qa-fab" id="qa-fab" onclick="window.location.href=\'todoist://addtask\'">'
         '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">'
         '<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>'
         "</svg></button>"
@@ -610,16 +624,7 @@ def build_shell_html(
         "if(first){first.addEventListener('load',dismiss,{once:true});}"
         "setTimeout(dismiss,4000);"  # fallback: dismiss after 4 seconds max
         "})();"
-        # Paint dark background into all about:blank iframes immediately
-        "(function(){"
-        "var darkCSS='<html><head><style>html,body{margin:0;background:#1a1a1a}"
-        "@media(prefers-color-scheme:light){html,body{background:#eeeef0}}"
-        "</style></head><body></body></html>';"
-        "tabIds.forEach(function(id){"
-        "var f=document.getElementById('frame-'+id);"
-        "if(f&&f.src.indexOf('about:blank')!==-1){"
-        "try{var d=f.contentDocument;if(d){d.open();d.write(darkCSS);d.close();}}catch(e){}"
-        "}});})();"
+        # srcdoc already provides dark background for lazy iframes
         # goHome: on mobile open section picker, on desktop reload
         "function goHome(e){"
         "e.preventDefault();"
@@ -638,12 +643,8 @@ def build_shell_html(
         "document.getElementById('frame-'+id).style.display=id===tab?'block':'none';"
         "});"
         "var frame=document.getElementById('frame-'+tab);"
-        "if(frame&&frame.src.indexOf('about:blank')!==-1){"
-        "try{var d=frame.contentDocument;"
-        "if(d){d.open();d.write('<html><head><style>html,body{margin:0;"
-        "background:#1a1a1a}@media(prefers-color-scheme:light)"
-        "{html,body{background:#eeeef0}}</style></head><body></body></html>');"
-        "d.close();}}catch(e){}"
+        "if(frame&&(!frame.src||frame.src==='about:blank'||frame.hasAttribute('srcdoc'))){"
+        "frame.removeAttribute('srcdoc');"
         "frame.src=tabUrls[tab];"
         "}"
         # Sync mobile picker label/badge
@@ -893,7 +894,7 @@ def build_shell_html(
         "if(e.data&&(e.data.type==='markread'||e.data.type==='unstar'||e.data.type==='skip-inbox')){"
         # Reload starred frame when an email is actioned from the viewer
         "var sf=document.getElementById('frame-starred');"
-        "if(sf&&sf.src.indexOf('about:blank')===-1)sf.contentWindow.location.reload();"
+        "if(sf&&sf.src&&!sf.hasAttribute('srcdoc'))sf.contentWindow.location.reload();"
         "}"
         "if(e.data&&e.data.type==='viewer-open'){closeSectionPicker();}"
         "},{passive:true});"

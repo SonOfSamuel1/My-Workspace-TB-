@@ -1,7 +1,8 @@
 # Specification Quality Checklist: Todoist Task Attachment Viewer (Mobile)
 
-**Purpose**: Validate specification completeness and quality before proceeding
-to planning **Created**: 2026-02-27 **Feature**: [spec.md](../spec.md)
+**Purpose**: Validate specification completeness and quality before proceeding to planning
+**Created**: 2026-02-27
+**Feature**: [spec.md](../spec.md)
 
 ## Content Quality
 

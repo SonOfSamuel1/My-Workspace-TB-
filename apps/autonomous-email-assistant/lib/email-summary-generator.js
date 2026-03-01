@@ -111,7 +111,8 @@ class EmailSummaryGenerator {
       pendingForTomorrow = [],
       costs = {},
       insights = [],
-      topSenders = []
+      topSenders = [],
+      etaEmails = []
     } = data;
 
     const html = this.buildEmailTemplate({
@@ -130,6 +131,7 @@ class EmailSummaryGenerator {
         }),
         this.buildEmailFlowVisualization(todayStats),
         this.buildActionsTable(actionsTaken),
+        this.buildETADigestSection(etaEmails),
         this.buildCostSummaryRow(costs),
         this.buildTomorrowSection(pendingForTomorrow),
         this.buildInsightsSection(insights),
@@ -1146,6 +1148,223 @@ class EmailSummaryGenerator {
     }
 
     text += `\nView full dashboard: ${this.dashboardUrl}\n`;
+
+    return text;
+  }
+
+  /**
+   * Generate standalone ETA (Entrepreneurship Through Acquisition) digest email
+   * All ETA emails rendered inline and scrollable in a single view
+   */
+  async generateETADigest(etaEmails = []) {
+    if (!etaEmails || etaEmails.length === 0) {
+      return null;
+    }
+
+    const today = new Date().toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      timeZone: 'America/New_York'
+    });
+
+    const emailCards = etaEmails.map((email, index) => this.buildETAEmailCard(email, index)).join('');
+
+    const html = this.buildEmailTemplate({
+      title: 'ETA Daily Digest',
+      subtitle: `${etaEmails.length} acquisition-related email${etaEmails.length > 1 ? 's' : ''} from ${today}`,
+      emailType: 'default',
+      sections: [
+        // Summary stat
+        `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-bottom: 24px;">
+          <tr>
+            <td style="background: ${this.brandColors.primaryBg}; border: 1px solid ${this.brandColors.primary}; border-radius: 8px; padding: 16px; text-align: center;">
+              <span style="font-family: ${this.fontStack}; font-size: 36px; font-weight: 700; color: ${this.brandColors.primary};">${etaEmails.length}</span>
+              <br>
+              <span style="font-family: ${this.fontStack}; font-size: 13px; color: ${this.brandColors.medium};">ETA emails filtered from your inbox today</span>
+            </td>
+          </tr>
+        </table>`,
+        // All email cards rendered inline
+        emailCards
+      ],
+      ctaButton: {
+        text: 'View Full Dashboard',
+        url: this.dashboardUrl
+      }
+    });
+
+    const plainText = this.generateETAPlainText(etaEmails, today);
+
+    return {
+      html,
+      plainText,
+      subject: `ETA Digest: ${etaEmails.length} acquisition email${etaEmails.length > 1 ? 's' : ''} - ${today}`
+    };
+  }
+
+  /**
+   * Build a single ETA email card with full body content rendered inline
+   */
+  buildETAEmailCard(email, index) {
+    const timestamp = email.timestamp
+      ? new Date(email.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/New_York' })
+      : '';
+
+    // Deal details summary row if available
+    let dealDetailsHtml = '';
+    if (email.dealDetails) {
+      const details = email.dealDetails;
+      const chips = [];
+      if (details.askingPrice) chips.push(`Asking: ${details.askingPrice}`);
+      if (details.revenue) chips.push(`Rev: ${details.revenue}`);
+      if (details.ebitda) chips.push(`EBITDA: ${details.ebitda}`);
+      if (details.industry) chips.push(details.industry);
+      if (details.location) chips.push(details.location);
+
+      if (chips.length > 0) {
+        dealDetailsHtml = `
+          <tr>
+            <td style="padding: 8px 16px;">
+              <table role="presentation" cellspacing="0" cellpadding="0" border="0">
+                <tr>
+                  ${chips.map(chip => `
+                    <td style="padding-right: 6px; padding-bottom: 4px;">
+                      <span style="display: inline-block; padding: 3px 10px; background: ${this.brandColors.primaryBg}; border: 1px solid ${this.brandColors.primary}; border-radius: 12px; font-family: ${this.fontStack}; font-size: 11px; color: ${this.brandColors.primaryDark}; white-space: nowrap;">
+                        ${chip}
+                      </span>
+                    </td>
+                  `).join('')}
+                </tr>
+              </table>
+            </td>
+          </tr>`;
+      }
+    }
+
+    // Sanitize body text for HTML rendering (preserve line breaks)
+    const bodyHtml = (email.bodyText || 'No content available')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/\n/g, '<br>');
+
+    return `
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" class="email-item-table" style="margin-bottom: 16px; border: 1px solid ${this.brandColors.border}; border-radius: 8px; overflow: hidden;">
+        <!-- Email header -->
+        <tr>
+          <td style="background: ${this.brandColors.light}; padding: 12px 16px; border-bottom: 1px solid ${this.brandColors.border};">
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+              <tr>
+                <td style="vertical-align: top;">
+                  <div style="font-family: ${this.fontStack}; font-size: 14px; font-weight: 600; color: ${this.brandColors.dark}; margin-bottom: 2px;">
+                    ${email.subject || 'No subject'}
+                  </div>
+                  <div style="font-family: ${this.fontStack}; font-size: 12px; color: ${this.brandColors.medium};">
+                    From: ${email.from || 'Unknown'}${timestamp ? ` &middot; ${timestamp}` : ''}
+                  </div>
+                </td>
+                <td width="40" style="text-align: right; vertical-align: top;">
+                  <span style="display: inline-block; width: 24px; height: 24px; background: ${this.brandColors.primary}; border-radius: 50%; text-align: center; line-height: 24px; font-family: ${this.fontStack}; font-size: 11px; font-weight: 700; color: ${this.brandColors.white};">
+                    ${index + 1}
+                  </span>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+        ${dealDetailsHtml}
+        <!-- Full email body - scrollable -->
+        <tr>
+          <td style="padding: 16px;">
+            <div style="max-height: 300px; overflow-y: auto; font-family: ${this.fontStack}; font-size: 13px; line-height: 1.6; color: ${this.brandColors.dark}; word-break: break-word;">
+              ${bodyHtml}
+            </div>
+          </td>
+        </tr>
+      </table>
+    `;
+  }
+
+  /**
+   * Build ETA digest section for inclusion in EOD report (compact preview)
+   */
+  buildETADigestSection(etaEmails = []) {
+    if (!etaEmails || etaEmails.length === 0) return '';
+
+    const previewItems = etaEmails.slice(0, 3).map(email => `
+      <tr>
+        <td style="padding: 8px 0; border-bottom: 1px solid ${this.brandColors.border};">
+          <div style="font-family: ${this.fontStack}; font-size: 13px; font-weight: 600; color: ${this.brandColors.dark};">
+            ${email.subject || 'No subject'}
+          </div>
+          <div style="font-family: ${this.fontStack}; font-size: 12px; color: ${this.brandColors.medium};">
+            From: ${email.from || 'Unknown'}
+          </div>
+        </td>
+      </tr>
+    `).join('');
+
+    const moreCount = Math.max(0, etaEmails.length - 3);
+
+    return `
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-bottom: 24px;">
+        <tr>
+          <td>
+            <div style="font-family: ${this.fontStack}; font-size: 16px; font-weight: 700; color: ${this.brandColors.dark}; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 2px solid ${this.brandColors.primary};">
+              ETA Digest (${etaEmails.length} email${etaEmails.length > 1 ? 's' : ''})
+            </div>
+            <div style="font-family: ${this.fontStack}; font-size: 12px; color: ${this.brandColors.medium}; margin-bottom: 12px;">
+              Acquisition-related emails auto-archived from your inbox today. Full digest sent separately.
+            </div>
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+              ${previewItems}
+            </table>
+            ${moreCount > 0 ? `
+              <div style="font-family: ${this.fontStack}; font-size: 12px; color: ${this.brandColors.medium}; margin-top: 8px; font-style: italic;">
+                + ${moreCount} more in full ETA digest email
+              </div>
+            ` : ''}
+          </td>
+        </tr>
+      </table>
+    `;
+  }
+
+  /**
+   * Generate plain text version of ETA digest
+   */
+  generateETAPlainText(etaEmails, dateStr) {
+    let text = `ETA DAILY DIGEST - ${dateStr}\n`;
+    text += `${'='.repeat(50)}\n\n`;
+    text += `${etaEmails.length} acquisition-related email(s) filtered from your inbox today.\n\n`;
+
+    etaEmails.forEach((email, index) => {
+      text += `${'-'.repeat(40)}\n`;
+      text += `#${index + 1}: ${email.subject || 'No subject'}\n`;
+      text += `From: ${email.from || 'Unknown'}\n`;
+      if (email.timestamp) {
+        text += `Time: ${new Date(email.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/New_York' })}\n`;
+      }
+      if (email.dealDetails) {
+        const d = email.dealDetails;
+        const parts = [];
+        if (d.businessName) parts.push(`Business: ${d.businessName}`);
+        if (d.askingPrice) parts.push(`Asking: ${d.askingPrice}`);
+        if (d.revenue) parts.push(`Revenue: ${d.revenue}`);
+        if (d.ebitda) parts.push(`EBITDA: ${d.ebitda}`);
+        if (d.industry) parts.push(`Industry: ${d.industry}`);
+        if (d.location) parts.push(`Location: ${d.location}`);
+        if (parts.length > 0) {
+          text += `Deal Details: ${parts.join(' | ')}\n`;
+        }
+      }
+      text += `\n${email.bodyText || 'No content available'}\n\n`;
+    });
+
+    text += `${'='.repeat(50)}\n`;
+    text += `View full dashboard: ${this.dashboardUrl}\n`;
 
     return text;
   }

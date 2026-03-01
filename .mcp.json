@@ -10,6 +10,10 @@
         "MAX_RETRIES": "3",
         "USE_CLIPBOARD_FALLBACK": "true"
       }
+    },
+    "context7": {
+      "type": "sse",
+      "url": "https://mcp.context7.com/sse"
     }
   }
 }

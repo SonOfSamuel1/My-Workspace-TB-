@@ -144,6 +144,34 @@ A successful close returns HTTP **204** (no content).
 If the user does **not** approve, leave the task open and inform the user that
 the task remains in "In Progress" status on Todoist.
 
+## 10. Merge to Main and Push
+
+After closing the Todoist task, merge the worktree branch into `main` and push:
+
+1. Commit any remaining changes on the current branch.
+2. Switch to `main` and pull latest:
+
+   ```bash
+   git checkout main && git pull origin main
+   ```
+
+3. Merge the feature branch:
+
+   ```bash
+   git merge <worktree-branch> --no-edit
+   ```
+
+4. Push to remote:
+
+   ```bash
+   git push origin main
+   ```
+
+5. Confirm the merge and push succeeded before finishing.
+
+If there are merge conflicts, stop and ask the user how to resolve them rather
+than force-merging.
+
 ## API Reference
 
 | Endpoint                    | Method | Purpose                        |

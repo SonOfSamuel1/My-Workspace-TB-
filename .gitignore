@@ -177,6 +177,7 @@ tmp/
 # Local Netlify folder
 .netlify
 
+
 # ================================
 # Spec-Kit
 # ================================
@@ -186,3 +187,5 @@ tmp/
 * 2.*
 * [0-9].*
 .claude/worktrees/
+
+My-Workspace-TB-
