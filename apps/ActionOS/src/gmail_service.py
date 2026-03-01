@@ -19,7 +19,7 @@ SCOPES = [
     "https://www.googleapis.com/auth/gmail.settings.basic",
 ]
 
-GMAIL_DEEP_LINK = "googlegmail:///mail/u/0/#inbox/{thread_id}"
+GMAIL_DEEP_LINK = "https://mail.google.com/mail/u/0/#inbox/{thread_id}"
 
 
 class GmailService:
