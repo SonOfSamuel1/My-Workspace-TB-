@@ -805,6 +805,33 @@ def _fetch_toggl_projects(toggl_token: str) -> list:
         return []
 
 
+def _fetch_toggl_time_entries(toggl_token: str) -> dict:
+    """Fetch all Toggl time entries and return a dict of description -> total seconds."""
+    try:
+        import base64 as _b64
+
+        import requests as _req
+
+        _auth = _b64.b64encode(f"{toggl_token}:api_token".encode()).decode()
+        _th = {"Authorization": f"Basic {_auth}", "Content-Type": "application/json"}
+        _mr = _req.get(
+            "https://api.track.toggl.com/api/v9/me/time_entries",
+            headers=_th,
+        )
+        _mr.raise_for_status()
+        entries = _mr.json()
+        totals = {}
+        for entry in entries:
+            desc = entry.get("description", "")
+            dur = entry.get("duration", 0)
+            if desc and dur > 0:
+                totals[desc] = totals.get(desc, 0) + dur
+        return totals
+    except Exception as e:
+        logger.warning(f"Could not fetch Toggl time entries: {e}")
+        return {}
+
+
 # ---------------------------------------------------------------------------
 # Function URL detection
 # ---------------------------------------------------------------------------
@@ -1251,6 +1278,9 @@ def handle_action(event: dict) -> dict:
 
                 service = TodoistService(todoist_token)
                 today_str = datetime.now().strftime("%Y-%m-%d")
+                _toggl_tok = os.environ.get("TOGGL_API_TOKEN", "")
+                toggl_projects = _fetch_toggl_projects(_toggl_tok)
+                toggl_time_totals = _fetch_toggl_time_entries(_toggl_tok) if _toggl_tok else {}
 
                 if view == "inbox":
                     projects = service.get_all_projects()
@@ -1330,6 +1360,8 @@ def handle_action(event: dict) -> dict:
                     expected,
                     embed=True,
                     checklists=checklists,
+                    toggl_projects=toggl_projects,
+                    toggl_time_totals=toggl_time_totals,
                 )
                 return {
                     "statusCode": 200,

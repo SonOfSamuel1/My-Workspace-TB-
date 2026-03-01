@@ -141,6 +141,8 @@ def _build_task_card(
     email_actions_url="",
     email_actions_token="",
     view_name="",
+    toggl_project_options_html="",
+    toggl_time_totals=None,
 ):
     """Build HTML for a single task card with disposition controls."""
     task_id = task.get("id", "")
@@ -352,6 +354,35 @@ def _build_task_card(
         + "</button>"
     )
 
+    # Toggl timer button
+    toggl_select = ""
+    if toggl_project_options_html:
+        safe_content = raw_content.replace("'", "\\'").replace('"', "&quot;")
+        toggl_select = (
+            '<select class="toggl-timer-select"'
+            ' onclick="event.stopPropagation()"'
+            ' data-subject="' + safe_content + '"'
+            ' onchange="event.stopPropagation();doTogglStart(this)">'
+            + toggl_project_options_html
+            + "</select>"
+        )
+
+    # Total time tracked from Toggl
+    time_tracked_html = ""
+    if toggl_time_totals:
+        total_secs = toggl_time_totals.get(raw_content, 0)
+        if total_secs > 0:
+            hours = total_secs // 3600
+            mins = (total_secs % 3600) // 60
+            if hours > 0:
+                time_str = f"{hours}h {mins}m"
+            else:
+                time_str = f"{mins}m"
+            time_tracked_html = (
+                f'<span class="time-tracked">'
+                f'\u23f1 {time_str}</span>'
+            )
+
     # Detect email-originated tasks for split-pane viewer
     gmail_link = _extract_gmail_link(description)
     msg_id_field = _extract_msg_id(description)
@@ -402,7 +433,7 @@ def _build_task_card(
         f'<div class="card-content">'
         f'<div class="task-title">{content_linked}</div>'
         f'<div class="task-meta">{meta_line}</div>'
-        f'<div class="task-actions">{move_select}{priority_select}{due_date_input}{complete_btn}{commit_btn}{bestcase_btn}{backlog_btn}{schedule_btn}{copy_claude_btn}</div>'
+        f'<div class="task-actions">{move_select}{priority_select}{due_date_input}{complete_btn}{commit_btn}{bestcase_btn}{backlog_btn}{schedule_btn}{copy_claude_btn}{toggl_select}{time_tracked_html}</div>'
         f"</div></div>"
         f'<div class="undo-bar" style="display:none;"></div>'
         f"</div>"
@@ -419,6 +450,8 @@ def build_view_html(
     email_actions_url="",
     email_actions_token="",
     checklists=None,
+    toggl_projects=None,
+    toggl_time_totals=None,
 ):
     """Build the full HTML page for a Todoist view.
 
@@ -445,6 +478,22 @@ def build_view_html(
             f'<option value="{html.escape(pid)}">{html.escape(pname)}</option>'
         )
 
+    # Build Toggl project options HTML for timer dropdowns
+    toggl_project_options_html = ""
+    if toggl_projects:
+        toggl_project_options_html = (
+            '<option value="" disabled selected>\u25b6 Toggl\u2026</option>'
+        )
+        for tp in sorted(toggl_projects, key=lambda p: p.get("name", "").lower()):
+            toggl_project_options_html += (
+                '<option value="' + str(tp.get("id", "")) + '"'
+                ' data-workspace-id="'
+                + str(tp.get("workspace_id", ""))
+                + '">'
+                + html.escape(tp.get("name", ""))
+                + "</option>"
+            )
+
     # Build task cards
     cards_html = ""
     if tasks:
@@ -457,6 +506,8 @@ def build_view_html(
                 email_actions_url=email_actions_url,
                 email_actions_token=email_actions_token,
                 view_name=view_name,
+                toggl_project_options_html=toggl_project_options_html,
+                toggl_time_totals=toggl_time_totals,
             )
     else:
         cards_html = (
@@ -711,6 +762,16 @@ def build_view_html(
         "transition:background .15s ease-out;display:inline-flex;align-items:center;gap:4px;}"
         ".schedule-btn:hover{background:rgba(56,189,248,0.25);}"
         ".schedule-icon{flex-shrink:0;}"
+        # Toggl timer select
+        ".toggl-timer-select{font-family:inherit;font-size:12px;font-weight:600;"
+        "padding:5px 8px;border-radius:6px;"
+        "background:var(--ok-bg);color:var(--ok);border:1px solid var(--ok-b);cursor:pointer;"
+        "transition:background .15s ease-out;-webkit-appearance:none;appearance:none;}"
+        ".toggl-timer-select:hover{background:var(--ok-b);}"
+        # Time tracked display
+        ".time-tracked{font-size:12px;font-weight:600;color:var(--text-2);"
+        "display:inline-flex;align-items:center;gap:3px;padding:5px 10px;"
+        "background:var(--bg-s2);border:1px solid var(--border);border-radius:6px;}"
         # Schedule modal
         "#schedule-overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;"
         "z-index:2000;background:rgba(0,0,0,0.6);align-items:center;justify-content:center;}"
@@ -1119,6 +1180,36 @@ def build_view_html(
         "})"
         '.catch(function(){btn.disabled=false;btn.textContent="Remove Commit";'
         'alert("Remove failed");});'
+        "}"
+        # Toggl timer
+        "function doTogglStart(sel){"
+        "var opt=sel.options[sel.selectedIndex];"
+        "var projectId=sel.value;"
+        "if(!projectId)return;"
+        "var workspaceId=opt?opt.getAttribute('data-workspace-id'):'';"
+        "var subject=sel.getAttribute('data-subject')||'';"
+        "sel.disabled=true;"
+        f"var url='{base_action_url}?action=toggl_start&token={action_token}';"
+        "fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},"
+        "body:JSON.stringify({subject:subject,project_id:projectId,workspace_id:workspaceId})})"
+        ".then(function(r){return r.json();})"
+        ".then(function(d){"
+        "if(d.ok){"
+        "var ind=document.createElement('span');"
+        "ind.className='time-tracked';"
+        "ind.style.color='var(--ok)';"
+        "var dot=document.createElementNS('http://www.w3.org/2000/svg','svg');"
+        "dot.setAttribute('width','10');dot.setAttribute('height','10');dot.setAttribute('viewBox','0 0 10 10');"
+        "dot.style.display='inline-block';dot.style.verticalAlign='middle';"
+        "var c=document.createElementNS('http://www.w3.org/2000/svg','circle');"
+        "c.setAttribute('cx','5');c.setAttribute('cy','5');c.setAttribute('r','4');c.setAttribute('fill','currentColor');"
+        "dot.appendChild(c);ind.appendChild(dot);"
+        "ind.appendChild(document.createTextNode(' Running'));"
+        "sel.parentNode.replaceChild(ind,sel);"
+        "}else{"
+        "sel.disabled=false;sel.selectedIndex=0;"
+        "}"
+        "}).catch(function(){sel.disabled=false;sel.selectedIndex=0;});"
         "}"
         # Task detail pane
         "function esc(s){var d=document.createElement('div');"
