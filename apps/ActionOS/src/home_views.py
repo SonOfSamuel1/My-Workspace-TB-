@@ -51,7 +51,7 @@ _SECTION_ORDER = [
 # ---------------------------------------------------------------------------
 
 def _is_home_item_reviewed(item_id: str, section: str, state: dict, cycle_days: int) -> bool:
-    """Return True if item_id has been reviewed within cycle_days (calendar-date based)."""
+    """Return True if item_id has been reviewed within cycle_days."""
     if cycle_days <= 0:
         return False
     ts = state.get(section, {}).get(item_id)
@@ -61,20 +61,14 @@ def _is_home_item_reviewed(item_id: str, section: str, state: dict, cycle_days: 
         reviewed_at = datetime.fromisoformat(ts)
         if reviewed_at.tzinfo is None:
             reviewed_at = reviewed_at.replace(tzinfo=timezone.utc)
-        reviewed_date = reviewed_at.astimezone(_EASTERN).date()
-        today = datetime.now(_EASTERN).date()
-        elapsed_days = (today - reviewed_date).days
+        elapsed_days = (datetime.now(timezone.utc) - reviewed_at).total_seconds() / 86400
         return elapsed_days < cycle_days
     except Exception:
         return False
 
 
 def _time_until_review_reset(item_id: str, section: str, state: dict, cycle_days: int) -> str:
-    """Return a human-readable string for when the review resets (calendar-date based).
-
-    For daily reviews, shows time until midnight Eastern (start of next day).
-    For multi-day cycles, shows remaining calendar days.
-    """
+    """Return a human-readable string for when the review resets, e.g. '18h' or '5d'."""
     if cycle_days <= 0:
         return ""
     ts = state.get(section, {}).get(item_id)
@@ -84,19 +78,12 @@ def _time_until_review_reset(item_id: str, section: str, state: dict, cycle_days
         reviewed_at = datetime.fromisoformat(ts)
         if reviewed_at.tzinfo is None:
             reviewed_at = reviewed_at.replace(tzinfo=timezone.utc)
-        reviewed_date = reviewed_at.astimezone(_EASTERN).date()
-        now_eastern = datetime.now(_EASTERN)
-        today = now_eastern.date()
-        elapsed_days = (today - reviewed_date).days
-        remaining_days = max(0, cycle_days - elapsed_days)
-        if remaining_days <= 0:
-            return ""
-        if remaining_days == 1:
-            # Resets at midnight Eastern — show hours remaining until then
-            midnight = datetime.combine(today + timedelta(days=1), datetime.min.time(), tzinfo=_EASTERN)
-            remaining_hours = max(0, int((midnight - now_eastern).total_seconds() // 3600))
-            return f"{remaining_hours}h"
-        return f"{remaining_days}d"
+        elapsed_seconds = (datetime.now(timezone.utc) - reviewed_at).total_seconds()
+        remaining_seconds = max(0, cycle_days * 86400 - elapsed_seconds)
+        remaining_hours = remaining_seconds / 3600
+        if remaining_hours >= 24:
+            return f"{int(remaining_hours // 24)}d"
+        return f"{int(remaining_hours)}h"
     except Exception:
         return ""
 
@@ -162,14 +149,9 @@ def _build_project_options_html(projects_by_id: Dict[str, str], current_project_
 
 def _extract_gmail_link(description: str) -> str:
     match = re.search(
-        r"\[Open in Gmail\]\(((?:https://mail\.google\.com|googlegmail://)[^\)]+)\)", description
+        r"\[Open in Gmail\]\((https://mail\.google\.com[^\)]+)\)", description
     )
-    if not match:
-        return ""
-    url = match.group(1)
-    if url.startswith("https://mail.google.com"):
-        url = url.replace("https://mail.google.com", "googlegmail://", 1)
-    return url
+    return match.group(1) if match else ""
 
 
 def _extract_msg_id(description: str) -> str:
@@ -385,11 +367,21 @@ def _build_task_card(
                 + "&token=" + email_actions_token
             )
 
+    labels_str = ",".join(labels) if labels else ""
     data_attrs = (
         f' data-task-id="{task_id}"'
         f' data-content="{title}"'
         f' data-description="{html.escape(description)}"'
         f' data-project-id="{html.escape(project_id)}"'
+        f' data-priority="{priority}"'
+        f' data-priority-label="{p_label}"'
+        f' data-priority-color="{p_color}"'
+        f' data-due-date="{html.escape(due_date)}"'
+        f' data-due-text="{html.escape(due_text)}"'
+        f' data-due-color="{html.escape(due_color)}"'
+        f' data-labels="{html.escape(labels_str)}"'
+        f' data-project-name="{project_name}"'
+        f' data-section="{html.escape(section)}"'
     )
     if data_open_url:
         data_attrs += f' data-open-url="{html.escape(data_open_url)}"'
@@ -791,9 +783,7 @@ def _build_followup_email_card(
             reviewed_at = datetime.fromisoformat(ts)
             if reviewed_at.tzinfo is None:
                 reviewed_at = reviewed_at.replace(tzinfo=timezone.utc)
-            reviewed_date = reviewed_at.astimezone(_EASTERN).date()
-            today = datetime.now(_EASTERN).date()
-            elapsed = (today - reviewed_date).days
+            elapsed = (datetime.now(timezone.utc) - reviewed_at).days
             reviewed = elapsed < 7
             days_rem = max(0, 7 - elapsed)
         except Exception:
@@ -1027,9 +1017,7 @@ def build_home_html(
                 reviewed_at = datetime.fromisoformat(ts)
                 if reviewed_at.tzinfo is None:
                     reviewed_at = reviewed_at.replace(tzinfo=timezone.utc)
-                reviewed_date = reviewed_at.astimezone(_EASTERN).date()
-                today = datetime.now(_EASTERN).date()
-                elapsed_days = (today - reviewed_date).days
+                elapsed_days = (datetime.now(timezone.utc) - reviewed_at).days
                 rev = elapsed_days < cycle_days
                 days_rem = max(0, cycle_days - elapsed_days)
             except Exception:
@@ -1190,7 +1178,7 @@ def build_home_html(
         "color:var(--text-1);font-size:13px;font-weight:600;padding:6px 14px;border-radius:6px;cursor:pointer;}"
         ".refresh-btn:hover{background:var(--border-h);}"
         ".scroll-area{height:" + page_height + ";overflow-y:auto;overflow-x:hidden;background:var(--bg-base);}"
-        ".home-list{max-width:700px;margin:0 auto;padding:12px 16px;overflow:clip;}"
+        ".home-list{max-width:700px;margin:0 auto;padding:12px 16px;overflow:hidden;}"
         # Section headers (flat, calendar-style)
         ".section-hdr{display:flex;align-items:center;gap:8px;padding:16px 0 8px;"
         "font-size:11px;font-weight:600;text-transform:uppercase;"
@@ -1229,7 +1217,7 @@ def build_home_html(
         ".task-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}"
         # Review button
         ".review-btn{font-family:inherit;font-size:12px;font-weight:600;"
-        "padding:5px 14px;border-radius:6px;"
+        "padding:4px 12px;border-radius:6px;"
         "background:var(--warn-bg);color:var(--warn);border:1px solid var(--warn-b);cursor:pointer;"
         "transition:background .15s;}"
         ".review-btn:hover{background:var(--warn-b);}"
@@ -1237,19 +1225,19 @@ def build_home_html(
         "border-color:var(--ok-b);cursor:default;}"
         # Mark Read button
         ".markread-btn{font-family:inherit;font-size:12px;font-weight:600;"
-        "padding:5px 14px;border-radius:6px;"
+        "padding:4px 12px;border-radius:6px;"
         "background:var(--border);color:var(--text-2);border:1px solid var(--border);"
         "cursor:pointer;transition:background .15s;}"
         ".markread-btn:hover{background:var(--border-h);color:var(--text-1);}"
         # Complete button
         ".complete-btn{font-family:inherit;font-size:12px;font-weight:600;"
-        "padding:5px 14px;border-radius:6px;"
+        "padding:4px 12px;border-radius:6px;"
         "background:var(--ok-bg);color:var(--ok);border:1px solid var(--ok-b);"
         "cursor:pointer;transition:background .15s;}"
         ".complete-btn:hover{background:var(--ok-b);}"
         # Commit button
         ".commit-btn{font-family:inherit;font-size:12px;font-weight:600;"
-        "padding:5px 14px;border-radius:6px;"
+        "padding:4px 12px;border-radius:6px;"
         "background:var(--border);color:var(--text-2);border:1px solid var(--border);"
         "cursor:pointer;transition:background .15s;}"
         ".commit-btn:hover{background:var(--border-h);color:var(--text-1);}"
@@ -1257,32 +1245,32 @@ def build_home_html(
         ".commit-btn.remove{background:var(--err-bg);color:var(--err);border-color:var(--err-b);}"
         # Best Case button
         ".bestcase-btn{font-family:inherit;font-size:12px;font-weight:600;"
-        "padding:5px 14px;border-radius:6px;"
+        "padding:4px 12px;border-radius:6px;"
         "background:var(--purple-bg);color:var(--purple);border:1px solid var(--purple-b);"
         "cursor:pointer;transition:background .15s;}"
         ".bestcase-btn:hover{background:var(--purple-b);}"
         ".bestcase-btn.remove{background:var(--err-bg);color:var(--err);border-color:var(--err-b);}"
         # Todoist button
         ".todoist-btn{font-family:inherit;font-size:12px;font-weight:600;"
-        "padding:5px 14px;border-radius:6px;"
+        "padding:4px 12px;border-radius:6px;"
         "background:var(--accent-bg);color:var(--accent-l);border:1px solid var(--accent-b);"
         "cursor:pointer;transition:background .15s;}"
         ".todoist-btn:hover{background:var(--accent-b);}"
         # Skip Inbox button
         ".skip-inbox-btn{font-family:inherit;font-size:12px;font-weight:600;"
-        "padding:5px 14px;border-radius:6px;"
+        "padding:4px 12px;border-radius:6px;"
         "background:var(--warn-bg);color:var(--warn);border:1px solid var(--warn-b);"
         "cursor:pointer;transition:background .15s;}"
         ".skip-inbox-btn:hover{background:var(--warn-b);}"
         # Resolve button
         ".resolve-btn{font-family:inherit;font-size:12px;font-weight:600;"
-        "padding:5px 14px;border-radius:6px;"
+        "padding:4px 12px;border-radius:6px;"
         "background:var(--border);color:var(--text-2);border:1px solid var(--border);"
         "cursor:pointer;transition:background .15s;}"
         ".resolve-btn:hover{background:var(--border-h);color:var(--text-1);}"
         # Timer button
         ".timer-btn{font-family:inherit;font-size:12px;font-weight:600;"
-        "padding:5px 14px;border-radius:6px;"
+        "padding:4px 12px;border-radius:6px;"
         "background:var(--purple-bg);color:var(--purple);border:1px solid var(--purple-b);"
         "cursor:pointer;transition:background .15s;"
         "display:inline-flex;align-items:center;gap:5px;}"
@@ -1331,13 +1319,33 @@ def build_home_html(
         "cursor:pointer;padding:8px 4px;touch-action:manipulation;}"
         "#home-detail-content{padding:16px;overflow-y:auto;}"
         "#home-detail-frame{width:100%;height:100%;border:none;display:none;}"
+        # Detail pane inner styles (rich detail view)
+        ".detail-title{font-size:20px;font-weight:700;color:var(--text-1);"
+        "line-height:1.4;margin-bottom:16px;}"
+        ".detail-title-editable{outline:none;border-radius:4px;padding:2px 4px;margin:-2px -4px;"
+        "transition:background .15s;}"
+        ".detail-title-editable:hover{background:var(--bg-s2);}"
+        ".detail-title-editable:focus{background:var(--bg-s2);box-shadow:0 0 0 2px rgba(99,102,241,0.3);}"
+        ".detail-meta{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;}"
+        ".detail-meta-tag{display:inline-block;padding:4px 10px;border-radius:6px;"
+        "font-size:12px;font-weight:600;background:var(--border);color:var(--text-2);}"
+        ".detail-section-label{font-size:11px;font-weight:600;text-transform:uppercase;"
+        "color:var(--text-3);letter-spacing:0.5px;margin-bottom:6px;}"
+        ".detail-desc-editable{width:100%;box-sizing:border-box;font-family:inherit;font-size:14px;color:var(--text-1);"
+        "background:var(--bg-s2);border:1px solid var(--border);border-radius:6px;"
+        "padding:8px 10px;resize:vertical;line-height:1.5;margin-bottom:8px;min-height:100px;}"
+        ".detail-desc-editable:focus{outline:none;border-color:rgba(99,102,241,0.5);}"
+        ".detail-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:20px;"
+        "padding-top:16px;border-top:1px solid var(--border);}"
+        ".detail-action-btn{font-family:inherit;font-size:13px;font-weight:600;"
+        "padding:8px 18px;border:none;border-radius:8px;cursor:pointer;}"
         # Empty state
         ".empty-state{text-align:center;color:var(--text-2);padding:20px;font-size:13px;}"
         "@media(max-width:768px){"
         ".section-cards{margin-bottom:4px;}"
         ".task-actions{gap:6px;}"
         ".review-btn,.markread-btn,.complete-btn,.commit-btn,.bestcase-btn,.todoist-btn,"
-        ".skip-inbox-btn,.resolve-btn,.timer-btn{font-size:11px;padding:4px 6px;}"
+        ".skip-inbox-btn,.resolve-btn,.timer-btn{font-size:11px;padding:3px 8px;}"
         ".move-pill-select{font-size:10px;max-width:70px;}"
         ".action-select{font-size:10px;padding:3px 4px;}"
         ".date-pill-input{font-size:10px;width:80px;}"
@@ -1531,7 +1539,7 @@ def build_home_html(
         "btn.style.pointerEvents='none';btn.textContent='Creating\u2026';"
         "fetch(_homeUrl+'?action=starred_to_todoist',{method:'POST',"
         "headers:{'Content-Type':'application/json'},"
-        "body:JSON.stringify({msg_id:msgId,subject:subject,mode:'inbox'})})"
+        "body:JSON.stringify({msg_id:msgId,subject:subject})})"
         ".then(function(r){return r.json();}).then(function(d){"
         "if(d.ok){btn.textContent='\u2713 Created';btn.style.background=cv('--ok-bg');btn.style.color=cv('--ok');"
         "setTimeout(function(){btn.textContent='Create Todoist';btn.style.background='';btn.style.color='';btn.style.pointerEvents='auto';},2000);}"
@@ -1612,27 +1620,176 @@ def build_home_html(
         "if(d.ok){_fadeCard(btn);_updateBadge('followup');}"
         "else{btn.textContent='Resolved';btn.style.pointerEvents='auto';}"
         "}).catch(function(){btn.textContent='Resolved';btn.style.pointerEvents='auto';});}"
-        # --- Escape & linkify helpers ---
-        "function esc(s){var d=document.createElement('div');d.textContent=s;return d.innerHTML;}"
+        # --- Detail pane helpers ---
+        # NOTE: esc() sanitizes all user content before DOM insertion (XSS-safe)
+        # This matches the existing pattern in todoist_views.py
+        "function esc(s){var d=document.createElement('div');"
+        "d.appendChild(document.createTextNode(String(s)));return d.innerHTML;}"
         "function linkify(t){"
         "t=t.replace(/\\[([^\\]]+)\\]\\(((?:https?|obsidian):\\/\\/[^)]+)\\)/g,"
-        '\'<a href="$2" target="_blank" rel="noopener" style="color:\'+cv(\'--accent-l\')+\';text-decoration:underline;">$1</a>\');'
-        't=t.replace(/(?<!href=")(?<!">)((?:https?|obsidian):\\/\\/[^\\s<)]+)/g,'
-        '\'<a href="$1" target="_blank" rel="noopener" style="color:\'+cv(\'--accent-l\')+\';text-decoration:underline;">$1</a>\');'
+        "'<a href=\"$2\" target=\"_blank\" rel=\"noopener\" style=\"color:'+cv('--accent-l')+';text-decoration:underline;\">$1</a>');"
+        "t=t.replace(/(?<!href=\")(?<!\">)((?:https?|obsidian):\\/\\/[^\\s<)]+)/g,"
+        "'<a href=\"$1\" target=\"_blank\" rel=\"noopener\" style=\"color:'+cv('--accent-l')+';text-decoration:underline;\">$1</a>');"
         "return t;}"
-        # --- Detail pane ---
+        "function doHomeUpdateTask(taskId,payload,callback){"
+        "payload.task_id=taskId;"
+        "fetch(_homeUrl+'?action=update_task',{method:'POST',"
+        "headers:{'Content-Type':'application/json'},"
+        "body:JSON.stringify(payload)})"
+        ".then(function(r){return r.json();})"
+        ".then(function(d){if(callback)callback(d.ok||false);})"
+        ".catch(function(){if(callback)callback(false);});}"
+        "function loadHomeAttachments(taskId,container){"
+        "fetch(_homeUrl+'?action=task_comments&task_id='+encodeURIComponent(taskId))"
+        ".then(function(r){return r.json();})"
+        ".then(function(d){"
+        "if(!d.ok||!d.comments||!d.comments.length)return;"
+        "var wrap=document.createElement('div');"
+        "wrap.style.marginTop='16px';"
+        "var lbl=document.createElement('div');lbl.className='detail-section-label';"
+        "lbl.textContent='Attachments & Comments';wrap.appendChild(lbl);"
+        "d.comments.forEach(function(c){"
+        "var fa=c.file_attachment;"
+        "if(fa){"
+        "var ft=fa.file_type||'';var fn=fa.file_name||'File';var fu=fa.file_url||'';var img=fa.image||'';"
+        "if(ft.indexOf('image/')===0&&(img||fu)){"
+        "var imgDiv=document.createElement('div');imgDiv.style.marginBottom='8px';"
+        "var imgEl=document.createElement('img');imgEl.src=img||fu;imgEl.alt=fn;"
+        "imgEl.style.cssText='max-width:100%;border-radius:8px;border:1px solid var(--border);';"
+        "imgDiv.appendChild(imgEl);wrap.appendChild(imgDiv);"
+        "}else if(fu){"
+        "var linkDiv=document.createElement('div');linkDiv.style.marginBottom='8px';"
+        "var a=document.createElement('a');a.href=fu;a.target='_blank';a.textContent=fn;"
+        "a.style.cssText='color:var(--accent-l);text-decoration:underline;';"
+        "linkDiv.appendChild(a);wrap.appendChild(linkDiv);"
+        "}}"
+        "if(c.content){"
+        "var cDiv=document.createElement('div');"
+        "cDiv.style.cssText='font-size:13px;color:var(--text-2);padding:8px 10px;background:var(--bg-s2);border-radius:6px;margin-bottom:6px;';"
+        "cDiv.textContent=c.content;wrap.appendChild(cDiv);}"
+        "});"
+        "container.appendChild(wrap);"
+        "}).catch(function(){});}"
+        # --- Detail pane (rich view matching todoist_views) ---
+        # All user content is sanitized via esc() before DOM insertion
         "function openHomeDetail(card){"
         "if(window.innerWidth>768)return;"
         "var url=card.getAttribute('data-open-url');"
         "if(url){openHomeEmail(card);return;}"
-        "var content=card.getAttribute('data-content')||'';"
-        "var desc=card.getAttribute('data-description')||'';"
-        "var el=document.getElementById('home-detail-content');"
-        "el.innerHTML='<div style=\"padding:16px;\"><h2 style=\"font-size:18px;margin-bottom:12px;\">'+esc(content)+'</h2>"
-        "<div style=\"white-space:pre-wrap;color:var(--text-2);font-size:14px;line-height:1.6;\">'+linkify(esc(desc))+'</div></div>';"
-        "el.style.display='block';"
+        "var taskId=card.getAttribute('data-task-id')||'';"
+        "var title=card.getAttribute('data-content')||'(no title)';"
+        "var description=card.getAttribute('data-description')||'';"
+        "var projectName=card.getAttribute('data-project-name')||'';"
+        "var priority=parseInt(card.getAttribute('data-priority')||'1');"
+        "var pLabel=card.getAttribute('data-priority-label')||'P4';"
+        "var pColor=card.getAttribute('data-priority-color')||'#56565e';"
+        "var labels=card.getAttribute('data-labels')||'';"
+        "var dueDate=card.getAttribute('data-due-date')||'';"
+        "var dueText=card.getAttribute('data-due-text')||'';"
+        "var dueColor=card.getAttribute('data-due-color')||'#5f6368';"
+        "var section=card.getAttribute('data-section')||'';"
+        "var dc=document.getElementById('home-detail-content');"
+        "dc.textContent='';"
+        # Build detail DOM safely
+        "var titleEl=document.createElement('div');"
+        "titleEl.className='detail-title detail-title-editable';"
+        "titleEl.contentEditable='true';"
+        "titleEl.setAttribute('data-task-id',taskId);"
+        "titleEl.setAttribute('data-orig',title);"
+        "titleEl.textContent=title;dc.appendChild(titleEl);"
+        # Meta tags
+        "var meta=document.createElement('div');meta.className='detail-meta';"
+        "var priTag=document.createElement('span');priTag.className='detail-meta-tag';"
+        "priTag.style.background=pColor+'26';priTag.style.color=pColor;"
+        "priTag.textContent=pLabel;meta.appendChild(priTag);"
+        "if(projectName){var pTag=document.createElement('span');pTag.className='detail-meta-tag';"
+        "pTag.textContent=projectName;meta.appendChild(pTag);}"
+        "if(dueText){var dTag=document.createElement('span');dTag.className='detail-meta-tag';"
+        "dTag.style.color=dueColor;dTag.textContent=dueText;meta.appendChild(dTag);}"
+        "if(labels){labels.split(',').forEach(function(lbl){"
+        "lbl=lbl.trim();if(lbl){var lTag=document.createElement('span');lTag.className='detail-meta-tag';"
+        "lTag.style.color=cv('--purple');lTag.textContent='@'+lbl;meta.appendChild(lTag);}});}"
+        "dc.appendChild(meta);"
+        # Description section
+        "var descLbl=document.createElement('div');descLbl.className='detail-section-label';"
+        "descLbl.textContent='Description';dc.appendChild(descLbl);"
+        "var descArea=document.createElement('textarea');descArea.className='detail-desc-editable';"
+        "descArea.setAttribute('data-task-id',taskId);descArea.rows=4;"
+        "descArea.placeholder='Add description...';descArea.value=description;"
+        "dc.appendChild(descArea);"
+        "var descSave=document.createElement('button');descSave.className='detail-action-btn detail-desc-save-btn';"
+        "descSave.style.cssText='margin-bottom:8px;background:var(--accent-bg);color:var(--accent-l);border:1px solid var(--accent-b);';"
+        "descSave.textContent='Save Description';dc.appendChild(descSave);"
+        # Actions bar
+        "var actions=document.createElement('div');actions.className='detail-actions';"
+        # Priority select
+        "var pSel=document.createElement('select');pSel.className='action-select detail-priority-sel';"
+        "[[4,'P1'],[3,'P2'],[2,'P3'],[1,'P4']].forEach(function(p){"
+        "var o=document.createElement('option');o.value=p[0];o.textContent=p[1];"
+        "if(p[0]===priority)o.selected=true;pSel.appendChild(o);});"
+        "actions.appendChild(pSel);"
+        # Due date input
+        "var dInput=document.createElement('input');dInput.type='date';dInput.className='action-select detail-due-input';"
+        "dInput.value=dueDate;actions.appendChild(dInput);"
+        # Complete button
+        "var compBtn=document.createElement('button');compBtn.className='detail-action-btn detail-complete-btn';"
+        "compBtn.style.cssText='background:rgba(34,197,94,0.10);color:#22c55e;border:1px solid rgba(34,197,94,0.20);';"
+        "compBtn.textContent='Complete';actions.appendChild(compBtn);"
+        # Commit/BestCase buttons
+        "var labelsArr=labels?labels.split(','):[];"
+        "var isCommitted=labelsArr.indexOf('Commit')!==-1;"
+        "var isBestCase=labelsArr.indexOf('Best Case')!==-1;"
+        "var cmBtn=document.createElement('button');cmBtn.className='detail-action-btn detail-commit-btn commit';"
+        "if(isCommitted){cmBtn.style.cssText='background:rgba(34,197,94,0.10);color:#22c55e;border:1px solid rgba(34,197,94,0.20);cursor:default;';"
+        "cmBtn.textContent='\\u2713 Committed';cmBtn.disabled=true;"
+        "}else{cmBtn.style.cssText='background:rgba(234,179,8,0.10);color:#eab308;border:1px solid rgba(234,179,8,0.20);';"
+        "cmBtn.textContent='Commit';}"
+        "actions.appendChild(cmBtn);"
+        "var bcBtn=document.createElement('button');bcBtn.className='detail-action-btn detail-commit-btn bestcase';"
+        "if(isBestCase){bcBtn.style.cssText='background:rgba(34,197,94,0.10);color:#22c55e;border:1px solid rgba(34,197,94,0.20);';"
+        "bcBtn.textContent='\\u2713 Best Case \\u2715';"
+        "}else{bcBtn.style.cssText='background:rgba(167,139,250,0.10);color:#a78bfa;border:1px solid rgba(167,139,250,0.20);';"
+        "bcBtn.textContent='Best Case';}"
+        "actions.appendChild(bcBtn);"
+        "dc.appendChild(actions);"
+        # Wire up event listeners
+        "pSel.addEventListener('change',function(){doSetPriority(taskId,this.value,this);});"
+        "dInput.addEventListener('change',function(){doSetDueDate(taskId,this.value,this);});"
+        "compBtn.addEventListener('click',function(){doComplete(taskId,compBtn);closeHomeDetail();});"
+        "if(!isCommitted)cmBtn.addEventListener('click',function(){doCommitLabel(taskId,cmBtn);});"
+        "if(isBestCase){bcBtn.addEventListener('click',function(){doRemoveBestCase(taskId,bcBtn);});"
+        "}else{bcBtn.addEventListener('click',function(){doBestCaseLabel(taskId,bcBtn);});}"
+        # Title blur-to-save
+        "titleEl.addEventListener('blur',function(){"
+        "var newTitle=this.textContent.trim();"
+        "var orig=this.getAttribute('data-orig');"
+        "if(newTitle&&newTitle!==orig){"
+        "this.setAttribute('data-orig',newTitle);"
+        "doHomeUpdateTask(taskId,{content:newTitle});"
+        "card.setAttribute('data-content',newTitle);"
+        "var ct=card.querySelector('.task-title');"
+        "if(ct){ct.childNodes.forEach(function(n){if(n.nodeType===3)n.textContent=newTitle;});}"
+        "}});"
+        # Description save
+        "descSave.addEventListener('click',function(){"
+        "var newDesc=descArea.value;"
+        "descSave.disabled=true;descSave.textContent='Saving...';"
+        "doHomeUpdateTask(taskId,{description:newDesc},function(ok){"
+        "if(ok){descSave.textContent='\\u2713 Saved';"
+        "card.setAttribute('data-description',newDesc);"
+        "setTimeout(function(){descSave.textContent='Save Description';descSave.disabled=false;},1500);"
+        "}else{descSave.textContent='Failed';descSave.disabled=false;}"
+        "});});"
+        # Auto-expand description textarea
+        "descArea.style.height='auto';descArea.style.height=descArea.scrollHeight+'px';"
+        "var _resizeTimer;descArea.addEventListener('input',function(){var el=this;clearTimeout(_resizeTimer);"
+        "_resizeTimer=setTimeout(function(){el.style.height='auto';el.style.height=el.scrollHeight+'px';},50);});"
+        "dc.style.display='block';"
         "document.getElementById('home-detail-frame').style.display='none';"
-        "document.getElementById('home-detail-pane').classList.add('open');}"
+        "document.getElementById('home-detail-pane').classList.add('open');"
+        # Load attachments/comments
+        "loadHomeAttachments(taskId,dc);"
+        "}"
         "function openHomeEmail(card){"
         "if(window.innerWidth>768)return;"
         "var url=card.getAttribute('data-open-url');"
@@ -1647,7 +1804,7 @@ def build_home_html(
         "var frame=document.getElementById('home-detail-frame');"
         "frame.src='about:blank';frame.style.display='none';"
         "document.getElementById('home-detail-content').style.display='block';"
-        "document.getElementById('home-detail-content').innerHTML='';"
+        "document.getElementById('home-detail-content').textContent='';"
         "document.getElementById('home-detail-pane').classList.remove('open');"
         "try{window.parent.postMessage({type:'viewer-close'},'*');}catch(e){}}"
         "function linkifyTitles(){"
