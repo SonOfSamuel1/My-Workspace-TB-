@@ -1590,6 +1590,14 @@ def build_home_html(
         "if(d.ok){_fadeCard(btn);_updateBadge('followup');}"
         "else{btn.textContent='Resolved';btn.style.pointerEvents='auto';}"
         "}).catch(function(){btn.textContent='Resolved';btn.style.pointerEvents='auto';});}"
+        # --- Escape & linkify helpers ---
+        "function esc(s){var d=document.createElement('div');d.textContent=s;return d.innerHTML;}"
+        "function linkify(t){"
+        "t=t.replace(/\\[([^\\]]+)\\]\\(((?:https?|obsidian):\\/\\/[^)]+)\\)/g,"
+        '\'<a href="$2" target="_blank" rel="noopener" style="color:\'+cv(\'--accent-l\')+\';text-decoration:underline;">$1</a>\');'
+        't=t.replace(/(?<!href=")(?<!">)((?:https?|obsidian):\\/\\/[^\\s<)]+)/g,'
+        '\'<a href="$1" target="_blank" rel="noopener" style="color:\'+cv(\'--accent-l\')+\';text-decoration:underline;">$1</a>\');'
+        "return t;}"
         # --- Detail pane ---
         "function openHomeDetail(card){"
         "if(window.innerWidth>768)return;"
@@ -1598,8 +1606,8 @@ def build_home_html(
         "var content=card.getAttribute('data-content')||'';"
         "var desc=card.getAttribute('data-description')||'';"
         "var el=document.getElementById('home-detail-content');"
-        "el.innerHTML='<div style=\"padding:16px;\"><h2 style=\"font-size:18px;margin-bottom:12px;\">'+content+'</h2>"
-        "<div style=\"white-space:pre-wrap;color:var(--text-2);font-size:14px;line-height:1.6;\">'+desc+'</div></div>';"
+        "el.innerHTML='<div style=\"padding:16px;\"><h2 style=\"font-size:18px;margin-bottom:12px;\">'+esc(content)+'</h2>"
+        "<div style=\"white-space:pre-wrap;color:var(--text-2);font-size:14px;line-height:1.6;\">'+linkify(esc(desc))+'</div></div>';"
         "el.style.display='block';"
         "document.getElementById('home-detail-frame').style.display='none';"
         "document.getElementById('home-detail-pane').classList.add('open');}"
