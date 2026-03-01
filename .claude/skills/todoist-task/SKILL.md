@@ -110,6 +110,11 @@ work happens inside the worktree created in step 5.
 
 ## 9. Commit, Merge & Close
 
+> **CRITICAL — DO NOT SKIP STEP 9c.**
+> You MUST ask the user for explicit approval before closing the task or
+> pushing to main. This applies even after context compaction or session
+> continuation. If you are unsure whether you already asked, ask again.
+
 ### 9a. Commit all changes
 
 Stage and commit all changes in the worktree with a descriptive message
@@ -124,13 +129,14 @@ git checkout main && git merge <worktree-branch>
 If merge conflicts occur, **inform the user** and leave the task open — do NOT
 force-resolve or auto-close.
 
-### 9c. Ask the user before closing
+### 9c. Ask the user before closing AND pushing
 
-**Always ask**: "Can I mark this task as complete on Todoist?"
+**Always ask**: "Can I mark this task as complete on Todoist and push to main?"
 
-Do **NOT** auto-close. Wait for explicit user approval.
+Do **NOT** auto-close. Do **NOT** push to main. Wait for explicit user approval
+for both actions.
 
-### 9d. Close (if approved)
+### 9d. Close and push (if approved)
 
 If the user approves:
 
