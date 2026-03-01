@@ -378,9 +378,16 @@ def _build_task_card(
                 time_str = f"{hours}h {mins}m"
             else:
                 time_str = f"{mins}m"
+            _clock_icon = (
+                '<svg class="time-icon" width="12" height="12" viewBox="0 0 24 24" '
+                'fill="none" stroke="currentColor" stroke-width="2" '
+                'stroke-linecap="round" stroke-linejoin="round">'
+                '<circle cx="12" cy="12" r="10"/>'
+                '<polyline points="12 6 12 12 16 14"/></svg>'
+            )
             time_tracked_html = (
                 f'<span class="time-tracked">'
-                f'\u23f1 {time_str}</span>'
+                f'{_clock_icon} {time_str}</span>'
             )
 
     # Detect email-originated tasks for split-pane viewer
@@ -770,8 +777,9 @@ def build_view_html(
         ".toggl-timer-select:hover{background:var(--ok-b);}"
         # Time tracked display
         ".time-tracked{font-size:12px;font-weight:600;color:var(--text-2);"
-        "display:inline-flex;align-items:center;gap:3px;padding:5px 10px;"
+        "display:inline-flex;align-items:center;gap:4px;padding:5px 10px;"
         "background:var(--bg-s2);border:1px solid var(--border);border-radius:6px;}"
+        ".time-icon{flex-shrink:0;}"
         # Schedule modal
         "#schedule-overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;"
         "z-index:2000;background:rgba(0,0,0,0.6);align-items:center;justify-content:center;}"
@@ -872,6 +880,8 @@ def build_view_html(
         ".move-pill-select{font-size:11px;}"
         ".date-pill{padding:4px 10px 4px 8px;}"
         ".date-pill-input{font-size:11px;}"
+        ".toggl-timer-select{font-size:11px;padding:4px 6px;}"
+        ".time-tracked{font-size:11px;padding:4px 8px;}"
         ".left-pane{flex:1 1 100%!important;}"
         "#viewer-pane{display:none;position:fixed;top:0;left:0;right:0;bottom:0;z-index:200;"
         "border-left:none;}"
