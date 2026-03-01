@@ -623,8 +623,15 @@ def build_view_html(
         ".viewer-back-btn{display:flex;align-items:center;gap:6px;background:none;border:none;"
         "color:var(--accent-l);font-family:inherit;font-size:15px;font-weight:600;"
         "cursor:pointer;padding:8px 4px;touch-action:manipulation;}"
+        # Section header (sticky)
+        ".section-hdr{display:flex;align-items:center;gap:8px;padding:16px 0 8px;"
+        "font-size:11px;font-weight:600;text-transform:uppercase;"
+        "letter-spacing:0.6px;border-bottom:1px solid var(--border);margin-bottom:10px;"
+        "position:sticky;top:0;z-index:10;background:var(--bg-base);}"
+        ".section-badge{background:var(--border);color:var(--text-2);font-size:11px;"
+        "font-weight:700;padding:2px 7px;border-radius:8px;}"
         # Task list
-        ".task-list{max-width:700px;margin:0 auto;padding:12px 16px;}"
+        ".task-list{max-width:700px;margin:0 auto;padding:12px 16px;overflow:clip;}"
         ".task-card{background:var(--bg-s1);border-radius:8px;"
         "border:1px solid var(--border);padding:14px 16px;"
         "margin-bottom:10px;transition:opacity .15s ease-out,transform .15s ease-out,border-color .15s ease-out,background .15s ease-out;cursor:pointer;}"
@@ -821,6 +828,10 @@ def build_view_html(
         + '<div class="left-pane">'
         + subheader_html
         + '<div class="task-list">'
+        + f'<div class="section-hdr" style="color:var(--text-2);">'
+        f'<span>{html.escape(title.upper())}</span>'
+        f'<span class="section-badge" id="task-count-badge">{count}</span>'
+        f'</div>'
         + checklist_card_html
         + cards_html
         + "</div></div>"
