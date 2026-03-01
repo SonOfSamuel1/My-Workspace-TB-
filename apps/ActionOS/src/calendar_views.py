@@ -511,6 +511,45 @@ def _is_within_days(event: Dict[str, Any], days: int) -> bool:
         return True
 
 
+def _build_ffm_action_cards(
+    ffm_tasks: List[Dict[str, Any]],
+    function_url: str,
+) -> str:
+    """Build action item cards for Fishing for Men Todoist tasks with outreach buttons."""
+    if not ffm_tasks:
+        return ""
+    cards = ""
+    for task in ffm_tasks:
+        task_id = html.escape(task.get("id", ""))
+        content = html.escape(task.get("content", ""))
+        description = html.escape(task.get("description", ""))
+        person_enc = urllib.parse.quote(task.get("content", ""))
+        base_url = function_url.rstrip("/")
+
+        meta_html = ""
+        if description:
+            meta_html = f'<div class="task-meta">{description}</div>'
+
+        buttons = ""
+        for meal, icon in [("coffee", "\u2615"), ("lunch", "\ud83c\udf7d"), ("dinner", "\ud83c\udf1f")]:
+            meal_enc = urllib.parse.quote(meal)
+            buttons += (
+                f'<button class="ffm-meal-btn ffm-{meal}" '
+                f"onclick=\"doFfmOutreach(this,'{person_enc}','{meal_enc}')\">"
+                f'{icon} {meal.capitalize()}</button>'
+            )
+
+        cards += (
+            f'<div class="task-card ffm-action-card">'
+            f'<div class="card-row"><div class="card-content">'
+            f'<div class="task-title">{content}</div>'
+            f"{meta_html}"
+            f'<div class="task-actions">{buttons}</div>'
+            f"</div></div></div>"
+        )
+    return cards
+
+
 def build_calendar_html(
     events: List[Dict[str, Any]],
     reviewed_state: dict,
@@ -519,6 +558,8 @@ def build_calendar_html(
     projects: List[Dict[str, Any]],
     embed: bool = False,
     checklists: dict = None,
+    ffm_tasks: List[Dict[str, Any]] = None,
+    ffm_project_id: str = None,
 ) -> str:
     """Build the Calendar page with categorized sections."""
     project_options_html = _build_project_options_html(projects)
@@ -575,6 +616,10 @@ def build_calendar_html(
     if not unreviewed_cards:
         unreviewed_cards = '<div class="empty-state">All caught up \u2713</div>'
 
+    # Build FFM action items HTML
+    ffm_tasks = ffm_tasks or []
+    ffm_action_html = _build_ffm_action_cards(ffm_tasks, function_url)
+
     # Build each reviewed sub-section
     reviewed_sections_html = ""
     for (
@@ -609,13 +654,26 @@ def build_calendar_html(
                 f"{cl_content}"
                 f"</div></div>"
             )
+        # Inject FFM action items after the Fishing For Men section header
+        extra_html = ""
+        if key == "fishing_for_men" and ffm_action_html:
+            ffm_count = len(ffm_tasks)
+            extra_html = (
+                f'<div class="ffm-actions-hdr">'
+                f'<span class="ffm-actions-label">Action Items</span>'
+                f'<span class="section-badge" style="background:var(--teal-bg);'
+                f'color:var(--teal);border:1px solid var(--teal-b);">'
+                f"{ffm_count}</span>"
+                f"</div>"
+                + ffm_action_html
+            )
         reviewed_sections_html += (
             f'<div class="section-hdr" style="margin-top:24px;">'
             f'<span style="color:var({color_var});">{label}</span>'
             f'<span class="section-badge" style="background:var({badge_bg});'
             f'color:var({badge_color});border:1px solid var({badge_border});">'
             f"{len(bucket)}</span>"
-            f"</div>" + checklist_html + cards
+            f"</div>" + checklist_html + extra_html + cards
         )
 
     twelve_month_html = _build_12month_html(events)
@@ -751,7 +809,7 @@ def build_calendar_html(
         ".empty-state{text-align:center;color:var(--text-2);padding:24px 20px;font-size:14px;}"
         "@media(max-width:768px){"
         ".task-actions{gap:6px;}"
-        ".action-select,.review-btn,.todoist-btn,.commit-btn,.timer-btn,.assign-cc-btn{font-size:11px;padding:4px 6px;}"
+        ".action-select,.review-btn,.todoist-btn,.commit-btn,.timer-btn,.assign-cc-btn,.ffm-meal-btn{font-size:11px;padding:4px 6px;}"
         "}"
         "::-webkit-scrollbar{width:6px;}"
         "::-webkit-scrollbar-track{background:transparent;}"
@@ -766,6 +824,20 @@ def build_calendar_html(
         ".checklist-body{font-size:14px;color:var(--text-1);line-height:1.6;min-height:40px;"
         "outline:none;border-radius:4px;padding:4px;}"
         ".checklist-body[contenteditable=true]{background:var(--bg-s2);border:1px solid var(--accent-b);}"
+        # FFM action items
+        ".ffm-actions-hdr{display:flex;align-items:center;gap:8px;padding:8px 0 6px;"
+        "font-size:11px;font-weight:600;color:var(--teal);letter-spacing:0.4px;}"
+        ".ffm-actions-label{text-transform:uppercase;}"
+        ".ffm-action-card{border-left:3px solid var(--teal);}"
+        ".ffm-meal-btn{font-family:inherit;font-size:12px;font-weight:600;"
+        "padding:5px 14px;border-radius:6px;cursor:pointer;transition:all .15s;"
+        "border:1px solid var(--border);}"
+        ".ffm-coffee{background:var(--gold-bg);color:var(--gold);border-color:var(--gold-b);}"
+        ".ffm-coffee:hover{background:var(--gold-b);}"
+        ".ffm-lunch{background:var(--ok-bg);color:var(--ok);border-color:var(--ok-b);}"
+        ".ffm-lunch:hover{background:var(--ok-b);}"
+        ".ffm-dinner{background:var(--purple-bg);color:var(--purple);border-color:var(--purple-b);}"
+        ".ffm-dinner:hover{background:var(--purple-b);}"
         # View toggle bar
         ".view-toggle{display:flex;gap:4px;padding:8px 16px;max-width:700px;margin:0 auto;"
         "position:sticky;top:0;z-index:20;background:var(--bg-base);}"
@@ -933,6 +1005,26 @@ def build_calendar_html(
         ".then(function(d){"
         "if(!d.ok){alert('Save failed');}"
         "}).catch(function(){alert('Save failed');});}"
+        "function doFfmOutreach(btn,person,meal){"
+        "btn.style.pointerEvents='none';var orig=btn.textContent;btn.textContent='Creating\u2026';"
+        "var url='" + function_url.rstrip("/") + "?action=ffm_outreach"
+        "&person='+person+'&meal_type='+meal;"
+        "fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'})"
+        ".then(function(r){return r.json();})"
+        ".then(function(d){"
+        "if(d.ok){"
+        "btn.textContent='\u2713 Created';btn.style.background=cv('--ok-bg');btn.style.color=cv('--ok');"
+        "btn.style.borderColor=cv('--ok-b');"
+        "setTimeout(function(){btn.textContent=orig;btn.style.background='';btn.style.color='';"
+        "btn.style.borderColor='';btn.style.pointerEvents='auto';},2500);}"
+        "else{"
+        "btn.textContent='Failed';btn.style.background=cv('--err-bg');btn.style.color=cv('--err');"
+        "setTimeout(function(){btn.textContent=orig;btn.style.background='';btn.style.color='';"
+        "btn.style.pointerEvents='auto';},2000);}"
+        "}).catch(function(){"
+        "btn.textContent='Failed';btn.style.background=cv('--err-bg');btn.style.color=cv('--err');"
+        "setTimeout(function(){btn.textContent=orig;btn.style.background='';btn.style.color='';"
+        "btn.style.pointerEvents='auto';},2000);});}"
         "function _timerLabel(secs){"
         "if(secs<=0)return 'Starting soon';"
         "var h=Math.floor(secs/3600);var m=Math.floor((secs%3600)/60);var s=secs%60;"
