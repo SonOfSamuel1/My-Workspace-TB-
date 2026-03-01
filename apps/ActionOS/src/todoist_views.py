@@ -118,11 +118,14 @@ def _linkify(text):
 def _extract_gmail_link(description):
     """Pull the Gmail deep link out of a task description markdown."""
     match = re.search(
-        r"\[Open in Gmail\]\((https://mail\.google\.com[^\)]+)\)", description
+        r"\[Open in Gmail\]\(((?:https://mail\.google\.com|googlegmail://)[^\)]+)\)", description
     )
-    if match:
-        return match.group(1)
-    return ""
+    if not match:
+        return ""
+    url = match.group(1)
+    if url.startswith("https://mail.google.com"):
+        url = url.replace("https://mail.google.com", "googlegmail://", 1)
+    return url
 
 
 def _extract_msg_id(description):

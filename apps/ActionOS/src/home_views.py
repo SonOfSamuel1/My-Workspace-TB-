@@ -162,9 +162,14 @@ def _build_project_options_html(projects_by_id: Dict[str, str], current_project_
 
 def _extract_gmail_link(description: str) -> str:
     match = re.search(
-        r"\[Open in Gmail\]\((https://mail\.google\.com[^\)]+)\)", description
+        r"\[Open in Gmail\]\(((?:https://mail\.google\.com|googlegmail://)[^\)]+)\)", description
     )
-    return match.group(1) if match else ""
+    if not match:
+        return ""
+    url = match.group(1)
+    if url.startswith("https://mail.google.com"):
+        url = url.replace("https://mail.google.com", "googlegmail://", 1)
+    return url
 
 
 def _extract_msg_id(description: str) -> str:
