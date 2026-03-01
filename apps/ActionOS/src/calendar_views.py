@@ -53,7 +53,9 @@ def _is_event_reviewed(event_id: str, state: dict) -> bool:
         reviewed_at = datetime.fromisoformat(ts)
         if reviewed_at.tzinfo is None:
             reviewed_at = reviewed_at.replace(tzinfo=timezone.utc)
-        return (datetime.now(timezone.utc) - reviewed_at).days < 7
+        reviewed_date = reviewed_at.astimezone(_EASTERN).date()
+        today = datetime.now(_EASTERN).date()
+        return (today - reviewed_date).days < 7
     except Exception:
         return False
 
@@ -66,7 +68,9 @@ def _days_until_reviewed_reset(event_id: str, state: dict) -> int:
         reviewed_at = datetime.fromisoformat(ts)
         if reviewed_at.tzinfo is None:
             reviewed_at = reviewed_at.replace(tzinfo=timezone.utc)
-        return max(0, 7 - (datetime.now(timezone.utc) - reviewed_at).days)
+        reviewed_date = reviewed_at.astimezone(_EASTERN).date()
+        today = datetime.now(_EASTERN).date()
+        return max(0, 7 - (today - reviewed_date).days)
     except Exception:
         return 0
 

@@ -1845,11 +1845,14 @@ def handle_action(event: dict) -> dict:
             # Follow-up count from S3 state
             try:
                 from datetime import timezone as _tz
+                from zoneinfo import ZoneInfo as _ZI
 
+                _eastern = _ZI("America/New_York")
                 fu_state = _load_followup_state()
                 fu_emails = fu_state.get("emails", {})
                 fu_reviews = fu_state.get("reviews", {})
                 fu_unreviewed = 0
+                _today = datetime.now(_eastern).date()
                 for tid in fu_emails:
                     ts = fu_reviews.get(tid)
                     if ts:
@@ -1857,7 +1860,8 @@ def handle_action(event: dict) -> dict:
                             reviewed_at = datetime.fromisoformat(ts)
                             if reviewed_at.tzinfo is None:
                                 reviewed_at = reviewed_at.replace(tzinfo=_tz.utc)
-                            if (datetime.now(_tz.utc) - reviewed_at).days < 7:
+                            reviewed_date = reviewed_at.astimezone(_eastern).date()
+                            if (_today - reviewed_date).days < 7:
                                 continue
                         except Exception:
                             pass

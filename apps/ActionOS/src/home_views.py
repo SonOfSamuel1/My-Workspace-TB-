@@ -51,7 +51,7 @@ _SECTION_ORDER = [
 # ---------------------------------------------------------------------------
 
 def _is_home_item_reviewed(item_id: str, section: str, state: dict, cycle_days: int) -> bool:
-    """Return True if item_id has been reviewed within cycle_days."""
+    """Return True if item_id has been reviewed within cycle_days (calendar-date based)."""
     if cycle_days <= 0:
         return False
     ts = state.get(section, {}).get(item_id)
@@ -61,14 +61,20 @@ def _is_home_item_reviewed(item_id: str, section: str, state: dict, cycle_days: 
         reviewed_at = datetime.fromisoformat(ts)
         if reviewed_at.tzinfo is None:
             reviewed_at = reviewed_at.replace(tzinfo=timezone.utc)
-        elapsed_days = (datetime.now(timezone.utc) - reviewed_at).total_seconds() / 86400
+        reviewed_date = reviewed_at.astimezone(_EASTERN).date()
+        today = datetime.now(_EASTERN).date()
+        elapsed_days = (today - reviewed_date).days
         return elapsed_days < cycle_days
     except Exception:
         return False
 
 
 def _time_until_review_reset(item_id: str, section: str, state: dict, cycle_days: int) -> str:
-    """Return a human-readable string for when the review resets, e.g. '18h' or '5d'."""
+    """Return a human-readable string for when the review resets (calendar-date based).
+
+    For daily reviews, shows time until midnight Eastern (start of next day).
+    For multi-day cycles, shows remaining calendar days.
+    """
     if cycle_days <= 0:
         return ""
     ts = state.get(section, {}).get(item_id)
@@ -78,12 +84,19 @@ def _time_until_review_reset(item_id: str, section: str, state: dict, cycle_days
         reviewed_at = datetime.fromisoformat(ts)
         if reviewed_at.tzinfo is None:
             reviewed_at = reviewed_at.replace(tzinfo=timezone.utc)
-        elapsed_seconds = (datetime.now(timezone.utc) - reviewed_at).total_seconds()
-        remaining_seconds = max(0, cycle_days * 86400 - elapsed_seconds)
-        remaining_hours = remaining_seconds / 3600
-        if remaining_hours >= 24:
-            return f"{int(remaining_hours // 24)}d"
-        return f"{int(remaining_hours)}h"
+        reviewed_date = reviewed_at.astimezone(_EASTERN).date()
+        now_eastern = datetime.now(_EASTERN)
+        today = now_eastern.date()
+        elapsed_days = (today - reviewed_date).days
+        remaining_days = max(0, cycle_days - elapsed_days)
+        if remaining_days <= 0:
+            return ""
+        if remaining_days == 1:
+            # Resets at midnight Eastern — show hours remaining until then
+            midnight = datetime.combine(today + timedelta(days=1), datetime.min.time(), tzinfo=_EASTERN)
+            remaining_hours = max(0, int((midnight - now_eastern).total_seconds() // 3600))
+            return f"{remaining_hours}h"
+        return f"{remaining_days}d"
     except Exception:
         return ""
 
@@ -773,7 +786,9 @@ def _build_followup_email_card(
             reviewed_at = datetime.fromisoformat(ts)
             if reviewed_at.tzinfo is None:
                 reviewed_at = reviewed_at.replace(tzinfo=timezone.utc)
-            elapsed = (datetime.now(timezone.utc) - reviewed_at).days
+            reviewed_date = reviewed_at.astimezone(_EASTERN).date()
+            today = datetime.now(_EASTERN).date()
+            elapsed = (today - reviewed_date).days
             reviewed = elapsed < 7
             days_rem = max(0, 7 - elapsed)
         except Exception:
@@ -1007,7 +1022,9 @@ def build_home_html(
                 reviewed_at = datetime.fromisoformat(ts)
                 if reviewed_at.tzinfo is None:
                     reviewed_at = reviewed_at.replace(tzinfo=timezone.utc)
-                elapsed_days = (datetime.now(timezone.utc) - reviewed_at).days
+                reviewed_date = reviewed_at.astimezone(_EASTERN).date()
+                today = datetime.now(_EASTERN).date()
+                elapsed_days = (today - reviewed_date).days
                 rev = elapsed_days < cycle_days
                 days_rem = max(0, cycle_days - elapsed_days)
             except Exception:
