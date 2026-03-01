@@ -1820,6 +1820,7 @@ def build_home_html(
         "document.getElementById('home-detail-content').textContent='';"
         "document.getElementById('home-detail-pane').classList.remove('open');"
         "try{window.parent.postMessage({type:'viewer-close'},'*');}catch(e){}}"
+        "function closeDetailView(){closeHomeDetail();}"
         "function linkifyTitles(){"
         "document.querySelectorAll('.task-title').forEach(function(el){"
         "el.childNodes.forEach(function(node){"

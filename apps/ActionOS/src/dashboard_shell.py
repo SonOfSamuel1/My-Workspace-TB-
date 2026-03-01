@@ -636,7 +636,10 @@ def build_shell_html(
         "}"
         # switchTab
         "function switchTab(tab){"
-        "if(tab===activeTab)return;"
+        "if(tab===activeTab){"
+        "var f=document.getElementById('frame-'+tab);"
+        "if(f&&f.contentWindow&&typeof f.contentWindow.closeDetailView==='function')f.contentWindow.closeDetailView();"
+        "return;}"
         "activeTab=tab;"
         "tabIds.forEach(function(id){"
         "document.getElementById('tab-'+id).className='sidebar-tab'+(id===tab?' active':'');"
