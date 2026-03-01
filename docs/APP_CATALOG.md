@@ -1,6 +1,6 @@
 # Application Catalog
 
-> Auto-generated on 2026-02-24 12:53 UTC | 24 applications
+> Auto-generated on 2026-02-24 12:53 UTC | 23 applications
 >
 > Regenerate: `npm run catalog` or `python3 scripts/generate_app_catalog.py`
 
@@ -14,7 +14,6 @@
 | [credit-card-rewards-tracker](#credit-card-rewards-tracker)             | Python     | AWS Lambda    | 2025-12-09   | Track and optimize credit card rewards across multiple issuers.                  |
 | [daily-ai-news-report](#daily-ai-news-report)                           | Python     | Local         | 2025-12-03   | Daily Ai News Report application                                                 |
 | [factor75-meal-selector](#factor75-meal-selector)                       | Python     | AWS Lambda    |              | Automate your weekly Factor 75 meal selection with email-based interaction.      |
-| [fireflies-meeting-notes](#fireflies-meeting-notes)                     | Python     | AWS Lambda    |              | Fireflies Meeting Notes application                                              |
 | [gmail-email-actions](#gmail-email-actions)                             | Python     | AWS Lambda    |              | Gmail Email Actions application                                                  |
 | [gmail-unread-digest](#gmail-unread-digest)                             | Python     | AWS Lambda    |              | Gmail Unread Digest application                                                  |
 | [homeschool-events-gwinnett](#homeschool-events-gwinnett)               | Python     | AWS Lambda    | 2026-02-23   | Weekly automated digest of homeschooling events in Gwinnett County, GA.          |
@@ -172,50 +171,6 @@ maximizing your rewards.**
 **Key Dependencies**: `boto3`, `google-api-python-client`,
 `google-auth-oauthlib`, `google-auth-httplib2`, `python-dotenv`, `PyYAML`,
 `pytz`, `Jinja2`, `python-dateutil`, `coloredlogs`
-
----
-
-### fireflies-meeting-notes
-
-**Fireflies Meeting Notes application**
-
-|                  |                                              |
-| ---------------- | -------------------------------------------- |
-| **Language**     | Python                                       |
-| **Deployment**   | AWS Lambda                                   |
-| **Entry Points** | `lambda_handler.py`, `src/fireflies_main.py` |
-| **Integrations** | AWS, HTTP/REST                               |
-| **Source Files** | 7                                            |
-| **Config Files** | `.env`, `.env.example`                       |
-| **Has README**   | No                                           |
-| **Has Tests**    | No                                           |
-
-**Key Dependencies**: `requests`, `boto3`, `python-dotenv`
-
-**Claude Code Sessions** (11 sessions):
-
-- `2026-02-24` — Email Visual Redesign — Fireflies Meeting Notes
-  (`claude --resume 15dc650c-05b7-4cb4-9689-3d6a56359f1d`)
-- `2026-02-24` — Email Visual Polish — Fireflies Meeting Notes (Round 2)
-  (`claude --resume 34d924d4-b04d-493a-a359-ae0e5c66e4ca`)
-- `2026-02-24` — Fireflies Meeting Notes Email — Full Redesign
-  (`claude --resume 6b93350b-d826-415e-b0ba-26a35db2c9c4`)
-- `2026-02-24` — Backfill All Fireflies Recordings to S3
-  (`claude --resume 73af5c46-3a31-4d3b-a7b9-6666065fcd1f`)
-- `2026-02-24` — All Recordings Web Page — Fireflies Meeting Notes
-  (`claude --resume 74e1f15b-90ca-4528-8491-1d1c9444cc7f`)
-- `2026-02-24` — Deploy + Resend: Obsidian Note Fix
-  (`claude --resume a734a4aa-b1ac-4082-84a0-59f3367cebc6`)
-- `2026-02-24` — Obsidian Notes: AI Title + Full Transcript
-  (`claude --resume aeea4065-4856-4e9b-add5-66129d87f868`)
-- `2026-02-24` — Fix: Obsidian Save Button — Clipboard Fails on Mobile
-  (`claude --resume b2195d66-493b-49d2-b3b8-14226d3601f2`)
-- `2026-02-24` — Fix: Obsidian Note Naming + Click Latency
-  (`claude --resume e5e59aaf-eaa2-48b4-bbb0-73746aba8026`)
-- `2026-02-23` — Fireflies Meeting Notes Processor
-  (`claude --resume 50c37044-2440-4ff7-8dab-d0d83a647b52`)
-- `2026-02-23` — Fix Fireflies Email Template + Obsidian One-Click Save
-  (`claude --resume e5ba9a74-d88f-4d25-a7cc-1b3242dcf0a3`)
 
 ---
 
