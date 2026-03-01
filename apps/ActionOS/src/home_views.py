@@ -566,15 +566,21 @@ def _build_calendar_card(
         "family": "Family",
         "medical": "Medical",
         "birthdays": "Birthday",
+        "love_god": "Love God",
         "love_brittany": "Love Brittany",
         "love_children": "Love Children",
+        "love_friends_family": "Love Friends & Family",
+        "fishing_for_men": "Fishing For Men",
     }
     _cal_colors = {
         "family": "#818cf8",
         "medical": "#22c55e",
         "birthdays": "#eab308",
+        "love_god": "#f59e0b",
         "love_brittany": "#a78bfa",
         "love_children": "#a78bfa",
+        "love_friends_family": "#ec4899",
+        "fishing_for_men": "#06b6d4",
     }
     cal_label = html.escape(_cal_labels.get(cal_type, cal_type.capitalize()))
     cal_color = _cal_colors.get(cal_type, "#5f6368")

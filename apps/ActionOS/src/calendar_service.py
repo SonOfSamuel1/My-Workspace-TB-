@@ -15,13 +15,18 @@ CALENDAR_IDS = {
     "family": "e8b8ac59c51a37cace65afd1eb320b01080d6eda9a67f8437c9360ad6d575a57@group.calendar.google.com",
     "medical": "b7a90e6b97885cfa08b5d3964631dc4a7e880f0c12fff722c503447faab3f4fc@group.calendar.google.com",
     "birthdays": "33c41f9c4db1bb4a5132d46ed878d0e9ee287b4a7967714be4bb4cb0d6693802@group.calendar.google.com",
+    "love_god": "c_93bed550f40faec815845038ffd8824ab9811425b23190e8aa04ce04c2c317dd@group.calendar.google.com",
     "love_brittany": "c_e0b980d5bd2f705404aec5b07d9ff4a4c4bbe06b3f1154affabffd7b6ed1bba2@group.calendar.google.com",
     "love_children": "c_6155d15ab0546a6fd88727f0b2e8453352090a9f91e12ee134c7a0aa54f1dca4@group.calendar.google.com",
+    "love_friends_family": "c_9183bb2ea0a3796318b63a580818ac22dcdf2a5c22bf770b430fc8bc83623d1e@group.calendar.google.com",
+    "fishing_for_men": "c_0971bcbca44be72f8cbfb8cca0607ac51f73448726708bca096df5900e002d9d@group.calendar.google.com",
 }
 
 _CALENDAR_DAY_OVERRIDES = {
+    "love_god": 180,
     "love_brittany": 180,
     "love_children": 180,
+    "love_friends_family": 180,
 }
 _DEFAULT_DAYS = 90
 

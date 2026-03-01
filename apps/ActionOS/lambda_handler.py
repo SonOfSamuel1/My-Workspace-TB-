@@ -60,6 +60,7 @@ Scheduled (EventBridge):
 
 import base64
 import hmac
+import html
 import json
 import logging
 import os
@@ -94,6 +95,24 @@ _CARD_STYLE = (
     "max-width:480px;margin:80px auto;background:#1c1c1f;border-radius:8px;"
     "border:1px solid rgba(255,255,255,0.06);padding:40px;text-align:center;"
 )
+
+
+def _error_page(msg: str) -> str:
+    """Styled error page that respects dark/light mode (no white flash)."""
+    return (
+        "<!DOCTYPE html><html><head><meta charset='utf-8'>"
+        "<meta name='viewport' content='width=device-width,initial-scale=1'>"
+        "<style>"
+        "html,body{margin:0;padding:0;"
+        "font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;"
+        "background:#1a1a1a;color:#8e8e93;color-scheme:dark;}"
+        "@media(prefers-color-scheme:light){"
+        "html,body{background:#eeeef0;color:#5f6368;color-scheme:light;}}"
+        "p{padding:24px 20px;font-size:14px;}"
+        "</style></head><body>"
+        f"<p>{html.escape(str(msg))}</p>"
+        "</body></html>"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -940,6 +959,7 @@ def handle_action(event: dict) -> dict:
             "backlog_label",
             "remove_backlog",
             "search",
+            "schedule_action",
         }
         if _action_check in _api_actions:
             return {"statusCode": 403, "body": "Forbidden"}
@@ -1080,7 +1100,7 @@ def handle_action(event: dict) -> dict:
                 return {
                     "statusCode": 200,
                     "headers": {"Content-Type": "text/html"},
-                    "body": f"<p>Error: {e}</p>",
+                    "body": _error_page(f"Error: {e}"),
                 }
 
         # -- Unread email cards --
@@ -1115,7 +1135,104 @@ def handle_action(event: dict) -> dict:
                 return {
                     "statusCode": 200,
                     "headers": {"Content-Type": "text/html"},
-                    "body": f"<p>Error: {e}</p>",
+                    "body": _error_page(f"Error: {e}"),
+                }
+
+        elif view == "home":
+            try:
+                from calendar_service import CalendarService
+                from gmail_service import GmailService
+                from home_views import build_home_html
+                from todoist_service import TodoistService
+
+                service = TodoistService(todoist_token)
+                cal = CalendarService(
+                    os.environ["CALENDAR_CREDENTIALS_JSON"],
+                    os.environ["CALENDAR_TOKEN_JSON"],
+                )
+                gmail = GmailService()
+                today_str = datetime.now().strftime("%Y-%m-%d")
+
+                with ThreadPoolExecutor(max_workers=8) as ex:
+                    f_projects = ex.submit(service.get_all_projects)
+                    f_commit = ex.submit(service.get_tasks_by_label, "Commit")
+                    f_bestcase = ex.submit(service.get_tasks_by_label, "Best Case")
+                    f_p1 = ex.submit(service.get_tasks_by_priority, 4)
+                    f_inbox = ex.submit(service.get_inbox_tasks)
+                    f_calendar = ex.submit(cal.get_upcoming_events, 90)
+                    f_starred = ex.submit(gmail.get_starred_emails)
+                    f_unread = ex.submit(
+                        lambda: __import__("unread_main").get_unread_emails_for_web()
+                    )
+
+                projects = f_projects.result()
+
+                # Filter Todoist tasks to due <= today
+                def _due_today(tasks):
+                    return [
+                        t
+                        for t in tasks
+                        if t.get("due") and t["due"].get("date", "")[:10] <= today_str
+                    ]
+
+                def _due_today_or_undated(tasks):
+                    """Include tasks due today/overdue AND tasks with no date."""
+                    return [
+                        t
+                        for t in tasks
+                        if not t.get("due")
+                        or t["due"].get("date", "")[:10] <= today_str
+                    ]
+
+                commit_tasks = _due_today_or_undated(f_commit.result())
+                bestcase_tasks = _due_today(f_bestcase.result())
+                p1_tasks = _due_today(f_p1.result())
+                inbox_tasks = f_inbox.result()
+                calendar_events = f_calendar.result()
+                starred_emails = f_starred.result()
+                try:
+                    unread_emails = f_unread.result()
+                except Exception:
+                    unread_emails = []
+
+                # Follow-up emails from S3 state
+                fu_state = _load_followup_state()
+                followup_emails = list(fu_state.get("emails", {}).values())
+
+                home_state = _load_home_reviewed_state()
+                cal_state = _load_calendar_state()
+
+                body = build_home_html(
+                    commit_tasks=commit_tasks,
+                    bestcase_tasks=bestcase_tasks,
+                    calendar_events=calendar_events,
+                    p1_tasks=p1_tasks,
+                    starred_emails=starred_emails,
+                    unread_emails=unread_emails,
+                    followup_emails=followup_emails,
+                    inbox_tasks=inbox_tasks,
+                    projects=projects,
+                    home_state=home_state,
+                    cal_state=cal_state,
+                    followup_state=fu_state,
+                    function_url=function_url,
+                    action_token=expected,
+                    embed=True,
+                )
+                return {
+                    "statusCode": 200,
+                    "headers": {
+                        "Content-Type": "text/html",
+                        "Cache-Control": "private, max-age=30",
+                    },
+                    "body": body,
+                }
+            except Exception as e:
+                logger.error(f"Home view failed: {e}", exc_info=True)
+                return {
+                    "statusCode": 200,
+                    "headers": {"Content-Type": "text/html"},
+                    "body": _error_page(f"Error: {e}"),
                 }
 
         elif view == "home":
@@ -1207,7 +1324,7 @@ def handle_action(event: dict) -> dict:
                 }
 
         # -- Todoist views (inbox / commit / p1 / bestcase) --
-        elif view in ("inbox", "commit", "p1", "p1nodate", "bestcase"):
+        elif view in ("inbox", "commit", "p1", "p1nodate", "bestcase", "sabbath"):
             try:
                 from todoist_service import TodoistService
                 from todoist_views import build_view_html
@@ -1233,7 +1350,8 @@ def handle_action(event: dict) -> dict:
                     tasks = [
                         t
                         for t in all_commit
-                        if t.get("due") and t["due"].get("date", "")[:10] <= today_str
+                        if not t.get("due")
+                        or t["due"].get("date", "")[:10] <= today_str
                     ]
                 elif view == "p1":
                     with ThreadPoolExecutor(max_workers=2) as executor:
@@ -1274,7 +1392,14 @@ def handle_action(event: dict) -> dict:
                         for t in all_bestcase
                         if t.get("due") and t["due"].get("date", "")[:10] <= today_str
                     ]
+                elif view == "sabbath":
+                    tasks, projects = service.get_sabbath_tasks()
+                    tasks.sort(
+                        key=lambda t: t.get("created_at", "") or t.get("added_at", ""),
+                        reverse=True,
+                    )
 
+                checklists = _load_checklists() if view == "commit" else None
                 body = build_view_html(
                     tasks,
                     projects,
@@ -1282,6 +1407,7 @@ def handle_action(event: dict) -> dict:
                     function_url,
                     expected,
                     embed=True,
+                    checklists=checklists,
                 )
                 return {
                     "statusCode": 200,
@@ -1296,7 +1422,7 @@ def handle_action(event: dict) -> dict:
                 return {
                     "statusCode": 200,
                     "headers": {"Content-Type": "text/html"},
-                    "body": f"<p>Error: {e}</p>",
+                    "body": _error_page(f"Error: {e}"),
                 }
 
         # -- Code Projects view --
@@ -1363,7 +1489,7 @@ def handle_action(event: dict) -> dict:
                 return {
                     "statusCode": 200,
                     "headers": {"Content-Type": "text/html"},
-                    "body": f"<p>Error: {e}</p>",
+                    "body": _error_page(f"Error: {e}"),
                 }
 
         # -- Calendar view --
@@ -1377,7 +1503,12 @@ def handle_action(event: dict) -> dict:
                     os.environ["CALENDAR_CREDENTIALS_JSON"],
                     os.environ["CALENDAR_TOKEN_JSON"],
                 )
-                events = cal.get_upcoming_events(days=90)
+                # Auto-sync FFM events to Family calendar
+                try:
+                    cal.sync_ffm_to_family()
+                except Exception as sync_err:
+                    logger.warning(f"FFM auto-sync failed: {sync_err}")
+                events = cal.get_upcoming_events(days=365)
                 state = _load_calendar_state()
                 projects = _fetch_todoist_projects(todoist_token)
                 checklists = _load_checklists()
@@ -1403,7 +1534,36 @@ def handle_action(event: dict) -> dict:
                 return {
                     "statusCode": 200,
                     "headers": {"Content-Type": "text/html"},
-                    "body": f"<p>Error: {e}</p>",
+                    "body": _error_page(f"Error: {e}"),
+                }
+
+        # -- Follow-up view --
+        elif view == "followup":
+            try:
+                from followup_views import build_followup_html
+
+                fu_state = _load_followup_state()
+                body = build_followup_html(
+                    fu_state.get("emails", {}),
+                    fu_state,
+                    function_url,
+                    expected,
+                    embed=True,
+                )
+                return {
+                    "statusCode": 200,
+                    "headers": {
+                        "Content-Type": "text/html",
+                        "Cache-Control": "private, max-age=30",
+                    },
+                    "body": body,
+                }
+            except Exception as e:
+                logger.error(f"Follow-up view failed: {e}", exc_info=True)
+                return {
+                    "statusCode": 200,
+                    "headers": {"Content-Type": "text/html"},
+                    "body": _error_page(f"Error: {e}"),
                 }
 
         # -- Follow-up view --
@@ -1585,6 +1745,53 @@ def handle_action(event: dict) -> dict:
             return _error_json(str(e))
 
     # -----------------------------------------------------------------------
+    # Schedule action — create 30-min calendar events for a task
+    # -----------------------------------------------------------------------
+    elif action == "schedule_action":
+        task_id = params.get("task_id", "")
+        duration = params.get("duration", "")
+        if not task_id or not duration:
+            return _error_json("Missing task_id or duration")
+        try:
+            duration_minutes = int(duration)
+        except ValueError:
+            return _error_json("Invalid duration")
+
+        try:
+            from calendar_service import CalendarService
+            from todoist_service import TodoistService
+
+            # Get the task title
+            service = TodoistService(todoist_token)
+            task = service.get_task(task_id)
+            task_title = task.get("content", "Action") if task else "Action"
+
+            # Create calendar events
+            cal = CalendarService(
+                os.environ["CALENDAR_CREDENTIALS_JSON"],
+                os.environ["CALENDAR_TOKEN_JSON"],
+            )
+            created = cal.create_schedule_events(
+                title=task_title,
+                duration_minutes=duration_minutes,
+                calendar_id="primary",
+            )
+            num = len(created)
+            return {
+                "statusCode": 200,
+                "headers": {
+                    "Content-Type": "application/json",
+                    "Cache-Control": "no-cache",
+                },
+                "body": json.dumps(
+                    {"ok": True, "events_created": num, "duration": duration_minutes}
+                ),
+            }
+        except Exception as e:
+            logger.error(f"schedule_action failed: {e}", exc_info=True)
+            return _error_json(str(e))
+
+    # -----------------------------------------------------------------------
     # AJAX refresh — returns JSON {count, html} for card list swap
     # -----------------------------------------------------------------------
     elif action == "refresh_cards":
@@ -1750,6 +1957,14 @@ def handle_action(event: dict) -> dict:
                     if (t.get("due") or {}).get("date", "9999")[:10] <= today
                 )
 
+            def _count_today_overdue_or_undated(tasks):
+                """Count tasks due today/overdue plus undated tasks."""
+                return sum(
+                    1
+                    for t in tasks
+                    if not t.get("due") or t["due"].get("date", "")[:10] <= today
+                )
+
             with ThreadPoolExecutor(max_workers=5) as ex:
                 f_inbox = ex.submit(service.get_inbox_tasks)
                 f_commit = ex.submit(service.get_tasks_by_label, "Commit")
@@ -1767,7 +1982,7 @@ def handle_action(event: dict) -> dict:
             ]
             counts = {
                 "inbox": len(f_inbox.result()),
-                "commit": _count_today_or_overdue(f_commit.result()),
+                "commit": _count_today_overdue_or_undated(f_commit.result()),
                 "p1": _count_today_or_overdue(f_p1.result()),
                 "bestcase": _count_today_or_overdue(f_bc.result()),
                 "code": len(code_new_issues),

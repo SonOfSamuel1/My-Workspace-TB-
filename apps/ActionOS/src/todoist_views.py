@@ -23,6 +23,7 @@ VIEW_TITLES = {
     "p1": "Priority 1",
     "p1nodate": "P1 — No Date",
     "bestcase": "Best Case Today",
+    "sabbath": "Sabbath",
 }
 
 _FONT = (
@@ -30,18 +31,7 @@ _FONT = (
     "'Segoe UI',Roboto,sans-serif"
 )
 
-_CC_ICON_SVG = (
-    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 9 7" width="18" height="14" '
-    'shape-rendering="crispEdges">'
-    '<rect x="2" y="0" width="5" height="5" fill="#c47840"/>'
-    '<rect x="3" y="1" width="1" height="1" fill="#1a1005"/>'
-    '<rect x="5" y="1" width="1" height="1" fill="#1a1005"/>'
-    '<rect x="0" y="3" width="2" height="2" fill="#c47840"/>'
-    '<rect x="7" y="3" width="2" height="2" fill="#c47840"/>'
-    '<rect x="2" y="5" width="2" height="2" fill="#c47840"/>'
-    '<rect x="5" y="5" width="2" height="2" fill="#c47840"/>'
-    "</svg>"
-)
+_CC_LABEL = "Claude"
 
 
 def _relative_age(added_at):
@@ -346,11 +336,18 @@ def _build_task_card(
                 "Best Case</button>"
             )
 
+    # Schedule button — opens duration picker modal to create calendar events
+    schedule_btn = (
+        f'<button class="schedule-btn" '
+        f"onclick=\"event.stopPropagation();openScheduleModal('{task_id}')\">"
+        "&#128197; Schedule</button>"
+    )
+
     # Assign CC button — copy task info to clipboard for Claude Code (all views)
     copy_claude_btn = (
         f'<button class="assign-cc-btn" title="Assign CC" '
         f"onclick=\"event.stopPropagation();doCopyForClaude('{task_id}','{content}',this)\">"
-        + _CC_ICON_SVG
+        + _CC_LABEL
         + "</button>"
     )
 
@@ -404,7 +401,7 @@ def _build_task_card(
         f'<div class="card-content">'
         f'<div class="task-title">{content_linked}</div>'
         f'<div class="task-meta">{meta_line}</div>'
-        f'<div class="task-actions">{move_select}{priority_select}{due_date_input}{complete_btn}{commit_btn}{bestcase_btn}{backlog_btn}{copy_claude_btn}</div>'
+        f'<div class="task-actions">{move_select}{priority_select}{due_date_input}{complete_btn}{commit_btn}{bestcase_btn}{backlog_btn}{schedule_btn}{copy_claude_btn}</div>'
         f"</div></div>"
         f'<div class="undo-bar" style="display:none;"></div>'
         f"</div>"
@@ -420,6 +417,7 @@ def build_view_html(
     embed=False,
     email_actions_url="",
     email_actions_token="",
+    checklists=None,
 ):
     """Build the full HTML page for a Todoist view.
 
@@ -500,6 +498,59 @@ def build_view_html(
         post_message_js = (
             f'window.parent.postMessage({{type:"count",source:"{view_name}",'
             f'count:{count}}},"*");'
+        )
+
+    # Checklist card for commit view
+    checklist_card_html = ""
+    checklist_css = ""
+    checklist_js = ""
+    if view_name == "commit" and checklists is not None:
+        cl_key = "remember_power_christ"
+        cl_content = html.escape(checklists.get(cl_key, ""))
+        checklist_card_html = (
+            f'<div class="checklist-card" data-section="{cl_key}">'
+            f'<div class="checklist-header">'
+            f'<span class="checklist-title">Remember Your Power in Christ</span>'
+            f'<button class="checklist-edit-btn" id="cl-btn-{cl_key}" '
+            f"onclick=\"toggleChecklist('{cl_key}')\">"
+            f"Edit</button>"
+            f"</div>"
+            f'<div class="checklist-body" id="cl-body-{cl_key}" contenteditable="false">'
+            f"{cl_content}"
+            f"</div></div>"
+        )
+        checklist_css = (
+            ".checklist-card{background:var(--bg-s1);border:1px solid var(--border);border-radius:8px;"
+            "padding:14px 16px;margin-bottom:10px;}"
+            ".checklist-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}"
+            ".checklist-title{font-size:12px;font-weight:700;color:var(--text-2);text-transform:uppercase;letter-spacing:.5px;}"
+            ".checklist-edit-btn{font-family:inherit;font-size:12px;font-weight:600;padding:4px 12px;"
+            "border-radius:6px;border:1px solid var(--accent-b);background:var(--accent-bg);"
+            "color:var(--accent-l);cursor:pointer;}"
+            ".checklist-body{font-size:14px;color:var(--text-1);line-height:1.6;min-height:40px;"
+            "outline:none;border-radius:4px;padding:4px;}"
+            ".checklist-body[contenteditable=true]{background:var(--bg-s2);border:1px solid var(--accent-b);}"
+        )
+        save_url = base_action_url + "?action=calendar_save_checklist"
+        checklist_js = (
+            "function toggleChecklist(section){"
+            "var body=document.getElementById('cl-body-'+section);"
+            "var btn=document.getElementById('cl-btn-'+section);"
+            "if(body.contentEditable==='true'){"
+            "saveChecklist(section);body.contentEditable='false';btn.textContent='Edit';"
+            "}else{"
+            "body.contentEditable='true';btn.textContent='Save';body.focus();"
+            "}}"
+            "function saveChecklist(section){"
+            "var body=document.getElementById('cl-body-'+section);"
+            "var content=body.innerText;"
+            f"var url='{save_url}';"
+            "fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},"
+            "body:JSON.stringify({section:section,content:content})})"
+            ".then(function(r){return r.json();})"
+            ".then(function(d){"
+            "if(!d.ok){alert('Save failed');}"
+            "}).catch(function(){alert('Save failed');});}"
         )
 
     # Determine split-pane height
@@ -641,10 +692,40 @@ def build_view_html(
         ".bestcase-btn.remove{background:var(--ok-bg);color:var(--ok);border-color:var(--ok-b);}"
         ".bestcase-btn.remove:hover{background:var(--err-bg);color:var(--err);border-color:var(--err-b);}"
         ".assign-cc-btn{display:inline-flex;align-items:center;justify-content:center;"
-        "padding:5px 8px;border-radius:6px;"
+        "padding:5px 10px;border-radius:6px;"
         "background:rgba(196,120,64,0.10);border:1px solid rgba(196,120,64,0.25);"
-        "cursor:pointer;transition:background .15s;line-height:0;}"
+        "cursor:pointer;transition:background .15s;color:#c47840;font-size:13px;font-weight:600;}"
         ".assign-cc-btn:hover{background:rgba(196,120,64,0.25);}"
+        # Schedule button
+        ".schedule-btn{font-family:inherit;font-size:12px;font-weight:600;"
+        "padding:5px 14px;border-radius:6px;"
+        "background:rgba(56,189,248,0.10);color:#38bdf8;border:1px solid rgba(56,189,248,0.20);cursor:pointer;"
+        "transition:background .15s ease-out;}"
+        ".schedule-btn:hover{background:rgba(56,189,248,0.25);}"
+        # Schedule modal
+        "#schedule-overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;"
+        "z-index:2000;background:rgba(0,0,0,0.6);align-items:center;justify-content:center;}"
+        "#schedule-overlay.open{display:flex;}"
+        "#schedule-modal{background:var(--bg-s1);border:1px solid var(--border);border-radius:14px;"
+        "padding:24px;width:320px;max-width:90vw;box-shadow:0 8px 32px rgba(0,0,0,0.4);}"
+        "#schedule-modal h3{font-size:16px;font-weight:700;color:var(--text-1);margin-bottom:4px;}"
+        "#schedule-modal p{font-size:13px;color:var(--text-2);margin-bottom:16px;}"
+        ".duration-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px;}"
+        ".duration-opt{font-family:inherit;font-size:14px;font-weight:600;"
+        "padding:12px 8px;border-radius:8px;border:1px solid var(--border);"
+        "background:var(--bg-s2);color:var(--text-1);cursor:pointer;"
+        "transition:all .15s;text-align:center;}"
+        ".duration-opt:hover{border-color:rgba(56,189,248,0.4);background:rgba(56,189,248,0.08);color:#38bdf8;}"
+        ".duration-opt.selected{border-color:#38bdf8;background:rgba(56,189,248,0.15);color:#38bdf8;}"
+        "#schedule-confirm{width:100%;font-family:inherit;font-size:14px;font-weight:700;"
+        "padding:12px;border-radius:8px;border:none;cursor:pointer;"
+        "background:#38bdf8;color:#0e0e10;transition:opacity .15s;}"
+        "#schedule-confirm:hover{opacity:0.85;}"
+        "#schedule-confirm:disabled{opacity:0.4;cursor:default;}"
+        "#schedule-cancel{width:100%;font-family:inherit;font-size:13px;font-weight:600;"
+        "padding:8px;border-radius:8px;border:none;cursor:pointer;margin-top:8px;"
+        "background:transparent;color:var(--text-2);}"
+        "#schedule-cancel:hover{color:var(--text-1);}"
         ".task-card.undo-state .card-row{display:none;}"
         ".undo-bar{display:flex;align-items:center;justify-content:center;"
         "gap:10px;padding:12px 0;font-size:13px;color:var(--text-2);}"
@@ -733,12 +814,14 @@ def build_view_html(
         "::-webkit-scrollbar{width:6px;}"
         "::-webkit-scrollbar-track{background:transparent;}"
         "::-webkit-scrollbar-thumb{background:var(--scrollbar);border-radius:3px;}"
-        "</style>"
+        + checklist_css
+        + "</style>"
         "</head><body>" + header_html + '<div class="split-wrap" id="split-wrap">'
         # Left pane — task list
         + '<div class="left-pane">'
         + subheader_html
         + '<div class="task-list">'
+        + checklist_card_html
         + cards_html
         + "</div></div>"
         # Right pane — task detail / email viewer
@@ -775,18 +858,30 @@ def build_view_html(
         'onchange="bulkSetDueDate(this.value);this.value=\'\';" title="Set due date">'
         '<button class="bulk-complete-btn" onclick="bulkComplete()">Complete</button>'
         "</div>"
+        # Schedule duration picker modal
+        + '<div id="schedule-overlay" onclick="if(event.target===this)closeScheduleModal()">'
+        '<div id="schedule-modal">'
+        "<h3>Schedule Action</h3>"
+        '<p id="schedule-task-label">How long will this take?</p>'
+        '<div class="duration-grid">'
+        '<button class="duration-opt" data-mins="30">30 min</button>'
+        '<button class="duration-opt" data-mins="60">1 hr</button>'
+        '<button class="duration-opt" data-mins="90">1.5 hrs</button>'
+        '<button class="duration-opt" data-mins="120">2 hrs</button>'
+        '<button class="duration-opt" data-mins="150">2.5 hrs</button>'
+        '<button class="duration-opt" data-mins="180">3 hrs</button>'
+        '<button class="duration-opt" data-mins="210">3.5 hrs</button>'
+        '<button class="duration-opt" data-mins="240">4 hrs</button>'
+        '<button class="duration-opt" data-mins="270">4.5 hrs</button>'
+        '<button class="duration-opt" data-mins="300">5 hrs</button>'
+        "</div>"
+        '<button id="schedule-confirm" disabled>Schedule</button>'
+        '<button id="schedule-cancel" onclick="closeScheduleModal()">Cancel</button>'
+        "</div></div>"
         # JavaScript
         + "<script>"
         "var _cs=getComputedStyle(document.documentElement);function cv(n){return _cs.getPropertyValue(n).trim();}"
-        'var _ccIcon=\'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 9 7" width="18" height="14" shape-rendering="crispEdges">'
-        '<rect x="2" y="0" width="5" height="5" fill="#c47840"/>'
-        '<rect x="3" y="1" width="1" height="1" fill="#1a1005"/>'
-        '<rect x="5" y="1" width="1" height="1" fill="#1a1005"/>'
-        '<rect x="0" y="3" width="2" height="2" fill="#c47840"/>'
-        '<rect x="7" y="3" width="2" height="2" fill="#c47840"/>'
-        '<rect x="2" y="5" width="2" height="2" fill="#c47840"/>'
-        '<rect x="5" y="5" width="2" height="2" fill="#c47840"/>'
-        "</svg>';"
+        "var _ccIcon='Claude';"
         f'var viewName="{view_name}";'
         "var taskCount="
         + str(count)
@@ -1320,7 +1415,51 @@ def build_view_html(
         "});"
         "document.querySelectorAll('.select-cb:checked').forEach(function(cb){cb.checked=false;});"
         "updateSelection();"
+        "}" + checklist_js
+        # Schedule modal JS
+        + "var _schedTaskId=null,_schedMins=0;"
+        "function openScheduleModal(taskId){"
+        "_schedTaskId=taskId;_schedMins=0;"
+        "document.querySelectorAll('.duration-opt').forEach(function(b){"
+        "b.classList.remove('selected');});"
+        "var btn=document.getElementById('schedule-confirm');"
+        "btn.disabled=true;btn.textContent='Schedule';"
+        "document.getElementById('schedule-overlay').classList.add('open');"
         "}"
-        "</script>"
+        "function closeScheduleModal(){"
+        "document.getElementById('schedule-overlay').classList.remove('open');"
+        "_schedTaskId=null;_schedMins=0;"
+        "}"
+        "document.querySelectorAll('.duration-opt').forEach(function(b){"
+        "b.addEventListener('click',function(){"
+        "document.querySelectorAll('.duration-opt').forEach(function(x){x.classList.remove('selected');});"
+        "this.classList.add('selected');"
+        "_schedMins=parseInt(this.getAttribute('data-mins'));"
+        "var n=_schedMins/30;"
+        "document.getElementById('schedule-confirm').disabled=false;"
+        "document.getElementById('schedule-confirm').textContent="
+        "'Schedule '+n+' event'+(n>1?'s':'');"
+        "});});"
+        "document.getElementById('schedule-confirm').addEventListener('click',function(){"
+        "if(!_schedTaskId||!_schedMins)return;"
+        "var btn=this;btn.disabled=true;btn.textContent='Scheduling...';"
+        f'fetch("{base_action_url}?action=schedule_action&task_id="+_schedTaskId+"&duration="+_schedMins)'
+        ".then(function(r){return r.json();})"
+        ".then(function(d){"
+        "if(d.ok){"
+        "btn.textContent='\\u2713 '+d.events_created+' events created!';"
+        "btn.style.background='#22c55e';"
+        "setTimeout(function(){closeScheduleModal();btn.style.background='';},1500);"
+        "}else{"
+        "btn.textContent='Failed: '+(d.error||'Unknown error');"
+        "btn.disabled=false;btn.style.background='#ef4444';"
+        "setTimeout(function(){btn.style.background='';btn.textContent='Schedule';},2000);"
+        "}"
+        "})"
+        ".catch(function(e){"
+        "btn.textContent='Error';btn.disabled=false;"
+        "setTimeout(function(){btn.textContent='Schedule';},2000);"
+        "});"
+        "});" + "</script>"
         "</body></html>"
     )
