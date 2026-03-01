@@ -879,22 +879,21 @@ def _build_followup_email_card(
             "Resolved</button>"
         )
 
-    # Open in Gmail link — use a server-side 302 redirect via our Lambda
-    # so that iOS universal links route to the Gmail app with the specific
-    # thread.  target=_top breaks out of the iframe.
+    # Open in Gmail iOS app — use googlegmail:///cv={thread_id} scheme
+    # to deep link to the specific conversation.
     gmail_btn = ""
     if gmail_link:
         _gl_tid = gmail_link.split("#inbox/")[-1] if "#inbox/" in gmail_link else ""
         if _gl_tid:
-            _redir = base_url + "?action=gmail_open&thread_id=" + urllib.parse.quote(_gl_tid)
+            _app_url = f"googlegmail:///cv={_gl_tid}/accountId=0&create-new-tab"
             gmail_btn = (
-                f'<a href="{html.escape(_redir)}" target="_top" class="gcal-link" '
+                f'<a href="{html.escape(_app_url)}" class="gcal-link" '
                 f'onclick="event.stopPropagation()">'
                 f"Open in Gmail \u2197</a>"
             )
         else:
             gmail_btn = (
-                f'<a href="{html.escape(gmail_link)}" target="_top" class="gcal-link" '
+                f'<a href="{html.escape(gmail_link)}" target="_blank" rel="noopener" class="gcal-link" '
                 f'onclick="event.stopPropagation()">'
                 f"Open in Gmail \u2197</a>"
             )
