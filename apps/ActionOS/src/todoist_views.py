@@ -230,7 +230,7 @@ def _build_task_card(
     icon_display = ' style="display:none"' if has_date else ""
     input_display = "" if has_date else ' style="display:none"'
     due_date_input = (
-        f"<div class=\"date-pill\" onclick=\"this.querySelector('input').showPicker?this.querySelector('input').showPicker():this.querySelector('input').focus()\">"
+        f"<div class=\"date-pill\" onclick=\"var i=this.querySelector('input');var w=this.querySelector('.date-icon-wrap');var l=this.querySelector('.date-label');i.style.display='';if(w)w.style.display='none';if(l)l.style.display='none';i.showPicker?i.showPicker():i.focus()\">"
         f'<span class="date-icon-wrap"{icon_display}>{_date_icon}</span>'
         f'<span class="date-label"{icon_display}>Date</span>'
         f'<input type="date" class="date-pill-input" value="{html.escape(due_date)}" '
