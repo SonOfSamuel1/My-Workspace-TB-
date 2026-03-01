@@ -489,6 +489,28 @@ def _build_12month_html(events: List[Dict[str, Any]]) -> str:
     )
 
 
+def _is_birthday_event(event: Dict[str, Any]) -> bool:
+    """Return True if this event would be categorized as a birthday/anniversary."""
+    cal_type = event.get("calendar_type", "")
+    if cal_type == "birthdays":
+        return True
+    title_lower = (event.get("title", "") or "").lower()
+    return "birthday" in title_lower or "anniversary" in title_lower
+
+
+def _is_within_days(event: Dict[str, Any], days: int) -> bool:
+    """Return True if the event starts within the given number of days from now."""
+    start = event.get("start", "")[:10]
+    if not start:
+        return True
+    try:
+        event_date = datetime.strptime(start, "%Y-%m-%d").date()
+        today = datetime.now(_EASTERN).date()
+        return (event_date - today).days <= days
+    except Exception:
+        return True
+
+
 def build_calendar_html(
     events: List[Dict[str, Any]],
     reviewed_state: dict,
@@ -502,10 +524,16 @@ def build_calendar_html(
     project_options_html = _build_project_options_html(projects)
     checklists = checklists or {}
 
+    # Filter out birthday/anniversary events beyond 90 days
+    filtered_events = [
+        ev for ev in events
+        if not _is_birthday_event(ev) or _is_within_days(ev, 90)
+    ]
+
     # Split events: unreviewed vs reviewed
     unreviewed = []
     reviewed_events = []
-    for ev in events:
+    for ev in filtered_events:
         if _is_event_reviewed(ev.get("id", ""), reviewed_state):
             reviewed_events.append(ev)
         else:
