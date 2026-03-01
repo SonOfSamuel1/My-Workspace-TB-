@@ -513,7 +513,7 @@ def _build_email_card(
             safe_from_email = html.escape(_sender_email).replace("'", "\\'")
             skip_inbox_btn = (
                 f'<button class="skip-inbox-btn" '
-                f"onclick=\"event.stopPropagation();doSkipInbox('{safe_from_email}',this)\">"
+                f"onclick=\"event.stopPropagation();doSkipInbox('{safe_from_email}',this,'{section_safe}','{msg_id}')\">"
                 "Skip Inbox</button>"
             )
 
@@ -1725,12 +1725,23 @@ def build_home_html(
         "else{btn.textContent='Unstar';btn.style.pointerEvents='auto';}"
         "}).catch(function(){btn.textContent='Unstar';btn.style.pointerEvents='auto';});}"
         # --- Skip Inbox ---
-        "function doSkipInbox(fromEmail,btn){"
+        "function doSkipInbox(fromEmail,btn,section,itemId){"
         "btn.style.pointerEvents='none';btn.textContent='Skipping\u2026';"
         "fetch(_homeUrl+'?action=create_filter&from_email='+encodeURIComponent(fromEmail))"
         ".then(function(r){return r.json();}).then(function(d){"
         "if(d.ok){btn.textContent='\u2713 Skipped';btn.style.background=cv('--ok-bg');btn.style.color=cv('--ok');"
-        "btn.style.cursor='default';}"
+        "btn.style.cursor='default';"
+        "if(section&&itemId){"
+        "fetch(_homeUrl+'?action=home_reviewed&section='+encodeURIComponent(section)+'&item_id='+encodeURIComponent(itemId))"
+        ".then(function(r2){return r2.json();}).then(function(d2){"
+        "if(d2.ok){"
+        "var rb=btn.closest('.task-card');"
+        "if(rb){var revBtn=rb.querySelector('.review-btn');"
+        "if(revBtn){revBtn.className='review-btn reviewed';revBtn.textContent='\u2713 Reviewed';revBtn.style.cursor='default';revBtn.onclick=null;}"
+        "rb.classList.add('reviewed-card');rb.style.opacity='0.65';}"
+        "_updateBadge(section);"
+        "}});}"
+        "}"
         "else{btn.textContent='Skip Inbox';btn.style.pointerEvents='auto';}"
         "}).catch(function(){btn.textContent='Skip Inbox';btn.style.pointerEvents='auto';});}"
         # --- Create Todoist from email ---
