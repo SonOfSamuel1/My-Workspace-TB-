@@ -1190,7 +1190,7 @@ def build_home_html(
         "color:var(--text-1);font-size:13px;font-weight:600;padding:6px 14px;border-radius:6px;cursor:pointer;}"
         ".refresh-btn:hover{background:var(--border-h);}"
         ".scroll-area{height:" + page_height + ";overflow-y:auto;overflow-x:hidden;background:var(--bg-base);}"
-        ".home-list{max-width:700px;margin:0 auto;padding:12px 16px;overflow:hidden;}"
+        ".home-list{max-width:700px;margin:0 auto;padding:12px 16px;overflow:clip;}"
         # Section headers (flat, calendar-style)
         ".section-hdr{display:flex;align-items:center;gap:8px;padding:16px 0 8px;"
         "font-size:11px;font-weight:600;text-transform:uppercase;"
