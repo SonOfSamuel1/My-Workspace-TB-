@@ -659,7 +659,7 @@ def build_calendar_html(
         ".scroll-area{height:"
         + page_height
         + ";overflow-y:auto;overflow-x:hidden;background:var(--bg-base);}"
-        ".task-list{max-width:700px;margin:0 auto;padding:12px 16px;overflow:hidden;}"
+        ".task-list{max-width:700px;margin:0 auto;padding:12px 16px;overflow:clip;}"
         ".section-hdr{display:flex;align-items:center;gap:8px;padding:16px 0 8px;"
         "font-size:11px;font-weight:600;color:var(--text-3);text-transform:uppercase;"
         "letter-spacing:0.6px;border-bottom:1px solid var(--border);margin-bottom:10px;"

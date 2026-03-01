@@ -317,7 +317,7 @@ def build_followup_html(
         ".viewer-back-btn{display:flex;align-items:center;gap:6px;background:none;border:none;"
         "color:var(--accent-l);font-family:inherit;font-size:15px;font-weight:600;"
         "cursor:pointer;padding:8px 4px;touch-action:manipulation;}"
-        ".task-list{max-width:600px;margin:0 auto;padding:12px 16px;overflow:hidden;}"
+        ".task-list{max-width:600px;margin:0 auto;padding:12px 16px;overflow:clip;}"
         ".section-hdr{display:flex;align-items:center;gap:8px;padding:16px 0 8px;"
         "font-size:11px;font-weight:600;color:var(--text-3);text-transform:uppercase;"
         "letter-spacing:0.6px;border-bottom:1px solid var(--border);margin-bottom:10px;"
