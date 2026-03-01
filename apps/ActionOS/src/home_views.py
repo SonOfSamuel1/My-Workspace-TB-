@@ -147,11 +147,20 @@ def _build_project_options_html(projects_by_id: Dict[str, str], current_project_
     return opts
 
 
+def _to_gmail_app_link(url: str) -> str:
+    """Convert a Gmail web URL to the iOS Gmail app deep link."""
+    if url.startswith("https://mail.google.com"):
+        return url.replace("https://mail.google.com", "googlegmail://", 1)
+    return url
+
+
 def _extract_gmail_link(description: str) -> str:
     match = re.search(
-        r"\[Open in Gmail\]\((https://mail\.google\.com[^\)]+)\)", description
+        r"\[Open in Gmail\]\(((?:https://mail\.google\.com|googlegmail://)[^\)]+)\)", description
     )
-    return match.group(1) if match else ""
+    if not match:
+        return ""
+    return _to_gmail_app_link(match.group(1))
 
 
 def _extract_msg_id(description: str) -> str:
@@ -421,7 +430,7 @@ def _build_email_card(
     subject = html.escape(email.get("subject", "(no subject)"))
     sender = html.escape(email.get("sender", email.get("from", "")))
     from_raw = email.get("sender", email.get("from", ""))
-    gmail_link = email.get("gmail_link", "")
+    gmail_link = _to_gmail_app_link(email.get("gmail_link", ""))
     date_raw = email.get("date", "")
     date_display = html.escape(date_raw[:10] if date_raw else "")
 
@@ -677,7 +686,7 @@ def _build_unread_email_card(
     subject = html.escape(email.get("subject", "(no subject)"))
     sender = html.escape(email.get("sender", email.get("from", "")))
     from_raw = email.get("sender", email.get("from", ""))
-    gmail_link = email.get("gmail_link", "")
+    gmail_link = _to_gmail_app_link(email.get("gmail_link", ""))
     date_raw = email.get("date", "")
     date_display = html.escape(date_raw[:10] if date_raw else "")
 
@@ -769,7 +778,7 @@ def _build_followup_email_card(
     subject = html.escape(email.get("subject", "(no subject)"))
     sender = html.escape(email.get("sender", email.get("from", "")))
     snippet = html.escape((email.get("snippet", "") or "")[:120])
-    gmail_link = email.get("gmail_link", "")
+    gmail_link = _to_gmail_app_link(email.get("gmail_link", ""))
     followup_reviews = followup_reviews or {}
 
     base_url = function_url.rstrip("/")
