@@ -1188,6 +1188,10 @@ def handle_action(event: dict) -> dict:
                 bestcase_tasks = _due_today(f_bestcase.result())
                 p1_tasks = _due_today(f_p1.result())
                 inbox_tasks = f_inbox.result()
+                inbox_tasks.sort(
+                    key=lambda t: t.get("created_at", "") or t.get("added_at", ""),
+                    reverse=True,
+                )
                 calendar_events = f_calendar.result()
                 starred_emails = f_starred.result()
                 try:
