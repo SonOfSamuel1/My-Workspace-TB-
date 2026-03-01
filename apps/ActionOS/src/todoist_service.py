@@ -280,21 +280,24 @@ class TodoistService:
         return len(tasks)
 
     def _get_commit_target_project(self):
-        """Return the project ID for commit: 'Personal', or 'Personal 2' if Personal has 250+ tasks."""
-        personal = self._find_project_by_name("Personal")
-        if not personal:
-            logger.warning("Project 'Personal' not found")
-            return None
-        count = self._count_project_tasks(personal["id"])
-        logger.info(f"Personal project has {count} tasks")
-        if count < 250:
-            return personal["id"]
-        personal2 = self._find_project_by_name("Personal 2")
-        if personal2:
-            logger.info("Personal full (250+), using Personal 2")
-            return personal2["id"]
-        logger.warning("Project 'Personal 2' not found, using Personal anyway")
-        return personal["id"]
+        """Return the project ID for commit: cascade through Personal → Personal 2 → Personal 3 (250 task limit each)."""
+        for name in ("Personal", "Personal 2", "Personal 3"):
+            project = self._find_project_by_name(name)
+            if not project:
+                logger.warning(f"Project '{name}' not found")
+                continue
+            count = self._count_project_tasks(project["id"])
+            logger.info(f"'{name}' has {count} tasks")
+            if count < 250:
+                return project["id"]
+            logger.info(f"'{name}' full (250+), checking next")
+        # All full or not found — fall back to Personal
+        fallback = self._find_project_by_name("Personal")
+        if fallback:
+            logger.warning("All Personal projects full, using Personal as fallback")
+            return fallback["id"]
+        logger.warning("No Personal project found")
+        return None
 
     def _update_labels(self, task_id, labels):
         """Update a task's labels. Returns True on success."""
