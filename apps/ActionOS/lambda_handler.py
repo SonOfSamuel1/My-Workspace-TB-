@@ -959,6 +959,7 @@ def handle_action(event: dict) -> dict:
             "backlog_label",
             "remove_backlog",
             "search",
+            "schedule_action",
         }
         if _action_check in _api_actions:
             return {"statusCode": 403, "body": "Forbidden"}
@@ -1421,7 +1422,7 @@ def handle_action(event: dict) -> dict:
                     cal.sync_ffm_to_family()
                 except Exception as sync_err:
                     logger.warning(f"FFM auto-sync failed: {sync_err}")
-                events = cal.get_upcoming_events(days=365)
+                events = cal.get_upcoming_events(days=90)
                 state = _load_calendar_state()
                 projects = _fetch_todoist_projects(todoist_token)
                 checklists = _load_checklists()
@@ -1626,6 +1627,53 @@ def handle_action(event: dict) -> dict:
             return _ok_json() if ok else _error_json("Action failed")
         except Exception as e:
             logger.error(f"Todoist action={action} failed: {e}", exc_info=True)
+            return _error_json(str(e))
+
+    # -----------------------------------------------------------------------
+    # Schedule action — create 30-min calendar events for a task
+    # -----------------------------------------------------------------------
+    elif action == "schedule_action":
+        task_id = params.get("task_id", "")
+        duration = params.get("duration", "")
+        if not task_id or not duration:
+            return _error_json("Missing task_id or duration")
+        try:
+            duration_minutes = int(duration)
+        except ValueError:
+            return _error_json("Invalid duration")
+
+        try:
+            from calendar_service import CalendarService
+            from todoist_service import TodoistService
+
+            # Get the task title
+            service = TodoistService(todoist_token)
+            task = service.get_task(task_id)
+            task_title = task.get("content", "Action") if task else "Action"
+
+            # Create calendar events
+            cal = CalendarService(
+                os.environ["CALENDAR_CREDENTIALS_JSON"],
+                os.environ["CALENDAR_TOKEN_JSON"],
+            )
+            created = cal.create_schedule_events(
+                title=task_title,
+                duration_minutes=duration_minutes,
+                calendar_id="primary",
+            )
+            num = len(created)
+            return {
+                "statusCode": 200,
+                "headers": {
+                    "Content-Type": "application/json",
+                    "Cache-Control": "no-cache",
+                },
+                "body": json.dumps(
+                    {"ok": True, "events_created": num, "duration": duration_minutes}
+                ),
+            }
+        except Exception as e:
+            logger.error(f"schedule_action failed: {e}", exc_info=True)
             return _error_json(str(e))
 
     # -----------------------------------------------------------------------

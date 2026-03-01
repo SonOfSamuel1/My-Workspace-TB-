@@ -340,7 +340,8 @@ def _build_task_card(
     schedule_btn = (
         f'<button class="schedule-btn" '
         f"onclick=\"event.stopPropagation();openScheduleModal('{task_id}')\">"
-        "&#128197; Schedule</button>"
+        '<svg class="schedule-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01M16 18h.01"/></svg>'
+        " Schedule</button>"
     )
 
     # Assign CC button — copy task info to clipboard for Claude Code (all views)
@@ -700,8 +701,9 @@ def build_view_html(
         ".schedule-btn{font-family:inherit;font-size:12px;font-weight:600;"
         "padding:5px 14px;border-radius:6px;"
         "background:rgba(56,189,248,0.10);color:#38bdf8;border:1px solid rgba(56,189,248,0.20);cursor:pointer;"
-        "transition:background .15s ease-out;}"
+        "transition:background .15s ease-out;display:inline-flex;align-items:center;gap:4px;}"
         ".schedule-btn:hover{background:rgba(56,189,248,0.25);}"
+        ".schedule-icon{flex-shrink:0;}"
         # Schedule modal
         "#schedule-overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;"
         "z-index:2000;background:rgba(0,0,0,0.6);align-items:center;justify-content:center;}"

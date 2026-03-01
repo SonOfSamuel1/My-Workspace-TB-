@@ -151,6 +151,19 @@ class TodoistService:
     # Tasks
     # ------------------------------------------------------------------
 
+    def get_task(self, task_id):
+        """Get a single task by ID."""
+        try:
+            response = requests.get(
+                f"{API_BASE}/tasks/{task_id}",
+                headers=self.headers,
+            )
+            response.raise_for_status()
+            return response.json()
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Failed to fetch task {task_id}: {e}")
+            return None
+
     def get_inbox_tasks(self, projects=None):
         """Get tasks from Inbox and Inbox 2 projects combined.
 

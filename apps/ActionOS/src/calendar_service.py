@@ -240,6 +240,75 @@ class CalendarService:
         logger.info(f"FFM sync complete: {synced} synced, {skipped} skipped")
         return {"synced": synced, "skipped": skipped}
 
+    def create_schedule_events(
+        self,
+        title: str,
+        duration_minutes: int,
+        calendar_id: str = "primary",
+    ) -> List[Dict[str, Any]]:
+        """Create 30-min calendar events for today totaling *duration_minutes*.
+
+        Events are placed sequentially starting from the next half-hour slot.
+        Returns a list of created event dicts.
+        """
+        from datetime import date as _date
+
+        num_events = max(1, duration_minutes // 30)
+        now = datetime.now(timezone.utc)
+
+        # Find user's local timezone from the calendar settings
+        try:
+            settings = self.service.settings().get(setting="timezone").execute()
+            tz_name = settings.get("value", "America/New_York")
+        except Exception:
+            tz_name = "America/New_York"
+
+        import zoneinfo
+
+        local_tz = zoneinfo.ZoneInfo(tz_name)
+        local_now = now.astimezone(local_tz)
+
+        # Round up to next 30-min boundary
+        minute = local_now.minute
+        if minute == 0 or minute == 30:
+            start = local_now.replace(second=0, microsecond=0)
+        elif minute < 30:
+            start = local_now.replace(minute=30, second=0, microsecond=0)
+        else:
+            start = (local_now + timedelta(hours=1)).replace(
+                minute=0, second=0, microsecond=0
+            )
+
+        created = []
+        for i in range(num_events):
+            ev_start = start + timedelta(minutes=30 * i)
+            ev_end = ev_start + timedelta(minutes=30)
+            body = {
+                "summary": title,
+                "start": {
+                    "dateTime": ev_start.isoformat(),
+                    "timeZone": tz_name,
+                },
+                "end": {
+                    "dateTime": ev_end.isoformat(),
+                    "timeZone": tz_name,
+                },
+            }
+            try:
+                result = (
+                    self.service.events()
+                    .insert(calendarId=calendar_id, body=body)
+                    .execute()
+                )
+                created.append(result)
+                logger.info(
+                    f"Created event '{title}' {ev_start.strftime('%H:%M')}-{ev_end.strftime('%H:%M')}"
+                )
+            except Exception as e:
+                logger.error(f"Failed to create event slot {i + 1}: {e}")
+
+        return created
+
     def get_upcoming_events_cached(self, days: int = 90) -> List[Dict[str, Any]]:
         """TTL-cached wrapper around get_upcoming_events (60s cache)."""
         now_ts = time.time()
