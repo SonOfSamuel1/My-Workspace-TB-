@@ -814,17 +814,25 @@ def _build_followup_email_card(
             "Resolved</button>"
         )
 
-    # Open in Gmail link — use window.top.open so iOS universal links
-    # route to the Gmail app with the specific thread (iframe links don't
-    # trigger universal links).
+    # Open in Gmail link — use a server-side 302 redirect via our Lambda
+    # so that iOS universal links route to the Gmail app with the specific
+    # thread.  target=_top breaks out of the iframe.
     gmail_btn = ""
     if gmail_link:
-        gmail_btn = (
-            f'<a href="{html.escape(gmail_link)}" class="gcal-link" '
-            f"onclick=\"event.preventDefault();event.stopPropagation();"
-            f"window.top.open('{html.escape(gmail_link)}','_blank')\">"
-            f"Open in Gmail \u2197</a>"
-        )
+        _gl_tid = gmail_link.split("#inbox/")[-1] if "#inbox/" in gmail_link else ""
+        if _gl_tid:
+            _redir = base_url + "?action=gmail_open&thread_id=" + urllib.parse.quote(_gl_tid)
+            gmail_btn = (
+                f'<a href="{html.escape(_redir)}" target="_top" class="gcal-link" '
+                f'onclick="event.stopPropagation()">'
+                f"Open in Gmail \u2197</a>"
+            )
+        else:
+            gmail_btn = (
+                f'<a href="{html.escape(gmail_link)}" target="_top" class="gcal-link" '
+                f'onclick="event.stopPropagation()">'
+                f"Open in Gmail \u2197</a>"
+            )
 
     # Build open URL for email viewer
     open_url = ""
