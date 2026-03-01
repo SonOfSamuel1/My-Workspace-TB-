@@ -10,6 +10,9 @@ import urllib.parse
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 from typing import Any, Dict
+from zoneinfo import ZoneInfo
+
+_EASTERN = ZoneInfo("America/New_York")
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +32,9 @@ def _is_followup_reviewed(thread_id: str, state: dict) -> bool:
         reviewed_at = datetime.fromisoformat(ts)
         if reviewed_at.tzinfo is None:
             reviewed_at = reviewed_at.replace(tzinfo=timezone.utc)
-        return (datetime.now(timezone.utc) - reviewed_at).days < 7
+        reviewed_date = reviewed_at.astimezone(_EASTERN).date()
+        today = datetime.now(_EASTERN).date()
+        return (today - reviewed_date).days < 7
     except Exception:
         return False
 
@@ -42,7 +47,9 @@ def _days_until_review_reset(thread_id: str, state: dict) -> int:
         reviewed_at = datetime.fromisoformat(ts)
         if reviewed_at.tzinfo is None:
             reviewed_at = reviewed_at.replace(tzinfo=timezone.utc)
-        return max(0, 7 - (datetime.now(timezone.utc) - reviewed_at).days)
+        reviewed_date = reviewed_at.astimezone(_EASTERN).date()
+        today = datetime.now(_EASTERN).date()
+        return max(0, 7 - (today - reviewed_date).days)
     except Exception:
         return 0
 
