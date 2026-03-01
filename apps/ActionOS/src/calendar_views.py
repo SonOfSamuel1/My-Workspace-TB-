@@ -268,6 +268,8 @@ def _build_event_card(
     action_token: str,
     project_options_html: str,
     idx: int,
+    has_todoist_action: bool = False,
+    has_prep_action: bool = False,
 ) -> str:
     eid = event.get("id", "")
     eid_safe = html.escape(eid)
@@ -330,6 +332,42 @@ def _build_event_card(
         + loc_enc
     )
 
+    # Schedule Prep URL + button/indicator
+    prep_url_base = (
+        function_url.rstrip("/")
+        + "?action=calendar_schedule_prep"
+        + "&event_id="
+        + eid_enc
+        + "&event_title="
+        + title_enc
+        + "&event_date="
+        + date_enc
+        + "&event_location="
+        + loc_enc
+    )
+    if has_prep_action:
+        schedule_prep_btn = (
+            '<span class="prep-indicator" id="prep-' + str(idx) + '"'
+            ' style="font-size:11px;color:var(--ok,#22c55e);">'
+            "Prep Scheduled</span>"
+        )
+    else:
+        schedule_prep_btn = (
+            f'<button class="schedule-prep-btn" id="prep-{idx}" '
+            f"onclick=\"doSchedulePrep(this,{idx},'{prep_url_base}')\">"
+            "Schedule Prep</button>"
+        )
+
+    # Todoist action indicator badge
+    todoist_indicator = ""
+    if has_todoist_action:
+        todoist_indicator = (
+            '<span class="todoist-indicator"'
+            ' style="font-size:10px;background:var(--ok-bg,#16382a);color:var(--ok,#22c55e);'
+            'padding:1px 6px;border-radius:8px;margin-left:6px;white-space:nowrap;">'
+            "Todoist</span>"
+        )
+
     # Meta line: date · location
     meta_parts = [date_range]
     if location:
@@ -369,7 +407,7 @@ def _build_event_card(
     card_extra = " reviewed-card" if reviewed else " unreviewed-card"
 
     if reviewed:
-        # Reviewed: clean card with just badge + gcal link + timer
+        # Reviewed: clean card with badge + indicators + gcal link + timer
         return (
             f'<div class="task-card{card_extra}" id="card-{idx}">'
             f'<div class="card-row">'
@@ -377,10 +415,12 @@ def _build_event_card(
             f'<div class="task-title">'
             f"{title}"
             f'<span class="cal-type-badge" style="background:{cal_color}">{cal_label}</span>'
+            f"{todoist_indicator}"
             f"</div>"
             f'<div class="task-meta">{meta_line}</div>'
             f'<div class="task-actions">'
             f"{review_btn}"
+            f"{schedule_prep_btn}"
             f"{timer_btn}"
             f"{gcal_html}"
             f"</div>"
@@ -388,7 +428,7 @@ def _build_event_card(
             f"</div>"
         )
 
-    # Unreviewed: Review + Add to Todoist + Commit + Timer + gcal
+    # Unreviewed: Review + Add to Todoist + Commit + Schedule Prep + Timer + gcal
     return (
         f'<div class="task-card{card_extra}" id="card-{idx}">'
         f'<div class="card-row">'
@@ -396,6 +436,7 @@ def _build_event_card(
         f'<div class="task-title">'
         f"{title}"
         f'<span class="cal-type-badge" style="background:{cal_color}">{cal_label}</span>'
+        f"{todoist_indicator}"
         f"</div>"
         f'<div class="task-meta">{meta_line}</div>'
         f'<div class="task-actions">'
@@ -406,6 +447,7 @@ def _build_event_card(
         f'<button class="commit-btn" id="cmt-{idx}" '
         f"onclick=\"doCommit(this,{idx},'{commit_url_base}')\">"
         f"Commit</button>"
+        f"{schedule_prep_btn}"
         f"{timer_btn}"
         f"{gcal_html}"
         f"</div>"
@@ -525,10 +567,21 @@ def build_calendar_html(
     projects: List[Dict[str, Any]],
     embed: bool = False,
     checklists: dict = None,
+    todoist_tasks: List[Dict[str, Any]] = None,
 ) -> str:
     """Build the Calendar page with categorized sections."""
     project_options_html = _build_project_options_html(projects)
     checklists = checklists or {}
+    todoist_tasks = todoist_tasks or []
+
+    # Build lookup sets for calendar-todoist matching
+    _todoist_titles = set()
+    _todoist_prep_titles = set()
+    for t in todoist_tasks:
+        c = (t.get("content") or "").strip()
+        _todoist_titles.add(c.lower())
+        if c.lower().startswith("event prep: "):
+            _todoist_prep_titles.add(c[len("Event Prep: "):].strip().lower())
 
     # Filter out birthday/anniversary events beyond 90 days
     filtered_events = [
@@ -566,6 +619,7 @@ def build_calendar_html(
             eid = event.get("id", "")
             r = _is_event_reviewed(eid, reviewed_state)
             days_rem = _days_until_reviewed_reset(eid, reviewed_state)
+            ev_title_lower = (event.get("title") or "").strip().lower()
             out += _build_event_card(
                 event,
                 r,
@@ -574,6 +628,8 @@ def build_calendar_html(
                 action_token,
                 project_options_html,
                 idx,
+                has_todoist_action=ev_title_lower in _todoist_titles,
+                has_prep_action=ev_title_lower in _todoist_prep_titles,
             )
         return out
 
@@ -738,6 +794,14 @@ def build_calendar_html(
         "background:var(--border);color:var(--text-2);border:1px solid var(--border);"
         "cursor:pointer;transition:background .15s;}"
         ".commit-btn:hover{background:var(--border-h);color:var(--text-1);}"
+        ".schedule-prep-btn{font-family:inherit;font-size:12px;font-weight:600;"
+        "padding:5px 14px;border-radius:6px;"
+        "background:var(--p1-bg,#1e293b);color:var(--p1,#38bdf8);border:1px solid var(--p1-b,#334155);"
+        "cursor:pointer;transition:background .15s;}"
+        ".schedule-prep-btn:hover{background:var(--p1-b,#334155);}"
+        ".prep-indicator{font-family:inherit;font-size:11px;font-weight:600;"
+        "padding:5px 10px;border-radius:6px;"
+        "color:var(--ok,#22c55e);}"
         ".timer-btn{font-family:inherit;font-size:12px;font-weight:600;"
         "padding:5px 14px;border-radius:6px;"
         "background:var(--purple-bg);color:var(--purple);border:1px solid var(--purple-b);"
@@ -911,6 +975,18 @@ def build_calendar_html(
         "}).catch(function(){"
         "btn.textContent='Commit';btn.style.background='';btn.style.color='';"
         "btn.style.pointerEvents='auto';});}"
+        "function doSchedulePrep(btn,idx,baseUrl){"
+        "btn.style.pointerEvents='none';btn.textContent='Scheduling\u2026';"
+        "fetch(baseUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'})"
+        ".then(function(r){return r.json();})"
+        ".then(function(d){"
+        "if(d.ok){"
+        "btn.textContent='Prep Scheduled';btn.style.background=cv('--ok-bg');btn.style.color=cv('--ok');"
+        "btn.style.cursor='default';btn.classList.remove('schedule-prep-btn');btn.classList.add('prep-indicator');}"
+        "else{"
+        "btn.textContent='Schedule Prep';btn.style.pointerEvents='auto';}"
+        "}).catch(function(){"
+        "btn.textContent='Schedule Prep';btn.style.pointerEvents='auto';});}"
         "function toggleChecklist(section){"
         "var body=document.getElementById('cl-body-'+section);"
         "var btn=document.getElementById('cl-btn-'+section);"

@@ -553,6 +553,8 @@ def _build_calendar_card(
     days_remaining: int,
     function_url: str,
     idx: int,
+    has_todoist_action: bool = False,
+    has_prep_action: bool = False,
 ) -> str:
     """Build a calendar event card with full action buttons."""
     eid = html.escape(str(event.get("id", "")))
@@ -666,6 +668,44 @@ def _build_calendar_card(
         )
     )
 
+    # Schedule Prep button
+    prep_url = html.escape(
+        base_url
+        + "?action=calendar_schedule_prep"
+        + "&event_id="
+        + eid_enc
+        + "&event_title="
+        + title_enc
+        + "&event_date="
+        + date_enc
+        + "&event_location="
+        + loc_enc
+    )
+    if has_prep_action:
+        schedule_prep_btn = (
+            '<span class="prep-indicator" style="font-size:11px;color:var(--ok,#22c55e);"'
+            ' onclick="event.stopPropagation()">'
+            "Prep Scheduled</span>"
+        )
+    elif reviewed:
+        schedule_prep_btn = ""
+    else:
+        schedule_prep_btn = (
+            f'<button class="schedule-prep-btn" '
+            f"onclick=\"event.stopPropagation();doCalSchedulePrep(this,{idx},'{prep_url}')\">"
+            "Schedule Prep</button>"
+        )
+
+    # Todoist action indicator badge
+    todoist_indicator = ""
+    if has_todoist_action:
+        todoist_indicator = (
+            '<span class="todoist-indicator"'
+            ' style="font-size:10px;background:var(--ok-bg,#16382a);color:var(--ok,#22c55e);'
+            'padding:1px 6px;border-radius:8px;margin-left:6px;white-space:nowrap;">'
+            "Todoist</span>"
+        )
+
     # Prep Timer button (today/tomorrow timed events only)
     timer_btn = ""
     if _is_upcoming_timed_event(event):
@@ -712,10 +752,11 @@ def _build_calendar_card(
         f'<div class="task-title">'
         f"{title}"
         f'<span class="cal-type-badge" style="background:{cal_color};">{cal_label}</span>'
+        f"{todoist_indicator}"
         f"</div>"
         f'<div class="task-meta">{meta_line}</div>'
         f'<div class="task-actions">'
-        f"{review_btn}{todoist_btn}{commit_btn}{timer_btn}{gcal_html}"
+        f"{review_btn}{todoist_btn}{commit_btn}{schedule_prep_btn}{timer_btn}{gcal_html}"
         f"</div>"
         f"</div></div>"
         f"</div>"
@@ -1006,9 +1047,20 @@ def build_home_html(
     embed: bool = False,
     email_actions_url: str = "",
     email_actions_token: str = "",
+    todoist_tasks: List[Dict[str, Any]] = None,
 ) -> str:
     """Build the Home aggregated view HTML."""
     projects_by_id = _build_projects_by_id(projects)
+
+    # Build lookup sets for calendar-todoist matching
+    todoist_tasks = todoist_tasks or []
+    _todoist_titles = set()
+    _todoist_prep_titles = set()
+    for t in todoist_tasks:
+        c = (t.get("content") or "").strip()
+        _todoist_titles.add(c.lower())
+        if c.lower().startswith("event prep: "):
+            _todoist_prep_titles.add(c[len("Event Prep: "):].strip().lower())
     home_state = home_state or {}
     cal_state = cal_state or {}
     followup_state = followup_state or {}
@@ -1122,7 +1174,14 @@ def build_home_html(
             except Exception:
                 pass
         idx = next_idx()
-        card = _build_calendar_card(event, rev, days_rem, function_url, idx)
+        ev_title_lower = (event.get("title") or "").strip().lower()
+        _has_todoist = ev_title_lower in _todoist_titles
+        _has_prep = ev_title_lower in _todoist_prep_titles
+        card = _build_calendar_card(
+            event, rev, days_rem, function_url, idx,
+            has_todoist_action=_has_todoist,
+            has_prep_action=_has_prep,
+        )
         if rev:
             pass  # Hide reviewed calendar events
         else:
@@ -1430,6 +1489,15 @@ def build_home_html(
         "background:var(--accent-bg);color:var(--accent-l);border:1px solid var(--accent-b);"
         "cursor:pointer;transition:background .15s;}"
         ".todoist-btn:hover{background:var(--accent-b);}"
+        # Schedule Prep button
+        ".schedule-prep-btn{font-family:inherit;font-size:12px;font-weight:600;"
+        "padding:4px 12px;border-radius:6px;"
+        "background:var(--p1-bg,#1e293b);color:var(--p1,#38bdf8);border:1px solid var(--p1-b,#334155);"
+        "cursor:pointer;transition:background .15s;}"
+        ".schedule-prep-btn:hover{background:var(--p1-b,#334155);}"
+        ".prep-indicator{font-family:inherit;font-size:11px;font-weight:600;"
+        "padding:4px 10px;border-radius:6px;"
+        "color:var(--ok,#22c55e);}"
         # Skip Inbox button
         ".skip-inbox-btn{font-family:inherit;font-size:12px;font-weight:600;"
         "padding:4px 12px;border-radius:6px;"
@@ -1756,6 +1824,15 @@ def build_home_html(
         "btn.textContent='\u2713 Committed';btn.style.cursor='default';}"
         "else{btn.textContent='Commit';btn.style.background='';btn.style.color='';btn.style.pointerEvents='auto';}"
         "}).catch(function(){btn.textContent='Commit';btn.style.pointerEvents='auto';});}"
+        # --- Calendar: Schedule Prep ---
+        "function doCalSchedulePrep(btn,idx,url){"
+        "btn.style.pointerEvents='none';btn.textContent='Scheduling\u2026';"
+        "fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'})"
+        ".then(function(r){return r.json();}).then(function(d){"
+        "if(d.ok){btn.textContent='Prep Scheduled';btn.style.background=cv('--ok-bg');btn.style.color=cv('--ok');"
+        "btn.style.cursor='default';btn.classList.remove('schedule-prep-btn');btn.classList.add('prep-indicator');}"
+        "else{btn.textContent='Schedule Prep';btn.style.pointerEvents='auto';}"
+        "}).catch(function(){btn.textContent='Schedule Prep';btn.style.pointerEvents='auto';});}"
         # --- Prep Timer ---
         "function _timerLabel(secs){"
         "if(secs<=0)return 'Starting soon';"

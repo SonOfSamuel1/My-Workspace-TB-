@@ -1198,12 +1198,13 @@ def handle_action(event: dict) -> dict:
                 gmail = GmailService()
                 today_str = datetime.now().strftime("%Y-%m-%d")
 
-                with ThreadPoolExecutor(max_workers=8) as ex:
+                with ThreadPoolExecutor(max_workers=9) as ex:
                     f_projects = ex.submit(service.get_all_projects)
                     f_commit = ex.submit(service.get_tasks_by_label, "Commit")
                     f_bestcase = ex.submit(service.get_tasks_by_label, "Best Case")
                     f_p1 = ex.submit(service.get_tasks_by_priority, 4)
                     f_inbox = ex.submit(service.get_inbox_tasks)
+                    f_all_todoist = ex.submit(service.get_all_tasks)
                     f_calendar = ex.submit(cal.get_upcoming_events, 90)
                     f_starred = ex.submit(gmail.get_starred_emails)
                     f_unread = ex.submit(
@@ -1238,6 +1239,7 @@ def handle_action(event: dict) -> dict:
                     reverse=True,
                 )
                 calendar_events = f_calendar.result()
+                all_todoist_tasks = f_all_todoist.result()
                 starred_emails = f_starred.result()
                 try:
                     unread_emails = f_unread.result()
@@ -1271,6 +1273,7 @@ def handle_action(event: dict) -> dict:
                     function_url=function_url,
                     action_token=expected,
                     embed=True,
+                    todoist_tasks=all_todoist_tasks,
                 )
                 return {
                     "statusCode": 200,
@@ -1475,6 +1478,7 @@ def handle_action(event: dict) -> dict:
                     os.environ["CALENDAR_CREDENTIALS_JSON"],
                     os.environ["CALENDAR_TOKEN_JSON"],
                 )
+                svc = TodoistService(todoist_token)
                 # Auto-sync FFM events to Family calendar
                 try:
                     cal.sync_ffm_to_family()
@@ -1484,6 +1488,7 @@ def handle_action(event: dict) -> dict:
                 state = _load_calendar_state()
                 projects = _fetch_todoist_projects(todoist_token)
                 checklists = _load_checklists()
+                all_todoist_tasks = svc.get_all_tasks()
                 body = build_calendar_html(
                     events,
                     state,
@@ -1492,6 +1497,7 @@ def handle_action(event: dict) -> dict:
                     projects,
                     embed=True,
                     checklists=checklists,
+                    todoist_tasks=all_todoist_tasks,
                 )
                 return {
                     "statusCode": 200,
@@ -2432,6 +2438,52 @@ def handle_action(event: dict) -> dict:
             return _ok_json()
         except Exception as e:
             logger.error(f"{action} failed: {e}", exc_info=True)
+            return _error_json(str(e))
+
+    elif action == "calendar_schedule_prep":
+        try:
+            import requests as _req
+
+            event_title = params.get("event_title", "Calendar Event")
+            event_date = params.get("event_date", "")
+            event_location = params.get("event_location", "")
+            event_id = params.get("event_id", "")
+
+            # Calculate due date: 3 weeks before event date
+            prep_due = ""
+            if event_date:
+                try:
+                    ev_dt = datetime.strptime(event_date[:10], "%Y-%m-%d")
+                    prep_dt = ev_dt - timedelta(weeks=3)
+                    prep_due = prep_dt.strftime("%Y-%m-%d")
+                except Exception:
+                    prep_due = event_date[:10]
+
+            _headers = {
+                "Authorization": f"Bearer {todoist_token}",
+                "Content-Type": "application/json",
+            }
+            desc_parts = []
+            if event_date:
+                desc_parts.append(f"**Event Date:** {event_date}")
+            if event_location:
+                desc_parts.append(f"**Location:** {event_location}")
+            task_json = {
+                "content": f"Event Prep: {event_title}",
+                "description": "\n".join(desc_parts),
+            }
+            if prep_due:
+                task_json["due_date"] = prep_due
+
+            _r = _req.post(
+                "https://api.todoist.com/api/v1/tasks",
+                headers=_headers,
+                json=task_json,
+            )
+            _r.raise_for_status()
+            return _ok_json()
+        except Exception as e:
+            logger.error(f"calendar_schedule_prep failed: {e}", exc_info=True)
             return _error_json(str(e))
 
     # -----------------------------------------------------------------------
