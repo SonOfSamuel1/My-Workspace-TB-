@@ -995,6 +995,7 @@ def handle_action(event: dict) -> dict:
             "calendar_save_checklist",
             "calendar_create_todoist",
             "calendar_commit",
+            "ffm_outreach",
             "toggl_start",
             "starred_to_todoist",
             "followup_reviewed",
@@ -1484,6 +1485,9 @@ def handle_action(event: dict) -> dict:
                 state = _load_calendar_state()
                 projects = _fetch_todoist_projects(todoist_token)
                 checklists = _load_checklists()
+                # Fetch Fishing for Men Todoist project tasks
+                svc = TodoistService(todoist_token)
+                ffm_tasks, ffm_project_id = svc.get_ffm_tasks()
                 body = build_calendar_html(
                     events,
                     state,
@@ -1492,6 +1496,8 @@ def handle_action(event: dict) -> dict:
                     projects,
                     embed=True,
                     checklists=checklists,
+                    ffm_tasks=ffm_tasks,
+                    ffm_project_id=ffm_project_id,
                 )
                 return {
                     "statusCode": 200,
@@ -2432,6 +2438,33 @@ def handle_action(event: dict) -> dict:
             return _ok_json()
         except Exception as e:
             logger.error(f"{action} failed: {e}", exc_info=True)
+            return _error_json(str(e))
+
+    # -----------------------------------------------------------------------
+    # FFM outreach — create committed task to reach out to a target
+    # -----------------------------------------------------------------------
+    elif action == "ffm_outreach":
+        person = params.get("person", "")
+        meal_type = params.get("meal_type", "coffee")
+        if not person:
+            return _error_json("Missing person")
+        try:
+            from todoist_service import TodoistService
+
+            svc = TodoistService(todoist_token)
+            today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+            content = f"Reach out to {person} for {meal_type}"
+            task = svc.create_task(
+                content=content,
+                due_date=today,
+                labels=["Commit"],
+            )
+            if task:
+                svc.commit_task(task["id"])
+                return _ok_json()
+            return _error_json("Failed to create task")
+        except Exception as e:
+            logger.error(f"ffm_outreach failed: {e}", exc_info=True)
             return _error_json(str(e))
 
     # -----------------------------------------------------------------------

@@ -558,6 +558,26 @@ class TodoistService:
             logger.error(f"Failed to create task '{content}': {e}")
             return None
 
+    def get_ffm_tasks(self):
+        """Fetch tasks from the 'Fishing for Men' Todoist project.
+
+        Returns (tasks, project_id) — tasks list and the project ID (or None).
+        """
+        projects = self.get_all_projects()
+        ffm_project = None
+        for p in projects:
+            name = p.get("name", "")
+            if name.lower() in ("fishing for men", "fishing4men"):
+                ffm_project = p
+                break
+        if not ffm_project:
+            logger.info("No 'Fishing for Men' project found in Todoist")
+            return [], None
+        pid = ffm_project["id"]
+        tasks = self._get_all_pages("tasks", {"project_id": pid})
+        logger.info(f"Fetched {len(tasks)} FFM tasks from project {pid}")
+        return tasks, pid
+
     def get_sabbath_tasks(self):
         """Fetch tasks from the 'Sabbath Actions' project and with 'Sabbath Approved' label.
 
