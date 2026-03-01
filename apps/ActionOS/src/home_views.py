@@ -1487,6 +1487,13 @@ def build_home_html(
         ".assign-cc-btn:hover{background:rgba(196,120,64,0.25);}"
         # Detail pane
         "#home-detail-pane{display:none;}"
+        "#home-detail-pane.open{display:flex!important;flex-direction:column;"
+        "position:fixed;inset:0;z-index:200;background:var(--bg-base);}"
+        "#home-detail-pane.open .viewer-mobile-header{display:flex!important;align-items:center;"
+        "background:var(--bg-s0);border-bottom:1px solid var(--border);"
+        "padding:0 12px;height:52px;flex-shrink:0;z-index:12;}"
+        "#home-detail-pane.open #home-detail-content{flex:1;overflow-y:auto;}"
+        "#home-detail-pane.open #home-detail-frame{flex:1;}"
         ".viewer-mobile-header{display:none;}"
         ".viewer-back-btn{display:flex;align-items:center;gap:6px;background:none;border:none;"
         "color:var(--accent-l);font-family:inherit;font-size:15px;font-weight:600;"
@@ -1864,7 +1871,6 @@ def build_home_html(
         # --- Detail pane (rich view matching todoist_views) ---
         # All user content is sanitized via esc() before DOM insertion
         "function openHomeDetail(card){"
-        "if(window.innerWidth>768)return;"
         "var url=card.getAttribute('data-open-url');"
         "if(url){openHomeEmail(card);return;}"
         "var taskId=card.getAttribute('data-task-id')||'';"
@@ -1992,7 +1998,6 @@ def build_home_html(
         "loadHomeAttachments(taskId,dc);"
         "}"
         "function openHomeEmail(card){"
-        "if(window.innerWidth>768)return;"
         "var url=card.getAttribute('data-open-url');"
         "if(!url)return;"
         "var frame=document.getElementById('home-detail-frame');"
