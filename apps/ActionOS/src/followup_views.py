@@ -133,9 +133,11 @@ def _build_followup_card(
     if gmail_link:
         _gl_tid = gmail_link.split("#inbox/")[-1] if "#inbox/" in gmail_link else ""
         if _gl_tid:
-            _app_url = f"googlegmail:///cv={_gl_tid}/accountId=0&amp;create-new-tab"
+            _redir = html.escape(
+                base_url + "?action=gmail_open&thread_id=" + urllib.parse.quote(_gl_tid)
+            )
             gmail_btn = (
-                f'<a href="{_app_url}" class="gcal-link" '
+                f'<a href="{_redir}" target="_top" class="gcal-link" '
                 f'onclick="event.stopPropagation()">'
                 f"Open in Gmail \u2197</a>"
             )
