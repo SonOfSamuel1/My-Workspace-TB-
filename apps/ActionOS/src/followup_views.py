@@ -13,6 +13,13 @@ from typing import Any, Dict
 
 logger = logging.getLogger(__name__)
 
+
+def _to_gmail_app_link(url: str) -> str:
+    """Convert a Gmail web URL to the iOS Gmail app deep link."""
+    if url.startswith("https://mail.google.com"):
+        return url.replace("https://mail.google.com", "googlegmail://", 1)
+    return url
+
 _FONT = (
     "'Inter','SF Pro Display',-apple-system,BlinkMacSystemFont,"
     "'Segoe UI',Roboto,sans-serif"
@@ -94,7 +101,7 @@ def _build_followup_card(
     recipient = html.escape(_format_recipient(to_raw))
     msg_count = email.get("thread_message_count", 1)
     age = html.escape(_format_email_age(email.get("date", "")))
-    gmail_link = html.escape(email.get("gmail_link", ""))
+    gmail_link = html.escape(_to_gmail_app_link(email.get("gmail_link", "")))
 
     base_url = function_url.rstrip("/")
     open_url = html.escape(
