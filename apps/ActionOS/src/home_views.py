@@ -1509,7 +1509,7 @@ def build_home_html(
         "btn.style.pointerEvents='none';btn.textContent='Creating\u2026';"
         "fetch(_homeUrl+'?action=starred_to_todoist',{method:'POST',"
         "headers:{'Content-Type':'application/json'},"
-        "body:JSON.stringify({msg_id:msgId,subject:subject})})"
+        "body:JSON.stringify({msg_id:msgId,subject:subject,mode:'inbox'})})"
         ".then(function(r){return r.json();}).then(function(d){"
         "if(d.ok){btn.textContent='\u2713 Created';btn.style.background=cv('--ok-bg');btn.style.color=cv('--ok');"
         "setTimeout(function(){btn.textContent='Create Todoist';btn.style.background='';btn.style.color='';btn.style.pointerEvents='auto';},2000);}"
