@@ -1196,7 +1196,11 @@ def handle_action(event: dict) -> dict:
 
                 # Follow-up emails from S3 state
                 fu_state = _load_followup_state()
-                followup_emails = list(fu_state.get("emails", {}).values())
+                # Inject threadId from dict key for backwards compat
+                followup_emails = []
+                for tid, edata in fu_state.get("emails", {}).items():
+                    edata.setdefault("threadId", tid)
+                    followup_emails.append(edata)
 
                 home_state = _load_home_reviewed_state()
                 cal_state = _load_calendar_state()

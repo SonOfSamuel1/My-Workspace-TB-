@@ -130,6 +130,7 @@ def run_followup_sync(dry_run: bool = False) -> Dict[str, Any]:
         if tid in resolved:
             continue
         new_emails[tid] = {
+            "threadId": tid,
             "id": email["id"],
             "subject": email["subject"],
             "to": email["to"],

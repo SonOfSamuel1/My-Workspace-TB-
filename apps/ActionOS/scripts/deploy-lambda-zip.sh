@@ -61,11 +61,14 @@ echo ""
 
 # Update Lambda function code
 echo -e "${YELLOW}Step 2: Updating Lambda function code...${NC}"
+# Copy ZIP to /tmp to avoid fileb:// issues with special chars in paths
+cp "$ZIP_FILE" /tmp/_actionos_deploy.zip
 aws lambda update-function-code \
     --function-name $FUNCTION_NAME \
-    --zip-file "fileb://$ZIP_FILE" \
+    --zip-file "fileb:///tmp/_actionos_deploy.zip" \
     --region $AWS_REGION \
     > /dev/null
+rm -f /tmp/_actionos_deploy.zip
 
 echo -e "${GREEN}✓ Lambda function code updated${NC}"
 echo ""

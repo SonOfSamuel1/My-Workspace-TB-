@@ -180,7 +180,11 @@ def build_followup_html(
     embed: bool = False,
 ) -> str:
     """Build the Follow-up page with Needs Review and Reviewed sections."""
-    emails = list(emails_dict.values())
+    # Inject threadId from dict key for backwards compat
+    emails = []
+    for tid, edata in emails_dict.items():
+        edata.setdefault("threadId", tid)
+        emails.append(edata)
 
     unreviewed = []
     reviewed_emails = []
