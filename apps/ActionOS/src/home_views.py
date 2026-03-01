@@ -30,19 +30,25 @@ _FONT = (
 
 # Section display config: key -> (label, left-border color, cycle_days)
 _SECTION_CONFIG = {
-    "commit":   ("@Commit",    "#6366f1", 1),
-    "bestcase": ("Best Case",  "#a78bfa", 1),
-    "calendar": ("Calendar",   "#eab308", 7),
-    "p1":       ("P1",         "#ef4444", 7),
-    "starred":  ("Starred",    "#eab308", 1),
-    "unread":   ("Unread",     "#8e8e93", 0),
-    "followup": ("Follow-up",  "#8e8e93", 0),
-    "inbox":    ("Inbox",      "#22c55e", 1),
+    "commit": ("@Commit", "#6366f1", 1),
+    "bestcase": ("Best Case", "#a78bfa", 1),
+    "calendar": ("Calendar", "#eab308", 7),
+    "p1": ("P1", "#ef4444", 7),
+    "starred": ("Starred", "#eab308", 1),
+    "unread": ("Unread", "#8e8e93", 0),
+    "followup": ("Follow-up", "#8e8e93", 0),
+    "inbox": ("Inbox", "#22c55e", 1),
 }
 
 _SECTION_ORDER = [
-    "commit", "bestcase", "calendar", "p1",
-    "starred", "unread", "followup", "inbox",
+    "commit",
+    "bestcase",
+    "calendar",
+    "p1",
+    "starred",
+    "unread",
+    "followup",
+    "inbox",
 ]
 
 
@@ -50,7 +56,10 @@ _SECTION_ORDER = [
 # Review-state helpers
 # ---------------------------------------------------------------------------
 
-def _is_home_item_reviewed(item_id: str, section: str, state: dict, cycle_days: int) -> bool:
+
+def _is_home_item_reviewed(
+    item_id: str, section: str, state: dict, cycle_days: int
+) -> bool:
     """Return True if item_id has been reviewed within cycle_days."""
     if cycle_days <= 0:
         return False
@@ -61,13 +70,17 @@ def _is_home_item_reviewed(item_id: str, section: str, state: dict, cycle_days: 
         reviewed_at = datetime.fromisoformat(ts)
         if reviewed_at.tzinfo is None:
             reviewed_at = reviewed_at.replace(tzinfo=timezone.utc)
-        elapsed_days = (datetime.now(timezone.utc) - reviewed_at).total_seconds() / 86400
+        elapsed_days = (
+            datetime.now(timezone.utc) - reviewed_at
+        ).total_seconds() / 86400
         return elapsed_days < cycle_days
     except Exception:
         return False
 
 
-def _time_until_review_reset(item_id: str, section: str, state: dict, cycle_days: int) -> str:
+def _time_until_review_reset(
+    item_id: str, section: str, state: dict, cycle_days: int
+) -> str:
     """Return a human-readable string for when the review resets, e.g. '18h' or '5d'."""
     if cycle_days <= 0:
         return ""
@@ -91,6 +104,7 @@ def _time_until_review_reset(item_id: str, section: str, state: dict, cycle_days
 # ---------------------------------------------------------------------------
 # Shared helpers
 # ---------------------------------------------------------------------------
+
 
 def _relative_age(added_at: str) -> str:
     """Return a short relative age string like '3d' or '2h' from an ISO timestamp."""
@@ -139,7 +153,9 @@ def _build_projects_by_id(projects: List[Dict[str, Any]]) -> Dict[str, str]:
     return {str(p.get("id", "")): p.get("name", "Unknown") for p in projects}
 
 
-def _build_project_options_html(projects_by_id: Dict[str, str], current_project_id: str = "") -> str:
+def _build_project_options_html(
+    projects_by_id: Dict[str, str], current_project_id: str = ""
+) -> str:
     opts = '<option value="" disabled selected>Move to...</option>'
     for pid, pname in sorted(projects_by_id.items(), key=lambda x: x[1].lower()):
         disabled = " disabled" if pid == current_project_id else ""
@@ -177,6 +193,7 @@ def _is_upcoming_timed_event(event: Dict[str, Any]) -> bool:
 # ---------------------------------------------------------------------------
 # Card builders
 # ---------------------------------------------------------------------------
+
 
 def _build_task_card(
     task: Dict[str, Any],
@@ -253,11 +270,11 @@ def _build_task_card(
     move_opts = _build_project_options_html(projects_by_id, project_id)
     move_select = (
         f'<div class="move-pill">'
-        f'{_move_icon}'
+        f"{_move_icon}"
         f'<select class="move-pill-select" '
-        f"onclick=\"event.stopPropagation()\" "
+        f'onclick="event.stopPropagation()" '
         f"onchange=\"event.stopPropagation();doMove('{task_id}',this.value,this)\">"
-        f'{move_opts}</select></div>'
+        f"{move_opts}</select></div>"
     )
 
     # Priority dropdown
@@ -270,7 +287,7 @@ def _build_task_card(
         f'<select class="action-select" '
         f'onclick="event.stopPropagation()" '
         f"onchange=\"event.stopPropagation();doSetPriority('{task_id}',this.value,this)\">"
-        f'{priority_options}</select>'
+        f"{priority_options}</select>"
     )
 
     # Due date input
@@ -289,7 +306,7 @@ def _build_task_card(
         f'<span class="date-icon-wrap"{icon_display}>{_date_icon}</span>'
         f'<span class="date-label"{icon_display}>Date</span>'
         f'<input type="date" class="date-pill-input" value="{html.escape(due_date)}" '
-        f'{input_display} '
+        f"{input_display} "
         f'onclick="event.stopPropagation()" '
         f"onchange=\"event.stopPropagation();doSetDueDate('{task_id}',this.value,this)\">"
         f"</div>"
@@ -314,8 +331,7 @@ def _build_task_card(
         )
     elif is_committed:
         commit_btn = (
-            '<button class="commit-btn committed" disabled>'
-            "\u2713 Committed</button>"
+            '<button class="commit-btn committed" disabled>' "\u2713 Committed</button>"
         )
     else:
         commit_btn = (
@@ -352,6 +368,18 @@ def _build_task_card(
         + "</button>"
     )
 
+    # Schedule button — opens duration picker modal to create calendar events
+    schedule_btn = (
+        f'<button class="schedule-btn" '
+        f"onclick=\"event.stopPropagation();openScheduleModal('{task_id}')\">"
+        '<svg class="schedule-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" '
+        'stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+        '<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/>'
+        '<line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>'
+        '<path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01M16 18h.01"/></svg>'
+        " Schedule</button>"
+    )
+
     # Data attributes for detail pane
     gmail_link = _extract_gmail_link(description)
     msg_id_field = _extract_msg_id(description)
@@ -362,9 +390,11 @@ def _build_task_card(
         if lookup_id:
             data_open_url = (
                 email_actions_url.rstrip("/")
-                + "?action=open&msg_id=" + lookup_id
+                + "?action=open&msg_id="
+                + lookup_id
                 + ("&thread_id=" + thread_id if thread_id else "")
-                + "&token=" + email_actions_token
+                + "&token="
+                + email_actions_token
             )
 
     labels_str = ",".join(labels) if labels else ""
@@ -397,9 +427,9 @@ def _build_task_card(
         f'<div class="task-title">{title}{priority_badge}</div>'
         f'<div class="task-meta">{meta_line}</div>'
         f'<div class="task-actions">'
-        f'{review_btn}{move_select}{priority_select}{due_date_input}'
-        f'{complete_btn}{commit_btn}{bestcase_btn}{cc_btn}'
-        f'</div>'
+        f"{review_btn}{move_select}{priority_select}{due_date_input}"
+        f"{complete_btn}{commit_btn}{bestcase_btn}{schedule_btn}{cc_btn}"
+        f"</div>"
         f"</div></div>"
         f"</div>"
     )
@@ -436,9 +466,11 @@ def _build_email_card(
         if lookup_id:
             open_url = (
                 email_actions_url.rstrip("/")
-                + "?action=open&msg_id=" + urllib.parse.quote(str(lookup_id))
+                + "?action=open&msg_id="
+                + urllib.parse.quote(str(lookup_id))
                 + ("&thread_id=" + thread_id if thread_id else "")
-                + "&token=" + email_actions_token
+                + "&token="
+                + email_actions_token
             )
 
     # Review button
@@ -474,6 +506,7 @@ def _build_email_card(
     skip_inbox_btn = ""
     if from_raw:
         import re as _re
+
         _email_match = _re.search(r"<([^>]+)>", from_raw)
         _sender_email = _email_match.group(1) if _email_match else from_raw.strip()
         if _sender_email:
@@ -507,8 +540,8 @@ def _build_email_card(
         f'<div class="task-title">{subject}</div>'
         f'<div class="task-meta">{meta_line}</div>'
         f'<div class="task-actions">'
-        f'{review_btn}{unstar_btn}{create_todoist_btn}{skip_inbox_btn}'
-        f'</div>'
+        f"{review_btn}{unstar_btn}{create_todoist_btn}{skip_inbox_btn}"
+        f"</div>"
         f"</div></div>"
         f"</div>"
     )
@@ -545,17 +578,24 @@ def _build_calendar_card(
 
     cal_type = event.get("calendar_type", "family")
     _cal_labels = {
-        "family": "Family", "medical": "Medical", "birthdays": "Birthday",
-        "love_god": "Love God", "love_brittany": "Love Brittany",
+        "family": "Family",
+        "medical": "Medical",
+        "birthdays": "Birthday",
+        "love_god": "Love God",
+        "love_brittany": "Love Brittany",
         "love_children": "Love Children",
         "love_friends_family": "Love Friends & Family",
         "fishing_for_men": "Fishing For Men",
     }
     _cal_colors = {
-        "family": "#818cf8", "medical": "#22c55e", "birthdays": "#eab308",
-        "love_god": "#f59e0b", "love_brittany": "#a78bfa",
+        "family": "#818cf8",
+        "medical": "#22c55e",
+        "birthdays": "#eab308",
+        "love_god": "#f59e0b",
+        "love_brittany": "#a78bfa",
         "love_children": "#a78bfa",
-        "love_friends_family": "#ec4899", "fishing_for_men": "#06b6d4",
+        "love_friends_family": "#ec4899",
+        "fishing_for_men": "#06b6d4",
     }
     cal_label = html.escape(_cal_labels.get(cal_type, cal_type.capitalize()))
     cal_color = _cal_colors.get(cal_type, "#5f6368")
@@ -582,30 +622,48 @@ def _build_calendar_card(
 
     # Add to Todoist button
     todoist_url = html.escape(
-        base_url + "?action=calendar_create_todoist"
-        + "&event_id=" + eid_enc
-        + "&event_title=" + title_enc
-        + "&event_date=" + date_enc
-        + "&event_location=" + loc_enc
+        base_url
+        + "?action=calendar_create_todoist"
+        + "&event_id="
+        + eid_enc
+        + "&event_title="
+        + title_enc
+        + "&event_date="
+        + date_enc
+        + "&event_location="
+        + loc_enc
     )
-    todoist_btn = "" if reviewed else (
-        f'<button class="todoist-btn" '
-        f"onclick=\"event.stopPropagation();doCalTodoist(this,{idx},'{todoist_url}')\">"
-        "Add to Todoist</button>"
+    todoist_btn = (
+        ""
+        if reviewed
+        else (
+            f'<button class="todoist-btn" '
+            f"onclick=\"event.stopPropagation();doCalTodoist(this,{idx},'{todoist_url}')\">"
+            "Add to Todoist</button>"
+        )
     )
 
     # Commit button
     commit_url = html.escape(
-        base_url + "?action=calendar_commit"
-        + "&event_id=" + eid_enc
-        + "&event_title=" + title_enc
-        + "&event_date=" + date_enc
-        + "&event_location=" + loc_enc
+        base_url
+        + "?action=calendar_commit"
+        + "&event_id="
+        + eid_enc
+        + "&event_title="
+        + title_enc
+        + "&event_date="
+        + date_enc
+        + "&event_location="
+        + loc_enc
     )
-    commit_btn = "" if reviewed else (
-        f'<button class="commit-btn" '
-        f"onclick=\"event.stopPropagation();doCalCommit(this,{idx},'{commit_url}')\">"
-        "Commit</button>"
+    commit_btn = (
+        ""
+        if reviewed
+        else (
+            f'<button class="commit-btn" '
+            f"onclick=\"event.stopPropagation();doCalCommit(this,{idx},'{commit_url}')\">"
+            "Commit</button>"
+        )
     )
 
     # Prep Timer button (today/tomorrow timed events only)
@@ -652,13 +710,13 @@ def _build_calendar_card(
         f'<div class="card-row">'
         f'<div class="card-content">'
         f'<div class="task-title">'
-        f'{title}'
+        f"{title}"
         f'<span class="cal-type-badge" style="background:{cal_color};">{cal_label}</span>'
         f"</div>"
         f'<div class="task-meta">{meta_line}</div>'
         f'<div class="task-actions">'
-        f'{review_btn}{todoist_btn}{commit_btn}{timer_btn}{gcal_html}'
-        f'</div>'
+        f"{review_btn}{todoist_btn}{commit_btn}{timer_btn}{gcal_html}"
+        f"</div>"
         f"</div></div>"
         f"</div>"
     )
@@ -694,6 +752,7 @@ def _build_unread_email_card(
     skip_inbox_btn = ""
     if from_raw:
         import re as _re
+
         _email_match = _re.search(r"<([^>]+)>", from_raw)
         _sender_email = _email_match.group(1) if _email_match else from_raw.strip()
         if _sender_email:
@@ -720,9 +779,11 @@ def _build_unread_email_card(
         if lookup_id:
             open_url = (
                 email_actions_url.rstrip("/")
-                + "?action=open&msg_id=" + urllib.parse.quote(str(lookup_id))
+                + "?action=open&msg_id="
+                + urllib.parse.quote(str(lookup_id))
                 + ("&thread_id=" + thread_id if thread_id else "")
-                + "&token=" + email_actions_token
+                + "&token="
+                + email_actions_token
             )
 
     meta_parts = []
@@ -745,8 +806,8 @@ def _build_unread_email_card(
         f'<div class="task-title">{subject}</div>'
         f'<div class="task-meta">{meta_line}</div>'
         f'<div class="task-actions">'
-        f'{markread_btn}{skip_inbox_btn}{create_todoist_btn}'
-        f'</div>'
+        f"{markread_btn}{skip_inbox_btn}{create_todoist_btn}"
+        f"</div>"
         f"</div></div>"
         f"</div>"
     )
@@ -797,7 +858,9 @@ def _build_followup_email_card(
             f"\u2713 Reviewed ({days_rem}d)</button>"
         )
     else:
-        rev_url = html.escape(base_url + "?action=followup_reviewed&thread_id=" + tid_enc)
+        rev_url = html.escape(
+            base_url + "?action=followup_reviewed&thread_id=" + tid_enc
+        )
         review_btn = (
             f'<button class="review-btn" '
             f"onclick=\"event.stopPropagation();doFollowupReview(this,'{tid_safe}','{rev_url}')\">"
@@ -807,7 +870,9 @@ def _build_followup_email_card(
     # Resolved button
     resolve_btn = ""
     if not reviewed:
-        res_url = html.escape(base_url + "?action=followup_resolved&thread_id=" + tid_enc)
+        res_url = html.escape(
+            base_url + "?action=followup_resolved&thread_id=" + tid_enc
+        )
         resolve_btn = (
             f'<button class="resolve-btn" '
             f"onclick=\"event.stopPropagation();doResolve(this,'{tid_safe}','{res_url}')\">"
@@ -839,8 +904,10 @@ def _build_followup_email_card(
     if email_actions_url and email_actions_token and msg_id:
         open_url = (
             email_actions_url.rstrip("/")
-            + "?action=open&msg_id=" + msg_id_enc
-            + "&token=" + email_actions_token
+            + "?action=open&msg_id="
+            + msg_id_enc
+            + "&token="
+            + email_actions_token
         )
 
     meta_parts = []
@@ -867,8 +934,8 @@ def _build_followup_email_card(
         f'<div class="task-meta">{meta_line}</div>'
         f"{snippet_html}"
         f'<div class="task-actions">'
-        f'{review_btn}{resolve_btn}{gmail_btn}'
-        f'</div>'
+        f"{review_btn}{resolve_btn}{gmail_btn}"
+        f"</div>"
         f"</div></div>"
         f"</div>"
     )
@@ -877,6 +944,7 @@ def _build_followup_email_card(
 # ---------------------------------------------------------------------------
 # Section builder
 # ---------------------------------------------------------------------------
+
 
 def _build_section_html(
     key: str,
@@ -907,7 +975,7 @@ def _build_section_html(
 
     return (
         f'<div class="section-hdr" style="color:{border_color};">'
-        f'<span>{html.escape(label.upper())}</span>'
+        f"<span>{html.escape(label.upper())}</span>"
         f"{badge_html}"
         f"</div>"
         f'<div class="section-cards" id="body-{key}">'
@@ -919,6 +987,7 @@ def _build_section_html(
 # ---------------------------------------------------------------------------
 # Main builder
 # ---------------------------------------------------------------------------
+
 
 def build_home_html(
     commit_tasks: List[Dict[str, Any]],
@@ -977,7 +1046,13 @@ def build_home_html(
             tr = _time_until_review_reset(tid, key, home_state, cycle_days)
             idx = next_idx()
             card = _build_task_card(
-                task, key, rev, tr, function_url, projects_by_id, idx,
+                task,
+                key,
+                rev,
+                tr,
+                function_url,
+                projects_by_id,
+                idx,
                 email_actions_url=email_actions_url,
                 email_actions_token=email_actions_token,
             )
@@ -995,19 +1070,33 @@ def build_home_html(
     total_unreviewed = 0
 
     # --- commit ---
-    cards, needs_review, total, label, border_color = _build_task_section(commit_tasks, "commit")
+    cards, needs_review, total, label, border_color = _build_task_section(
+        commit_tasks, "commit"
+    )
     total_unreviewed += needs_review
     sections_html += _build_section_html(
-        "commit", label, cards, needs_review, total,
-        collapsed=(needs_review == 0), border_color=border_color,
+        "commit",
+        label,
+        cards,
+        needs_review,
+        total,
+        collapsed=(needs_review == 0),
+        border_color=border_color,
     )
 
     # --- bestcase ---
-    cards, needs_review, total, label, border_color = _build_task_section(bestcase_tasks, "bestcase")
+    cards, needs_review, total, label, border_color = _build_task_section(
+        bestcase_tasks, "bestcase"
+    )
     total_unreviewed += needs_review
     sections_html += _build_section_html(
-        "bestcase", label, cards, needs_review, total,
-        collapsed=(needs_review == 0), border_color=border_color,
+        "bestcase",
+        label,
+        cards,
+        needs_review,
+        total,
+        collapsed=(needs_review == 0),
+        border_color=border_color,
     )
 
     # --- calendar (uses cal_state with 7-day cycle) ---
@@ -1042,16 +1131,28 @@ def build_home_html(
             cards += card
     total_unreviewed += needs_review
     sections_html += _build_section_html(
-        key, label, cards, needs_review, len(calendar_events),
-        collapsed=(needs_review == 0), border_color=border_color,
+        key,
+        label,
+        cards,
+        needs_review,
+        len(calendar_events),
+        collapsed=(needs_review == 0),
+        border_color=border_color,
     )
 
     # --- p1 ---
-    cards, needs_review, total, label, border_color = _build_task_section(p1_tasks, "p1")
+    cards, needs_review, total, label, border_color = _build_task_section(
+        p1_tasks, "p1"
+    )
     total_unreviewed += needs_review
     sections_html += _build_section_html(
-        "p1", label, cards, needs_review, total,
-        collapsed=(needs_review == 0), border_color=border_color,
+        "p1",
+        label,
+        cards,
+        needs_review,
+        total,
+        collapsed=(needs_review == 0),
+        border_color=border_color,
     )
 
     # --- starred ---
@@ -1066,7 +1167,12 @@ def build_home_html(
         tr = _time_until_review_reset(mid, key, home_state, cycle_days)
         idx = next_idx()
         card = _build_email_card(
-            email, key, rev, tr, function_url, idx,
+            email,
+            key,
+            rev,
+            tr,
+            function_url,
+            idx,
             email_actions_url=email_actions_url,
             email_actions_token=email_actions_token,
         )
@@ -1077,8 +1183,13 @@ def build_home_html(
             cards += card
     total_unreviewed += needs_review
     sections_html += _build_section_html(
-        key, label, cards, needs_review, len(starred_emails),
-        collapsed=(needs_review == 0), border_color=border_color,
+        key,
+        label,
+        cards,
+        needs_review,
+        len(starred_emails),
+        collapsed=(needs_review == 0),
+        border_color=border_color,
     )
 
     # --- unread (no review tracking) ---
@@ -1088,15 +1199,22 @@ def build_home_html(
     for email in unread_emails:
         idx = next_idx()
         cards += _build_unread_email_card(
-            email, function_url, idx,
+            email,
+            function_url,
+            idx,
             email_actions_url=email_actions_url,
             email_actions_token=email_actions_token,
         )
     unread_count = len(unread_emails)
     total_unreviewed += unread_count
     sections_html += _build_section_html(
-        key, label, cards, unread_count, unread_count,
-        collapsed=(unread_count == 0), border_color=border_color,
+        key,
+        label,
+        cards,
+        unread_count,
+        unread_count,
+        collapsed=(unread_count == 0),
+        border_color=border_color,
     )
 
     # --- followup ---
@@ -1107,7 +1225,9 @@ def build_home_html(
     for email in followup_emails:
         idx = next_idx()
         cards += _build_followup_email_card(
-            email, function_url, idx,
+            email,
+            function_url,
+            idx,
             followup_reviews=followup_reviews,
             email_actions_url=email_actions_url,
             email_actions_token=email_actions_token,
@@ -1117,15 +1237,27 @@ def build_home_html(
             followup_unreviewed += 1
     followup_count = len(followup_emails)
     sections_html += _build_section_html(
-        key, label, cards, followup_unreviewed, followup_count,
-        collapsed=(followup_unreviewed == 0), border_color=border_color,
+        key,
+        label,
+        cards,
+        followup_unreviewed,
+        followup_count,
+        collapsed=(followup_unreviewed == 0),
+        border_color=border_color,
     )
 
     # --- inbox (always show all cards; don't count in Home nav badge) ---
-    cards, needs_review, total, label, border_color = _build_task_section(inbox_tasks, "inbox")
+    cards, needs_review, total, label, border_color = _build_task_section(
+        inbox_tasks, "inbox"
+    )
     sections_html += _build_section_html(
-        "inbox", label, cards, needs_review, total,
-        collapsed=(needs_review == 0), border_color=border_color,
+        "inbox",
+        label,
+        cards,
+        needs_review,
+        total,
+        collapsed=(needs_review == 0),
+        border_color=border_color,
     )
 
     # -----------------------------------------------------------------------
@@ -1188,7 +1320,9 @@ def build_home_html(
         ".refresh-btn{margin-left:auto;background:var(--border);border:1px solid var(--border);"
         "color:var(--text-1);font-size:13px;font-weight:600;padding:6px 14px;border-radius:6px;cursor:pointer;}"
         ".refresh-btn:hover{background:var(--border-h);}"
-        ".scroll-area{height:" + page_height + ";overflow-y:auto;overflow-x:hidden;background:var(--bg-base);}"
+        ".scroll-area{height:"
+        + page_height
+        + ";overflow-y:auto;overflow-x:hidden;background:var(--bg-base);}"
         ".home-list{max-width:700px;margin:0 auto;padding:12px 16px;overflow:hidden;}"
         # Section headers (flat, calendar-style)
         ".section-hdr{display:flex;align-items:center;gap:8px;padding:16px 0 8px;"
@@ -1261,6 +1395,36 @@ def build_home_html(
         "cursor:pointer;transition:background .15s;}"
         ".bestcase-btn:hover{background:var(--purple-b);}"
         ".bestcase-btn.remove{background:var(--err-bg);color:var(--err);border-color:var(--err-b);}"
+        # Schedule button
+        ".schedule-btn{font-family:inherit;font-size:12px;font-weight:600;"
+        "padding:4px 12px;border-radius:6px;"
+        "background:rgba(56,189,248,0.10);color:#38bdf8;border:1px solid rgba(56,189,248,0.25);"
+        "cursor:pointer;transition:background .15s;display:inline-flex;align-items:center;gap:4px;}"
+        ".schedule-btn:hover{background:rgba(56,189,248,0.25);}"
+        ".schedule-icon{flex-shrink:0;}"
+        # Schedule modal
+        "#schedule-overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;"
+        "background:rgba(0,0,0,0.5);z-index:1000;align-items:center;justify-content:center;}"
+        "#schedule-overlay.open{display:flex;}"
+        "#schedule-modal{background:var(--bg-s1);border:1px solid var(--border);border-radius:14px;"
+        "padding:20px;width:90%;max-width:340px;}"
+        "#schedule-modal h3{font-size:16px;font-weight:700;color:var(--text-1);margin-bottom:4px;}"
+        "#schedule-modal p{font-size:13px;color:var(--text-2);margin-bottom:16px;}"
+        ".duration-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:16px;}"
+        ".duration-opt{font-family:inherit;font-size:13px;font-weight:600;"
+        "padding:10px;border-radius:8px;border:1px solid var(--border);"
+        "background:var(--bg-s0);color:var(--text-1);cursor:pointer;transition:all .15s;}"
+        ".duration-opt:hover{border-color:var(--accent-l);}"
+        ".duration-opt.selected{background:rgba(56,189,248,0.15);border-color:#38bdf8;color:#38bdf8;}"
+        "#schedule-confirm{width:100%;font-family:inherit;font-size:14px;font-weight:700;"
+        "padding:12px;border:none;border-radius:8px;background:#38bdf8;color:#fff;"
+        "cursor:pointer;margin-bottom:8px;}"
+        "#schedule-confirm:hover{opacity:0.85;}"
+        "#schedule-confirm:disabled{opacity:0.4;cursor:default;}"
+        "#schedule-cancel{width:100%;font-family:inherit;font-size:13px;font-weight:600;"
+        "padding:8px;border:none;border-radius:8px;background:var(--bg-s0);"
+        "color:var(--text-2);cursor:pointer;}"
+        "#schedule-cancel:hover{color:var(--text-1);}"
         # Todoist button
         ".todoist-btn{font-family:inherit;font-size:12px;font-weight:600;"
         "padding:4px 12px;border-radius:6px;"
@@ -1356,7 +1520,7 @@ def build_home_html(
         ".section-cards{margin-bottom:4px;}"
         ".task-actions{gap:6px;}"
         ".review-btn,.markread-btn,.complete-btn,.commit-btn,.bestcase-btn,.todoist-btn,"
-        ".skip-inbox-btn,.resolve-btn,.timer-btn{font-size:11px;padding:3px 8px;}"
+        ".skip-inbox-btn,.resolve-btn,.timer-btn,.schedule-btn,.assign-cc-btn{font-size:11px;padding:3px 8px;}"
         ".move-pill-select{font-size:10px;max-width:70px;}"
         ".action-select{font-size:10px;padding:3px 4px;}"
         ".date-pill-input{font-size:10px;width:80px;}"
@@ -1387,16 +1551,33 @@ def build_home_html(
         '<div id="home-detail-pane">'
         '<div class="viewer-mobile-header">'
         '<button class="viewer-back-btn" onclick="closeHomeDetail()">&#8592; Back</button>'
-        '</div>'
+        "</div>"
         '<div id="home-detail-content"></div>'
         '<iframe id="home-detail-frame" src="about:blank"></iframe>'
-        '</div>'
-        "<script>"
+        "</div>"
+        # Schedule duration picker modal
+        + '<div id="schedule-overlay" onclick="if(event.target===this)closeScheduleModal()">'
+        '<div id="schedule-modal">'
+        "<h3>Schedule Action</h3>"
+        '<p id="schedule-task-label">How long will this take?</p>'
+        '<div class="duration-grid">'
+        '<button class="duration-opt" data-mins="30">30 min</button>'
+        '<button class="duration-opt" data-mins="60">1 hr</button>'
+        '<button class="duration-opt" data-mins="90">1.5 hrs</button>'
+        '<button class="duration-opt" data-mins="120">2 hrs</button>'
+        '<button class="duration-opt" data-mins="150">2.5 hrs</button>'
+        '<button class="duration-opt" data-mins="180">3 hrs</button>'
+        '<button class="duration-opt" data-mins="210">3.5 hrs</button>'
+        '<button class="duration-opt" data-mins="240">4 hrs</button>'
+        '<button class="duration-opt" data-mins="270">4.5 hrs</button>'
+        '<button class="duration-opt" data-mins="300">5 hrs</button>'
+        "</div>"
+        '<button id="schedule-confirm" disabled>Schedule</button>'
+        '<button id="schedule-cancel" onclick="closeScheduleModal()">Cancel</button>'
+        "</div></div>" + "<script>"
         "var _homeUrl='" + func_url_safe + "';"
         "var _cs=getComputedStyle(document.documentElement);"
-        "function cv(n){return _cs.getPropertyValue(n).trim();}"
-        + post_message_js
-        +
+        "function cv(n){return _cs.getPropertyValue(n).trim();}" + post_message_js +
         # --- Section toggle ---
         "function toggleSection(key){}"
         # --- Helper: fade card ---
@@ -1638,9 +1819,9 @@ def build_home_html(
         "d.appendChild(document.createTextNode(String(s)));return d.innerHTML;}"
         "function linkify(t){"
         "t=t.replace(/\\[([^\\]]+)\\]\\(((?:https?|obsidian):\\/\\/[^)]+)\\)/g,"
-        "'<a href=\"$2\" target=\"_blank\" rel=\"noopener\" style=\"color:'+cv('--accent-l')+';text-decoration:underline;\">$1</a>');"
-        "t=t.replace(/(?<!href=\")(?<!\">)((?:https?|obsidian):\\/\\/[^\\s<)]+)/g,"
-        "'<a href=\"$1\" target=\"_blank\" rel=\"noopener\" style=\"color:'+cv('--accent-l')+';text-decoration:underline;\">$1</a>');"
+        '\'<a href="$2" target="_blank" rel="noopener" style="color:\'+cv(\'--accent-l\')+\';text-decoration:underline;">$1</a>\');'
+        't=t.replace(/(?<!href=")(?<!">)((?:https?|obsidian):\\/\\/[^\\s<)]+)/g,'
+        '\'<a href="$1" target="_blank" rel="noopener" style="color:\'+cv(\'--accent-l\')+\';text-decoration:underline;">$1</a>\');'
         "return t;}"
         "function doHomeUpdateTask(taskId,payload,callback){"
         "payload.task_id=taskId;"
@@ -1829,6 +2010,46 @@ def build_home_html(
         "document.getElementById('home-detail-pane').classList.remove('open');"
         "try{window.parent.postMessage({type:'viewer-close'},'*');}catch(e){}}"
         "function closeDetailView(){closeHomeDetail();}"
+        # Schedule modal JS
+        "var _schedTaskId='',_schedMins=0;"
+        "function openScheduleModal(taskId){"
+        "_schedTaskId=taskId;_schedMins=0;"
+        "document.querySelectorAll('.duration-opt').forEach(function(b){b.classList.remove('selected');});"
+        "var btn=document.getElementById('schedule-confirm');"
+        "btn.disabled=true;btn.textContent='Schedule';"
+        "document.getElementById('schedule-overlay').classList.add('open');"
+        "}"
+        "function closeScheduleModal(){"
+        "document.getElementById('schedule-overlay').classList.remove('open');"
+        "}"
+        "document.querySelectorAll('.duration-opt').forEach(function(b){"
+        "b.addEventListener('click',function(){"
+        "document.querySelectorAll('.duration-opt').forEach(function(x){x.classList.remove('selected');});"
+        "b.classList.add('selected');_schedMins=parseInt(b.getAttribute('data-mins'));"
+        "var n=Math.max(1,Math.floor(_schedMins/30));"
+        "document.getElementById('schedule-confirm').disabled=false;"
+        "document.getElementById('schedule-confirm').textContent="
+        "'Schedule '+n+' event'+(n>1?'s':'');"
+        "});});"
+        "document.getElementById('schedule-confirm').addEventListener('click',function(){"
+        "if(!_schedTaskId||!_schedMins)return;"
+        "var btn=this;btn.disabled=true;btn.textContent='Creating...';"
+        "fetch(_homeUrl+'?action=schedule_action&task_id='+_schedTaskId+'&duration='+_schedMins)"
+        ".then(function(r){return r.json();})"
+        ".then(function(d){if(d.ok){"
+        "btn.textContent='\\u2713 '+d.events_created+' events created!';"
+        "btn.style.background='#22c55e';"
+        "setTimeout(function(){closeScheduleModal();btn.style.background='';},1500);"
+        "}else{"
+        "btn.textContent='Error: '+(d.error||'unknown');"
+        "btn.style.background='#ef4444';"
+        "setTimeout(function(){btn.style.background='';btn.textContent='Schedule';},2000);"
+        "}})"
+        ".catch(function(e){"
+        "btn.textContent='Failed';btn.style.background='#ef4444';"
+        "setTimeout(function(){btn.textContent='Schedule';},2000);"
+        "});"
+        "});"
         "function linkifyTitles(){"
         "document.querySelectorAll('.task-title').forEach(function(el){"
         "el.childNodes.forEach(function(node){"
