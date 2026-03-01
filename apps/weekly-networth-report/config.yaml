@@ -1,0 +1,40 @@
+version: "1.0.0"
+name: "Weekly Net Worth & Run Rate Report"
+description: "Automated weekly net worth and financial run rate reports from Simplifi + YNAB"
+
+networth_report:
+  enabled: true
+
+  # Friday at 6pm EST (11pm UTC)
+  schedule:
+    - "0 18 * * 5"
+
+  timezone: "America/New_York"
+
+  # YNAB Budget ID (leave empty to use first budget found)
+  # YNAB is used for run rate (transaction history)
+  budget_id: ""
+
+  # Quicken Simplifi - used for net worth (account balances)
+  # Falls back to YNAB if disabled or unavailable
+  simplifi:
+    enabled: true
+
+  email:
+    recipient: ""
+    subject_template: "Net Worth & Run Rate Report - {date}"
+
+  ses:
+    sender_email: "brandonhome.appdev@gmail.com"
+    region: "us-east-1"
+
+  report:
+    # Number of months to analyze for run rate
+    run_rate_months: 3
+
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file: "logs/networth_report.log"
+  max_bytes: 10485760
+  backup_count: 5

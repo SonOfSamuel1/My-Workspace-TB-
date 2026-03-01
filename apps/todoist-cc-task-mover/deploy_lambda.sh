@@ -52,8 +52,7 @@ if aws lambda get-function --function-name $FUNCTION_NAME --region $REGION &> /d
     aws lambda update-function-code \
         --function-name $FUNCTION_NAME \
         --zip-file fileb://todoist-cc-task-mover-lambda.zip \
-        --region $REGION \
-        --no-cli-pager
+        --region $REGION
 
     echo "Lambda function updated successfully!"
 else
@@ -95,7 +94,6 @@ else
         --region $REGION \
         --environment "Variables={}" \
         --description "Daily mover of cc- prefixed tasks from Inbox to Claude Code project" \
-        --no-cli-pager
 
     echo "Lambda function created successfully!"
 fi

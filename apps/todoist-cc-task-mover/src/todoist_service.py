@@ -106,3 +106,19 @@ class TodoistService:
         except requests.exceptions.RequestException as e:
             logger.error(f"Failed to move task {task_id}: {e}")
             return False
+
+    def update_task_content(self, task_id: str, content: str) -> bool:
+        """Update a task's content. Returns True on success."""
+        try:
+            response = requests.post(
+                f"{API_BASE}/tasks/{task_id}",
+                headers=self.headers,
+                json={"content": content},
+                timeout=REQUEST_TIMEOUT,
+            )
+            response.raise_for_status()
+            logger.info(f"Updated task {task_id} content to '{content}'")
+            return True
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Failed to update task {task_id} content: {e}")
+            return False

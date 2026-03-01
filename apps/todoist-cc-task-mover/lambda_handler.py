@@ -1,7 +1,7 @@
 """AWS Lambda handler for Todoist CC Task Mover.
 
 Triggered by EventBridge daily at 4:00 AM EST.
-Moves tasks prefixed with 'cc-' from Inbox/Inbox 2 to the Claude Code project.
+Moves tasks prefixed with 'cc-' or 'cc' from Inbox/Inbox 2 to the Claude Code project.
 """
 
 import json

@@ -1,0 +1,29 @@
+coding_digest:
+  project_name: "Claude"
+  timezone: "America/New_York"
+
+  email:
+    subject_template: "Code Digest - {count} tasks ({date})"
+
+  ses:
+    region: "us-east-1"
+
+  sessions:
+    lookback_days: 3
+    min_file_size: 5000
+
+  # Map Todoist labels to local repo paths for "Open in Cursor" buttons.
+  # The "default" key is used when no label matches.
+  repo_mappings:
+    default: "/Users/terrancebrandon/Desktop/Code Projects (Official)/My Workspace/My-Workspace-TB-/My-Workspace-TB-"
+    "ynab-dashboard": "/Users/terrancebrandon/Desktop/Code Projects (Official)/My Workspace/My-Workspace-TB-/My-Workspace-TB-/apps/ynab-dashboard"
+    "factor75": "/Users/terrancebrandon/Desktop/Code Projects (Official)/My Workspace/My-Workspace-TB-/My-Workspace-TB-/apps/factor75-meal-selector"
+    "gmail-actions": "/Users/terrancebrandon/Desktop/Code Projects (Official)/My Workspace/My-Workspace-TB-/My-Workspace-TB-/apps/gmail-email-actions"
+    "todoist-reminders": "/Users/terrancebrandon/Desktop/Code Projects (Official)/My Workspace/My-Workspace-TB-/My-Workspace-TB-/apps/todoist-daily-reminders"
+    "weekly-budget": "/Users/terrancebrandon/Desktop/Code Projects (Official)/My Workspace/My-Workspace-TB-/My-Workspace-TB-/apps/weekly-budget-report"
+    "coding-digest": "/Users/terrancebrandon/Desktop/Code Projects (Official)/My Workspace/My-Workspace-TB-/My-Workspace-TB-/apps/todoist-coding-digest"
+
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file: "logs/coding_digest.log"

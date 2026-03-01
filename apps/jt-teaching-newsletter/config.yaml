@@ -1,0 +1,56 @@
+version: "1.0.0"
+name: "JT Teaching Newsletter"
+description: "Daily morning email with 2 Jesus' Teachings from Obsidian vault"
+
+# Newsletter settings
+newsletter:
+  enabled: true
+
+  # Daily schedule (EventBridge cron — 7:00 AM EST = 12:00 UTC)
+  schedule: "cron(0 12 * * ? *)"
+
+  timezone: "America/New_York"
+
+  email:
+    # Recipient email — override with JT_EMAIL_RECIPIENT env var
+    recipient: ""
+
+    # Verified SES sender — override with SES_SENDER_EMAIL env var
+    sender: "brandonhome.appdev@gmail.com"
+
+    subject_template: "Jesus Teachings Daily \u2014 {date}"
+
+# AWS settings
+aws:
+  # S3 bucket for JT- teaching files and state.json
+  # Override with JT_S3_BUCKET env var
+  s3_bucket: "jt-teachings-notes"
+
+  region: "us-east-1"
+
+  # Lambda configuration
+  lambda:
+    function_name: "jt-teaching-newsletter"
+    runtime: "python3.12"
+    memory_mb: 256
+    timeout_sec: 60
+
+# Obsidian vault sync settings (for sync_to_s3.py)
+vault:
+  # Local vault path (used by sync_to_s3.py only)
+  # Note: Use the "Valuts (sync)" path — primary vault files are Obsidian Sync stubs
+  path: "/Users/terrancebrandon/Valuts (sync)/Terrance (Primary Vault)/Permanent Notes"
+
+  # File prefix filter
+  prefix: "JT-"
+
+# Claude API settings
+claude:
+  model: "claude-haiku-4-5-20251001"
+  max_tokens: 300
+
+# Logging
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file: "logs/teaching_newsletter.log"

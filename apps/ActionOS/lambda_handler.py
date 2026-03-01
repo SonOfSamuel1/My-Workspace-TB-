@@ -4,6 +4,7 @@ Single Lambda serving all ActionOS routes:
 
 Web views (GET, token required):
   ?action=web                          → ActionOS shell (sidebar + iframes)
+  ?action=web&view=home&embed=1        → Home (aggregated sections)
   ?action=web&view=starred&embed=1     → Starred email cards
   ?action=web&view=unread&embed=1      → Unread email cards
   ?action=web&view=inbox&embed=1       → Todoist Inbox
@@ -34,6 +35,9 @@ Todoist create/update (POST, token required):
   ?action=update_task                  → Update task title/description
   ?action=create_todoist               → Create Todoist task from email
 
+Home actions (GET, token required):
+  ?action=home_reviewed&section=X&item_id=Y
+
 Calendar actions (GET/POST, token required):
   ?action=calendar_reviewed&event_id=X
   ?action=calendar_create_todoist      → Add calendar event as Todoist task
@@ -42,6 +46,9 @@ Calendar actions (GET/POST, token required):
 
 Starred email actions (POST, token required):
   ?action=starred_to_todoist           → Create Todoist task from starred email
+
+Search (GET, token required):
+  ?action=search&q=X                   → Search tasks + calendar events
 
 Misc (GET, token required):
   ?action=toggl_start                  → Start Toggl timer (POST body)
@@ -52,11 +59,13 @@ Scheduled (EventBridge):
 """
 
 import base64
+import hmac
 import json
 import logging
 import os
 import re
 import sys
+import urllib.parse
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 
@@ -73,6 +82,8 @@ _s3 = boto3.client("s3", region_name="us-east-1")
 CALENDAR_STATE_BUCKET = os.environ.get("STATE_BUCKET", "gmail-unread-digest")
 CALENDAR_STATE_KEY = "calendar_reviewed_state.json"
 CHECKLIST_STATE_KEY = "actionos/calendar_checklists.json"
+FOLLOWUP_STATE_KEY = "actionos/followup_state.json"
+HOME_REVIEWED_STATE_KEY = "actionos/home_reviewed_state.json"
 
 _PAGE_STYLE = (
     "font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;"
@@ -138,6 +149,87 @@ def _ok_json(extra: dict = None) -> dict:
     }
 
 
+# ---------------------------------------------------------------------------
+# Session cookie helpers
+# ---------------------------------------------------------------------------
+
+_SESSION_COOKIE_NAME = "aos_session"
+_SESSION_MAX_AGE = 604800  # 7 days
+
+
+def _get_request_cookie(event: dict) -> str:
+    """Extract aos_session cookie value from Lambda Function URL event headers."""
+    headers = event.get("headers") or {}
+    cookie_header = headers.get("cookie", "")  # Lambda lowercases header names
+    for part in cookie_header.split(";"):
+        part = part.strip()
+        if part.startswith(_SESSION_COOKIE_NAME + "="):
+            return part[len(_SESSION_COOKIE_NAME) + 1 :]
+    return ""
+
+
+def _is_valid_session(cookie_value: str, expected_token: str) -> bool:
+    if not cookie_value or not expected_token:
+        return False
+    return hmac.compare_digest(cookie_value, expected_token)
+
+
+def _make_session_cookie(token: str) -> str:
+    return (
+        f"{_SESSION_COOKIE_NAME}={token}; "
+        f"HttpOnly; Secure; SameSite=Strict; Max-Age={_SESSION_MAX_AGE}; Path=/"
+    )
+
+
+def _login_page_html(function_url: str, error: str = "") -> str:
+    """Minimal dark-theme login page matching ActionOS style."""
+    import html as _html
+
+    error_html = (
+        f'<p style="color:#f87171;font-size:14px;margin:0 0 16px;">'
+        f"{_html.escape(error)}</p>"
+        if error
+        else ""
+    )
+    form_action = _html.escape(
+        (function_url.rstrip("/") + "?action=login")
+        if function_url
+        else "?action=login"
+    )
+    return (
+        "<!DOCTYPE html><html><head><meta charset='utf-8'>"
+        "<meta name='viewport' content='width=device-width,initial-scale=1'>"
+        "<title>ActionOS \u2014 Login</title>"
+        "<style>"
+        "*{box-sizing:border-box;}"
+        "body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;"
+        "background:#0e0e10;margin:0;padding:0;display:flex;align-items:center;"
+        "justify-content:center;min-height:100vh;color-scheme:dark;}"
+        ".card{background:#1c1c1f;border:1px solid rgba(255,255,255,0.06);border-radius:8px;"
+        "padding:40px;width:100%;max-width:360px;text-align:center;}"
+        "h1{color:#f5f5f7;font-size:22px;margin:0 0 8px;}"
+        "p.sub{color:#8b8b93;font-size:14px;margin:0 0 24px;}"
+        "input[type=password]{width:100%;background:#2a2a2d;border:1px solid rgba(255,255,255,0.12);"
+        "border-radius:6px;padding:10px 14px;color:#f5f5f7;font-size:15px;outline:none;"
+        "margin-bottom:0;}"
+        "input[type=password]:focus{border-color:rgba(99,102,241,0.6);}"
+        "button{width:100%;margin-top:12px;background:rgba(99,102,241,0.85);color:#fff;"
+        "border:none;border-radius:6px;padding:11px;font-size:15px;cursor:pointer;}"
+        "button:hover{background:rgba(99,102,241,1);}"
+        "</style>"
+        "</head><body>"
+        "<div class='card'>"
+        "<h1>ActionOS</h1>"
+        "<p class='sub'>Enter your access token to continue.</p>"
+        + error_html
+        + f"<form method='POST' action='{form_action}'>"
+        "<input type='password' name='token' placeholder='Access token' autofocus required>"
+        "<button type='submit'>Sign in</button>"
+        "</form>"
+        "</div></body></html>"
+    )
+
+
 def _sanitize_html(raw_html: str) -> str:
     """Strip dangerous tags and attributes from email HTML."""
     for tag in ("script", "style", "iframe", "object", "embed", "form"):
@@ -174,14 +266,14 @@ def _email_viewer_page(
     body_text = content.get("body_text", "")
     if body_html:
         email_body = (
-            '<div style="padding:16px 0;font-size:15px;line-height:1.6;overflow-x:auto;">'
+            '<div style="padding:16px;font-size:15px;line-height:1.6;overflow-x:auto;">'
             + _sanitize_html(body_html)
             + "</div>"
         )
     elif body_text:
         email_body = (
             '<pre style="white-space:pre-wrap;word-break:break-word;font-family:inherit;'
-            'font-size:15px;line-height:1.6;padding:16px 0;margin:0;">'
+            'font-size:15px;line-height:1.6;padding:16px;margin:0;">'
             + _html.escape(body_text)
             + "</pre>"
         )
@@ -201,20 +293,8 @@ def _email_viewer_page(
     # Build action buttons
     buttons_html = ""
     if function_url and action_token and msg_id:
-        markread_url = (
-            function_url.rstrip("/")
-            + "?action=markread&msg_id="
-            + msg_id
-            + "&token="
-            + action_token
-        )
-        unstar_url = (
-            function_url.rstrip("/")
-            + "?action=unstar&msg_id="
-            + msg_id
-            + "&token="
-            + action_token
-        )
+        markread_url = function_url.rstrip("/") + "?action=markread&msg_id=" + msg_id
+        unstar_url = function_url.rstrip("/") + "?action=unstar&msg_id=" + msg_id
         if embed:
             markread_success_js = (
                 'btn.style.background=cv("--ok-bg");btn.style.color=cv("--ok");'
@@ -236,8 +316,7 @@ def _email_viewer_page(
                 'btn.innerHTML="\\u2713 Read";btn.style.cursor="default";'
                 "setTimeout(function(){window.location.href='"
                 + function_url.rstrip("/")
-                + "?action=web&token="
-                + action_token
+                + "?action=web"
                 + "';},800);"
             )
             unstar_success_js = (
@@ -245,19 +324,18 @@ def _email_viewer_page(
                 'btn.innerHTML="\\u2713 Unstarred";btn.style.cursor="default";'
                 "setTimeout(function(){window.location.href='"
                 + function_url.rstrip("/")
-                + "?action=web&token="
-                + action_token
+                + "?action=web"
                 + "';},800);"
             )
 
         buttons_html += (
             '<a id="markread-btn" href="#" onclick="doMarkRead(event)" '
             'style="display:inline-block;background:var(--ok-bg);color:var(--ok);'
-            "padding:11px 24px;border:1px solid var(--ok-b);border-radius:8px;text-decoration:none;"
+            "padding:9px 16px;border:1px solid var(--ok-b);border-radius:8px;text-decoration:none;"
             'font-size:14px;font-weight:600;">Mark Read</a>'
             '<a id="unstar-btn" href="#" onclick="doUnstar(event)" '
             'style="display:inline-block;background:var(--err-bg);color:var(--err);'
-            "padding:11px 24px;border:1px solid var(--err-b);border-radius:8px;text-decoration:none;"
+            "padding:9px 16px;border:1px solid var(--err-b);border-radius:8px;text-decoration:none;"
             'font-size:14px;font-weight:600;">Unstar</a>'
         )
 
@@ -269,13 +347,11 @@ def _email_viewer_page(
                 + "?action=create_filter"
                 + "&from_email="
                 + _ul.quote(reply_email)
-                + "&token="
-                + action_token
             )
             buttons_html += (
                 '<a id="skip-inbox-btn" href="#" onclick="doSkipInbox(event)" '
                 'style="display:inline-block;background:var(--warn-bg);color:var(--warn);'
-                "padding:11px 24px;border:1px solid var(--warn-b);border-radius:8px;text-decoration:none;"
+                "padding:9px 16px;border:1px solid var(--warn-b);border-radius:8px;text-decoration:none;"
                 'font-size:14px;font-weight:600;">Skip Inbox</a>'
             )
 
@@ -369,9 +445,9 @@ def _email_viewer_page(
         "<title>" + subject + "</title>"
         "<style>"
         ":root{"
-        "--bg-base:#0e0e10;--bg-s0:#161618;--bg-s1:#1c1c1f;--bg-s2:#222225;"
-        "--text-1:#ececef;--text-2:#8b8b93;--text-3:#56565e;"
-        "--border:rgba(255,255,255,0.06);--border-h:rgba(255,255,255,0.10);"
+        "--bg-base:#1a1a1a;--bg-s0:#1c1c1e;--bg-s1:#252528;--bg-s2:#2c2c2e;"
+        "--text-1:#ffffff;--text-2:#8e8e93;--text-3:#48484a;"
+        "--border:rgba(255,255,255,0.08);--border-h:rgba(255,255,255,0.12);"
         "--accent:#6366f1;--accent-l:#818cf8;"
         "--accent-bg:rgba(99,102,241,0.10);--accent-b:rgba(99,102,241,0.20);"
         "--ok:#22c55e;--ok-bg:rgba(34,197,94,0.10);--ok-b:rgba(34,197,94,0.20);"
@@ -380,7 +456,7 @@ def _email_viewer_page(
         "--purple:#a78bfa;--purple-bg:rgba(167,139,250,0.10);--purple-b:rgba(167,139,250,0.20);"
         "--scrollbar:rgba(255,255,255,0.10);color-scheme:dark;}"
         "@media(prefers-color-scheme:light){:root{"
-        "--bg-base:#f5f5f5;--bg-s0:#fff;--bg-s1:#fff;--bg-s2:#f8f9fa;"
+        "--bg-base:#eeeef0;--bg-s0:#fff;--bg-s1:#fff;--bg-s2:#f5f5f7;"
         "--text-1:#202124;--text-2:#5f6368;--text-3:#80868b;"
         "--border:rgba(0,0,0,0.08);--border-h:rgba(0,0,0,0.15);"
         "--accent:#6366f1;--accent-l:#4f46e5;"
@@ -392,24 +468,27 @@ def _email_viewer_page(
         "--scrollbar:rgba(0,0,0,0.12);color-scheme:light;}}"
         "</style>"
         "</head>"
-        "<body style='font-family:"
+        '<body style="font-family:'
         + _FONT
-        + ";background:var(--bg-base);margin:0;padding:0;'>"
+        + ';background:var(--bg-base);margin:0;padding:0;">'
         + header_bar
-        + '<div style="max-width:700px;margin:0 auto;background:var(--bg-s1);border:1px solid var(--border);">'
-        '<div style="padding:20px 24px;border-bottom:1px solid var(--border);">'
-        '<h1 style="margin:0 0 12px;font-size:19px;color:var(--text-1);font-weight:600;">'
+        + '<div style="max-width:700px;margin:0 auto;padding:8px 10px;">'
+        '<div style="background:var(--bg-s1);border-radius:8px;border:1px solid var(--border);">'
+        '<div style="padding:16px;border-bottom:1px solid var(--border);">'
+        '<h1 style="margin:0 0 12px;font-size:19px;color:var(--text-1);font-weight:600;font-family:'
+        + _FONT
+        + ';">'
         + subject
         + "</h1>"
         '<div style="font-size:13px;color:var(--text-2);">'
         '<strong style="color:var(--text-1);">From:</strong> ' + from_addr + "<br>"
         '<strong style="color:var(--text-1);">Date:</strong> ' + date + "</div></div>"
-        '<div style="padding:16px 24px;border-bottom:1px solid var(--border);'
-        'display:flex;gap:12px;flex-wrap:wrap;align-items:center;">'
+        '<div style="padding:12px 16px;border-bottom:1px solid var(--border);'
+        'display:flex;gap:10px;flex-wrap:wrap;align-items:center;">'
         '<a href="'
         + reply_url
         + '" style="display:inline-block;background:var(--accent-bg);'
-        "color:var(--accent-l);padding:11px 24px;border:1px solid var(--accent-b);border-radius:8px;"
+        "color:var(--accent-l);padding:9px 16px;border:1px solid var(--accent-b);border-radius:8px;"
         'text-decoration:none;font-size:14px;font-weight:600;">Reply</a>'
         + buttons_html
         + (
@@ -418,21 +497,27 @@ def _email_viewer_page(
             else ""
         )
         + "</div>"
-        '<div style="padding:16px 24px 20px;">'
-        '<div style="background:#fff;border-radius:6px;padding:0 16px;color:#202124;font-family:'
+        '<div style="padding:0;overflow:hidden;">'
+        '<div style="background:#fff;padding:0;color:#202124;font-family:'
         + _FONT
         + ';">'
         "<style>"
-        ".email-body *{font-family:" + _FONT + "!important;}"
+        ".email-body{overflow:hidden;word-break:break-word;}"
+        ".email-body *{font-family:"
+        + _FONT
+        + "!important;box-sizing:border-box!important;}"
         ".email-body h1{font-size:20px!important;margin:16px 0 8px!important;}"
         ".email-body h2{font-size:17px!important;margin:14px 0 6px!important;}"
         ".email-body h3{font-size:15px!important;margin:12px 0 4px!important;}"
         ".email-body p,.email-body td,.email-body li{font-size:14px!important;line-height:1.6!important;}"
-        ".email-body table{max-width:100%!important;border-collapse:collapse;}"
+        ".email-body table{width:100%!important;max-width:100%!important;border-collapse:collapse!important;height:auto!important;}"
+        ".email-body td,.email-body th{width:auto!important;max-width:100%!important;}"
         ".email-body img{max-width:100%!important;height:auto!important;}"
+        ".email-body [style]{max-width:100%!important;}"
+        ".email-body div,.email-body span,.email-body section,.email-body article{max-width:100%!important;}"
         "</style>"
         '<div class="email-body">' + email_body + "</div></div></div>"
-        "</div>"
+        "</div></div>"
         "</body></html>"
     )
 
@@ -585,6 +670,83 @@ def _save_checklists(data: dict) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Follow-up state helpers
+# ---------------------------------------------------------------------------
+
+
+def _load_followup_state() -> dict:
+    try:
+        bucket = os.environ.get("STATE_BUCKET", "gmail-unread-digest")
+        obj = _s3.get_object(Bucket=bucket, Key=FOLLOWUP_STATE_KEY)
+        return json.loads(obj["Body"].read())
+    except Exception:
+        return {"emails": {}, "reviews": {}, "resolved": {}}
+
+
+def _save_followup_state(state: dict) -> None:
+    bucket = os.environ.get("STATE_BUCKET", "gmail-unread-digest")
+    _s3.put_object(
+        Bucket=bucket,
+        Key=FOLLOWUP_STATE_KEY,
+        Body=json.dumps(state),
+        ContentType="application/json",
+    )
+
+
+# ---------------------------------------------------------------------------
+# Home reviewed state helpers
+# ---------------------------------------------------------------------------
+
+
+def _load_home_reviewed_state() -> dict:
+    """Load home review state from S3, pruning expired entries."""
+    try:
+        bucket = os.environ.get("STATE_BUCKET", "gmail-unread-digest")
+        obj = _s3.get_object(Bucket=bucket, Key=HOME_REVIEWED_STATE_KEY)
+        state = json.loads(obj["Body"].read())
+    except Exception:
+        state = {}
+
+    # Prune expired entries
+    now = datetime.now(timezone.utc)
+    # Daily sections: expire after 2 days; 7-day sections: expire after 8 days
+    daily_sections = {"commit", "bestcase", "starred", "inbox"}
+    seven_day_sections = {"p1"}
+    pruned = {}
+    for section, items in state.items():
+        if not isinstance(items, dict):
+            continue
+        max_age_days = (
+            2
+            if section in daily_sections
+            else (8 if section in seven_day_sections else 2)
+        )
+        pruned_items = {}
+        for item_id, ts in items.items():
+            try:
+                reviewed_at = datetime.fromisoformat(ts)
+                if reviewed_at.tzinfo is None:
+                    reviewed_at = reviewed_at.replace(tzinfo=timezone.utc)
+                if (now - reviewed_at).days < max_age_days:
+                    pruned_items[item_id] = ts
+            except Exception:
+                pass
+        if pruned_items:
+            pruned[section] = pruned_items
+    return pruned
+
+
+def _save_home_reviewed_state(state: dict) -> None:
+    bucket = os.environ.get("STATE_BUCKET", "gmail-unread-digest")
+    _s3.put_object(
+        Bucket=bucket,
+        Key=HOME_REVIEWED_STATE_KEY,
+        Body=json.dumps(state),
+        ContentType="application/json",
+    )
+
+
+# ---------------------------------------------------------------------------
 # Todoist helpers
 # ---------------------------------------------------------------------------
 
@@ -684,12 +846,137 @@ def handle_action(event: dict) -> dict:
             "body": _SERVICE_WORKER_JS,
         }
 
-    token = params.get("token", "")
-    expected = os.environ.get("ACTION_TOKEN", "")
+    # -----------------------------------------------------------------------
+    # Login route — no auth required
+    # -----------------------------------------------------------------------
+    if params.get("action") == "login":
+        _fu = os.environ.get("FUNCTION_URL", "")
+        _expected = os.environ.get("ACTION_TOKEN", "")
+        _method = (
+            (event.get("requestContext") or {})
+            .get("http", {})
+            .get("method", "GET")
+            .upper()
+        )
+        if _method == "POST":
+            _raw_body = event.get("body") or ""
+            if event.get("isBase64Encoded"):
+                _raw_body = base64.b64decode(_raw_body).decode("utf-8")
+            _form = urllib.parse.parse_qs(_raw_body)
+            _submitted = _form.get("token", [""])[0]
+            if _expected and hmac.compare_digest(_submitted, _expected):
+                _redir = _fu.rstrip("/") + "?action=web"
+                return {
+                    "statusCode": 302,
+                    "headers": {
+                        "Location": _redir,
+                        "Set-Cookie": _make_session_cookie(_expected),
+                        "Cache-Control": "no-store",
+                    },
+                    "body": "",
+                }
+            else:
+                logger.warning("Login attempt failed: invalid token")
+                return {
+                    "statusCode": 200,
+                    "headers": {
+                        "Content-Type": "text/html",
+                        "Cache-Control": "no-store",
+                    },
+                    "body": _login_page_html(
+                        _fu, error="Invalid token. Please try again."
+                    ),
+                }
+        else:
+            return {
+                "statusCode": 200,
+                "headers": {"Content-Type": "text/html", "Cache-Control": "no-store"},
+                "body": _login_page_html(_fu),
+            }
 
-    if not expected or token != expected:
-        logger.warning("Action request rejected: invalid token")
-        return {"statusCode": 403, "body": "Forbidden"}
+    # -----------------------------------------------------------------------
+    # Auth check — cookie or token param
+    # -----------------------------------------------------------------------
+    expected = os.environ.get("ACTION_TOKEN", "")
+    cookie_value = _get_request_cookie(event)
+    token_param = params.get("token", "")
+
+    cookie_valid = _is_valid_session(cookie_value, expected)
+    token_valid = bool(expected and token_param) and hmac.compare_digest(
+        token_param, expected
+    )
+
+    if not cookie_valid and not token_valid:
+        logger.warning("Action request rejected: no valid session")
+        _action_check = params.get("action", "")
+        _api_actions = {
+            "create_task",
+            "update_task",
+            "create_todoist",
+            "subscribe",
+            "notify_test",
+            "move",
+            "priority",
+            "complete",
+            "reopen",
+            "due_date",
+            "commit_label",
+            "bestcase_label",
+            "remove_commit",
+            "remove_bestcase",
+            "markread",
+            "unstar",
+            "create_filter",
+            "calendar_reviewed",
+            "calendar_save_checklist",
+            "calendar_create_todoist",
+            "calendar_commit",
+            "toggl_start",
+            "starred_to_todoist",
+            "followup_reviewed",
+            "followup_resolved",
+            "task_comments",
+            "count_all",
+            "backlog_label",
+            "remove_backlog",
+            "search",
+        }
+        if _action_check in _api_actions:
+            return {"statusCode": 403, "body": "Forbidden"}
+        _login_url = os.environ.get("FUNCTION_URL", "").rstrip("/") + "?action=login"
+        return {
+            "statusCode": 302,
+            "headers": {"Location": _login_url, "Cache-Control": "no-store"},
+            "body": "",
+        }
+
+    # Lazy migration: valid token param, no cookie → upgrade GET navigation requests
+    if token_valid and not cookie_valid:
+        _method = (
+            (event.get("requestContext") or {})
+            .get("http", {})
+            .get("method", "GET")
+            .upper()
+        )
+        _action_nav = params.get("action", "")
+        if _method == "GET" and _action_nav in ("web", "open", ""):
+            _fu = os.environ.get("FUNCTION_URL", "")
+            _new_params = {k: v for k, v in params.items() if k != "token"}
+            _qs = "&".join(
+                f"{urllib.parse.quote(str(k))}={urllib.parse.quote(str(v))}"
+                for k, v in _new_params.items()
+            )
+            _redir = _fu.rstrip("/") + ("?" + _qs if _qs else "?action=web")
+            return {
+                "statusCode": 302,
+                "headers": {
+                    "Location": _redir,
+                    "Set-Cookie": _make_session_cookie(expected),
+                    "Cache-Control": "no-store",
+                },
+                "body": "",
+            }
+        # Non-navigation requests (email digest action links) — allow through as-is
 
     action = params.get("action", "")
     function_url = os.environ.get("FUNCTION_URL", "")
@@ -831,8 +1118,96 @@ def handle_action(event: dict) -> dict:
                     "body": f"<p>Error: {e}</p>",
                 }
 
+        elif view == "home":
+            try:
+                from calendar_service import CalendarService
+                from gmail_service import GmailService
+                from home_views import build_home_html
+                from todoist_service import TodoistService
+
+                service = TodoistService(todoist_token)
+                cal = CalendarService(
+                    os.environ["CALENDAR_CREDENTIALS_JSON"],
+                    os.environ["CALENDAR_TOKEN_JSON"],
+                )
+                gmail = GmailService()
+                today_str = datetime.now().strftime("%Y-%m-%d")
+
+                with ThreadPoolExecutor(max_workers=8) as ex:
+                    f_projects = ex.submit(service.get_all_projects)
+                    f_commit = ex.submit(service.get_tasks_by_label, "Commit")
+                    f_bestcase = ex.submit(service.get_tasks_by_label, "Best Case")
+                    f_p1 = ex.submit(service.get_tasks_by_priority, 4)
+                    f_inbox = ex.submit(service.get_inbox_tasks)
+                    f_calendar = ex.submit(cal.get_upcoming_events, 90)
+                    f_starred = ex.submit(gmail.get_starred_emails)
+                    f_unread = ex.submit(
+                        lambda: __import__("unread_main").get_unread_emails_for_web()
+                    )
+
+                projects = f_projects.result()
+
+                # Filter Todoist tasks to due <= today
+                def _due_today(tasks):
+                    return [
+                        t
+                        for t in tasks
+                        if t.get("due") and t["due"].get("date", "")[:10] <= today_str
+                    ]
+
+                commit_tasks = _due_today(f_commit.result())
+                bestcase_tasks = _due_today(f_bestcase.result())
+                p1_tasks = _due_today(f_p1.result())
+                inbox_tasks = f_inbox.result()
+                calendar_events = f_calendar.result()
+                starred_emails = f_starred.result()
+                try:
+                    unread_emails = f_unread.result()
+                except Exception:
+                    unread_emails = []
+
+                # Follow-up emails from S3 state
+                fu_state = _load_followup_state()
+                followup_emails = list(fu_state.get("emails", {}).values())
+
+                home_state = _load_home_reviewed_state()
+                cal_state = _load_calendar_state()
+
+                body = build_home_html(
+                    commit_tasks=commit_tasks,
+                    bestcase_tasks=bestcase_tasks,
+                    calendar_events=calendar_events,
+                    p1_tasks=p1_tasks,
+                    starred_emails=starred_emails,
+                    unread_emails=unread_emails,
+                    followup_emails=followup_emails,
+                    inbox_tasks=inbox_tasks,
+                    projects=projects,
+                    home_state=home_state,
+                    cal_state=cal_state,
+                    followup_state=fu_state,
+                    function_url=function_url,
+                    action_token=expected,
+                    embed=True,
+                )
+                return {
+                    "statusCode": 200,
+                    "headers": {
+                        "Content-Type": "text/html",
+                        "Cache-Control": "private, max-age=30",
+                    },
+                    "body": body,
+                }
+            except Exception as e:
+                logger.error(f"Home view failed: {e}", exc_info=True)
+                return {
+                    "statusCode": 200,
+                    "headers": {"Content-Type": "text/html"},
+                    "body": f"<p>Error: {e}</p>",
+                }
+
         # -- Todoist views (inbox / commit / p1 / bestcase) --
-        elif view in ("inbox", "commit", "p1", "bestcase"):
+        elif view in ("inbox", "commit", "p1", "p1nodate", "bestcase"):
             try:
                 from todoist_service import TodoistService
                 from todoist_views import build_view_html
@@ -871,6 +1246,17 @@ def handle_action(event: dict) -> dict:
                         for t in all_p1
                         if t.get("due") and t["due"].get("date", "")[:10] <= today_str
                     ]
+                    tasks.sort(
+                        key=lambda t: t.get("created_at", "") or t.get("added_at", ""),
+                        reverse=True,
+                    )
+                elif view == "p1nodate":
+                    with ThreadPoolExecutor(max_workers=2) as executor:
+                        projects_future = executor.submit(service.get_all_projects)
+                        tasks_future = executor.submit(service.get_tasks_by_priority, 4)
+                    projects = projects_future.result()
+                    all_p1 = tasks_future.result()
+                    tasks = [t for t in all_p1 if not t.get("due")]
                     tasks.sort(
                         key=lambda t: t.get("created_at", "") or t.get("added_at", ""),
                         reverse=True,
@@ -940,7 +1326,7 @@ def handle_action(event: dict) -> dict:
                     else:
                         issues_tasks.append(t)
 
-                # Sort all sections by priority desc
+                # Sort labelled sections by priority desc
                 _pri_sort = lambda t: (
                     -t.get("priority", 1),
                     t.get("added_at", "") or "",
@@ -948,7 +1334,11 @@ def handle_action(event: dict) -> dict:
                 in_progress_tasks.sort(key=_pri_sort)
                 planned_tasks.sort(key=_pri_sort)
                 backlog_tasks.sort(key=_pri_sort)
-                issues_tasks.sort(key=_pri_sort)
+                # Sort new issues by most recent first
+                issues_tasks.sort(
+                    key=lambda t: t.get("added_at", "") or "",
+                    reverse=True,
+                )
 
                 body = build_code_projects_html(
                     issues_tasks,
@@ -1010,6 +1400,35 @@ def handle_action(event: dict) -> dict:
                 }
             except Exception as e:
                 logger.error(f"Calendar view failed: {e}", exc_info=True)
+                return {
+                    "statusCode": 200,
+                    "headers": {"Content-Type": "text/html"},
+                    "body": f"<p>Error: {e}</p>",
+                }
+
+        # -- Follow-up view --
+        elif view == "followup":
+            try:
+                from followup_views import build_followup_html
+
+                fu_state = _load_followup_state()
+                body = build_followup_html(
+                    fu_state.get("emails", {}),
+                    fu_state,
+                    function_url,
+                    expected,
+                    embed=True,
+                )
+                return {
+                    "statusCode": 200,
+                    "headers": {
+                        "Content-Type": "text/html",
+                        "Cache-Control": "private, max-age=30",
+                    },
+                    "body": body,
+                }
+            except Exception as e:
+                logger.error(f"Follow-up view failed: {e}", exc_info=True)
                 return {
                     "statusCode": 200,
                     "headers": {"Content-Type": "text/html"},
@@ -1207,6 +1626,112 @@ def handle_action(event: dict) -> dict:
             return _error_json(str(e))
 
     # -----------------------------------------------------------------------
+    # Search — search Todoist tasks and calendar events
+    # -----------------------------------------------------------------------
+    elif action == "search":
+        q = (params.get("q") or "").strip()
+        if not q:
+            return {
+                "statusCode": 200,
+                "headers": {
+                    "Content-Type": "application/json",
+                    "Cache-Control": "no-cache",
+                },
+                "body": json.dumps({"tasks": [], "events": []}),
+            }
+        try:
+            from calendar_service import CalendarService
+            from todoist_service import TodoistService
+
+            service = TodoistService(todoist_token)
+            q_lower = q.lower()
+
+            def _fetch_tasks():
+                return service.get_all_tasks()
+
+            def _fetch_events():
+                try:
+                    cal_service = CalendarService(
+                        os.environ["CALENDAR_CREDENTIALS_JSON"],
+                        os.environ["CALENDAR_TOKEN_JSON"],
+                    )
+                    return cal_service.get_upcoming_events_cached(days=90)
+                except Exception as cal_err:
+                    logger.warning(f"Calendar search failed: {cal_err}")
+                    return []
+
+            # Parallel fetch
+            with ThreadPoolExecutor(max_workers=2) as pool:
+                fut_tasks = pool.submit(_fetch_tasks)
+                fut_events = pool.submit(_fetch_events)
+                all_tasks = fut_tasks.result()
+                all_events = fut_events.result()
+
+            # Build project lookup for task project names
+            projects = service.get_all_projects()
+            proj_map = {p["id"]: p.get("name", "") for p in projects}
+
+            # Filter tasks
+            matched_tasks = []
+            for t in all_tasks:
+                content = (t.get("content") or "").lower()
+                desc = (t.get("description") or "").lower()
+                if q_lower in content or q_lower in desc:
+                    due = t.get("due") or {}
+                    matched_tasks.append(
+                        {
+                            "id": t.get("id", ""),
+                            "content": t.get("content", ""),
+                            "description": t.get("description", ""),
+                            "priority": t.get("priority", 1),
+                            "due_date": due.get("date", ""),
+                            "labels": t.get("labels", []),
+                            "project_name": proj_map.get(t.get("project_id"), ""),
+                            "type": "task",
+                        }
+                    )
+                if len(matched_tasks) >= 25:
+                    break
+
+            # Filter events
+            matched_events = []
+            for ev in all_events:
+                title = (ev.get("title") or "").lower()
+                loc = (ev.get("location") or "").lower()
+                desc = (ev.get("description") or "").lower()
+                if q_lower in title or q_lower in loc or q_lower in desc:
+                    matched_events.append(
+                        {
+                            "id": ev.get("id", ""),
+                            "title": ev.get("title", ""),
+                            "start": ev.get("start", ""),
+                            "end": ev.get("end", ""),
+                            "location": ev.get("location", ""),
+                            "is_all_day": ev.get("is_all_day", False),
+                            "calendar_type": ev.get("calendar_type", ""),
+                            "type": "event",
+                        }
+                    )
+                if len(matched_events) >= 25:
+                    break
+
+            return {
+                "statusCode": 200,
+                "headers": {
+                    "Content-Type": "application/json",
+                    "Cache-Control": "no-cache",
+                },
+                "body": json.dumps({"tasks": matched_tasks, "events": matched_events}),
+            }
+        except Exception as e:
+            logger.error(f"search failed: {e}", exc_info=True)
+            return {
+                "statusCode": 200,
+                "headers": {"Content-Type": "application/json"},
+                "body": json.dumps({"tasks": [], "events": []}),
+            }
+
+    # -----------------------------------------------------------------------
     # Badge count_all — returns JSON counts for all sidebar tabs
     # -----------------------------------------------------------------------
     elif action == "count_all":
@@ -1247,6 +1772,12 @@ def handle_action(event: dict) -> dict:
                 "bestcase": _count_today_or_overdue(f_bc.result()),
                 "code": len(code_new_issues),
             }
+            # Home count: sum of all trackable sections (excludes inbox)
+            counts["home"] = (
+                counts.get("commit", 0)
+                + counts.get("bestcase", 0)
+                + counts.get("p1", 0)
+            )
 
             # Unread count from S3 state
             try:
@@ -1255,6 +1786,30 @@ def handle_action(event: dict) -> dict:
                 state_bucket = os.environ.get("STATE_BUCKET", "gmail-unread-digest")
                 state = state_manager.load_state(state_bucket)
                 counts["unread"] = len(state.get("emails", {}))
+            except Exception:
+                pass
+
+            # Follow-up count from S3 state
+            try:
+                from datetime import timezone as _tz
+
+                fu_state = _load_followup_state()
+                fu_emails = fu_state.get("emails", {})
+                fu_reviews = fu_state.get("reviews", {})
+                fu_unreviewed = 0
+                for tid in fu_emails:
+                    ts = fu_reviews.get(tid)
+                    if ts:
+                        try:
+                            reviewed_at = datetime.fromisoformat(ts)
+                            if reviewed_at.tzinfo is None:
+                                reviewed_at = reviewed_at.replace(tzinfo=_tz.utc)
+                            if (datetime.now(_tz.utc) - reviewed_at).days < 7:
+                                continue
+                        except Exception:
+                            pass
+                    fu_unreviewed += 1
+                counts["followup"] = fu_unreviewed
             except Exception:
                 pass
 
@@ -1336,6 +1891,24 @@ def handle_action(event: dict) -> dict:
             logger.error(f"update_task failed: {e}", exc_info=True)
             return _error_json(str(e))
 
+    elif action == "task_comments":
+        task_id = params.get("task_id", "")
+        if not task_id:
+            return _error_json("Missing task_id")
+        try:
+            from todoist_service import TodoistService
+
+            service = TodoistService(todoist_token)
+            comments = service.get_task_comments(task_id)
+            return {
+                "statusCode": 200,
+                "headers": {"Content-Type": "application/json"},
+                "body": json.dumps({"ok": True, "comments": comments}),
+            }
+        except Exception as e:
+            logger.error(f"task_comments failed: {e}", exc_info=True)
+            return _error_json(str(e))
+
     # -----------------------------------------------------------------------
     # Create Todoist task from email
     # -----------------------------------------------------------------------
@@ -1367,7 +1940,7 @@ def handle_action(event: dict) -> dict:
                 "Authorization": f"Bearer {todoist_token}",
                 "Content-Type": "application/json",
             }
-            title = f"[Action] {ct_subject}" if ct_subject else "[Action] Email task"
+            title = ct_subject if ct_subject else "Email task"
             if ct_from:
                 title += f" \u2014 from {ct_from}"
             desc_parts = []
@@ -1383,6 +1956,7 @@ def handle_action(event: dict) -> dict:
                 "content": title,
                 "description": "\n".join(desc_parts),
                 "project_id": ct_project_id,
+                "labels": ["Email"],
             }
             if ct_due_date:
                 task_json["due_date"] = ct_due_date
@@ -1457,6 +2031,25 @@ def handle_action(event: dict) -> dict:
             logger.error(f"toggl_start failed: {e}", exc_info=True)
             return _error_json(str(e))
 
+    elif action == "home_reviewed":
+        section = params.get("section", "")
+        item_id = params.get("item_id", "")
+        valid_sections = {"commit", "bestcase", "p1", "starred", "inbox"}
+        if not section or section not in valid_sections:
+            return _error_json("Invalid section")
+        if not item_id:
+            return _error_json("Missing item_id")
+        try:
+            state = _load_home_reviewed_state()
+            state.setdefault(section, {})[item_id] = datetime.now(
+                timezone.utc
+            ).isoformat()
+            _save_home_reviewed_state(state)
+            return _ok_json()
+        except Exception as e:
+            logger.error(f"home_reviewed failed: {e}", exc_info=True)
+            return _error_json(str(e))
+
     # -----------------------------------------------------------------------
     # Calendar actions
     # -----------------------------------------------------------------------
@@ -1521,7 +2114,7 @@ def handle_action(event: dict) -> dict:
 
             service = TodoistService(todoist_token)
 
-            title = f"[Action] {subject}" if subject else "[Action] Email task"
+            title = subject if subject else "Email task"
             if from_addr:
                 title += f" \u2014 from {from_addr}"
             desc_parts = []
@@ -1534,6 +2127,11 @@ def handle_action(event: dict) -> dict:
 
             today_str = datetime.now().strftime("%Y-%m-%d")
 
+            _headers = {
+                "Authorization": f"Bearer {todoist_token}",
+                "Content-Type": "application/json",
+            }
+
             if mode == "inbox":
                 # Create task in Inbox
                 inbox_ids = service.get_inbox_project_ids()
@@ -1541,13 +2139,10 @@ def handle_action(event: dict) -> dict:
                 task_json = {
                     "content": title,
                     "description": "\n".join(desc_parts),
+                    "labels": ["Email"],
                 }
                 if project_id:
                     task_json["project_id"] = project_id
-                _headers = {
-                    "Authorization": f"Bearer {todoist_token}",
-                    "Content-Type": "application/json",
-                }
                 _r = _req.post(
                     "https://api.todoist.com/api/v1/tasks",
                     headers=_headers,
@@ -1556,15 +2151,12 @@ def handle_action(event: dict) -> dict:
                 _r.raise_for_status()
 
             elif mode == "bestcase":
-                # Create task, add Best Case label, move to Personal/Personal 2, set today due date
+                # Create task, add Best Case + Email labels, set today due date
                 task_json = {
                     "content": title,
                     "description": "\n".join(desc_parts),
                     "due_date": today_str,
-                }
-                _headers = {
-                    "Authorization": f"Bearer {todoist_token}",
-                    "Content-Type": "application/json",
+                    "labels": ["Email"],
                 }
                 _r = _req.post(
                     "https://api.todoist.com/api/v1/tasks",
@@ -1578,15 +2170,12 @@ def handle_action(event: dict) -> dict:
                     service.bestcase_task(task_id)
 
             elif mode == "commit":
-                # Create task, add Commit label, move to Personal/Personal 2, set today due date
+                # Create task, add Commit + Email labels, set today due date
                 task_json = {
                     "content": title,
                     "description": "\n".join(desc_parts),
                     "due_date": today_str,
-                }
-                _headers = {
-                    "Authorization": f"Bearer {todoist_token}",
-                    "Content-Type": "application/json",
+                    "labels": ["Email"],
                 }
                 _r = _req.post(
                     "https://api.todoist.com/api/v1/tasks",
@@ -1626,7 +2215,9 @@ def handle_action(event: dict) -> dict:
             event_location = params.get("event_location", "")
             event_id = params.get("event_id", "")
             project_id = params.get("project_id", "")
-            due_date = params.get("due_date", "")
+            due_date = (
+                (params.get("due_date", "") or event_date[:10]) if event_date else ""
+            )
             priority = params.get("priority", "")
 
             _headers = {
@@ -1674,6 +2265,41 @@ def handle_action(event: dict) -> dict:
             return _ok_json()
         except Exception as e:
             logger.error(f"{action} failed: {e}", exc_info=True)
+            return _error_json(str(e))
+
+    # -----------------------------------------------------------------------
+    # Follow-up actions
+    # -----------------------------------------------------------------------
+    elif action == "followup_reviewed":
+        thread_id = params.get("thread_id", "")
+        if not thread_id:
+            return _error_json("Missing thread_id")
+        try:
+            fu_state = _load_followup_state()
+            fu_state.setdefault("reviews", {})[thread_id] = datetime.now(
+                timezone.utc
+            ).isoformat()
+            _save_followup_state(fu_state)
+            return _ok_json()
+        except Exception as e:
+            logger.error(f"followup_reviewed failed: {e}", exc_info=True)
+            return _error_json(str(e))
+
+    elif action == "followup_resolved":
+        thread_id = params.get("thread_id", "")
+        if not thread_id:
+            return _error_json("Missing thread_id")
+        try:
+            fu_state = _load_followup_state()
+            fu_state.setdefault("resolved", {})[thread_id] = datetime.now(
+                timezone.utc
+            ).isoformat()
+            fu_state.get("emails", {}).pop(thread_id, None)
+            fu_state.get("reviews", {}).pop(thread_id, None)
+            _save_followup_state(fu_state)
+            return _ok_json()
+        except Exception as e:
+            logger.error(f"followup_resolved failed: {e}", exc_info=True)
             return _error_json(str(e))
 
     # -----------------------------------------------------------------------
@@ -1762,6 +2388,11 @@ def lambda_handler(event, context):
         else:
             logger.info("Running in sync mode")
             result = run_sync(dry_run=dry_run)
+
+            from unread_main import run_followup_sync
+
+            followup_result = run_followup_sync(dry_run=dry_run)
+            logger.info(f"Followup sync: {followup_result}")
 
         logger.info(f"Completed: {result}")
         return {

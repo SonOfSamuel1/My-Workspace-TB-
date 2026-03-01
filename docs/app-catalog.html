@@ -1,0 +1,773 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>App Catalog — My Workspace</title>
+<style>
+:root {
+  --bg: #f8f9fa; --surface: #ffffff; --text: #1a1a2e; --text-muted: #6c757d;
+  --border: #dee2e6; --accent: #4361ee; --accent-hover: #3a56d4;
+  --card-shadow: 0 1px 3px rgba(0,0,0,0.08); --card-hover: 0 4px 12px rgba(0,0,0,0.12);
+  --search-bg: #ffffff; --badge-text: #fff;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not(.light) {
+    --bg: #0d1117; --surface: #161b22; --text: #e6edf3; --text-muted: #8b949e;
+    --border: #30363d; --accent: #58a6ff; --accent-hover: #79b8ff;
+    --card-shadow: 0 1px 3px rgba(0,0,0,0.3); --card-hover: 0 4px 12px rgba(0,0,0,0.4);
+    --search-bg: #0d1117;
+  }
+}
+:root.dark {
+  --bg: #0d1117; --surface: #161b22; --text: #e6edf3; --text-muted: #8b949e;
+  --border: #30363d; --accent: #58a6ff; --accent-hover: #79b8ff;
+  --card-shadow: 0 1px 3px rgba(0,0,0,0.3); --card-hover: 0 4px 12px rgba(0,0,0,0.4);
+  --search-bg: #0d1117;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--bg); color: var(--text); line-height: 1.5; }
+.container { max-width: 1280px; margin: 0 auto; padding: 24px; }
+header { text-align: center; margin-bottom: 32px; }
+header h1 { font-size: 2rem; margin-bottom: 4px; }
+header .subtitle { color: var(--text-muted); font-size: 0.95rem; }
+.theme-toggle { position: fixed; top: 16px; right: 16px; background: var(--surface);
+  border: 1px solid var(--border); border-radius: 8px; padding: 6px 12px; cursor: pointer;
+  color: var(--text); font-size: 0.85rem; z-index: 10; }
+.theme-toggle:hover { border-color: var(--accent); }
+
+.stats-bar { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center;
+  margin-bottom: 24px; }
+.stat-pill { background: var(--surface); border: 1px solid var(--border); border-radius: 20px;
+  padding: 4px 14px; font-size: 0.82rem; color: var(--text-muted); white-space: nowrap; }
+
+.controls { margin-bottom: 24px; }
+.search-box { width: 100%; padding: 10px 16px; font-size: 1rem; border: 1px solid var(--border);
+  border-radius: 8px; background: var(--search-bg); color: var(--text); margin-bottom: 12px; }
+.search-box:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(67,97,238,0.15); }
+.filter-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 8px; }
+.filter-label { font-size: 0.82rem; color: var(--text-muted); font-weight: 600; margin-right: 4px; }
+.filter-btn { background: var(--surface); border: 1px solid var(--border); border-radius: 6px;
+  padding: 4px 12px; font-size: 0.82rem; cursor: pointer; color: var(--text); transition: all 0.15s; }
+.filter-btn:hover { border-color: var(--accent); }
+.filter-btn.active { background: var(--accent); color: var(--badge-text); border-color: var(--accent); }
+
+.grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+@media (max-width: 1024px) { .grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 640px) { .grid { grid-template-columns: 1fr; } }
+
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+  padding: 20px; box-shadow: var(--card-shadow); transition: box-shadow 0.2s, transform 0.2s; }
+.card:hover { box-shadow: var(--card-hover); transform: translateY(-2px); }
+.card.hidden { display: none; }
+.card-header { display: flex; justify-content: space-between; align-items: flex-start;
+  flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+.card-title { font-size: 1.05rem; font-weight: 700; word-break: break-word; }
+.card-badges { display: flex; flex-wrap: wrap; gap: 4px; }
+.badge { padding: 2px 10px; border-radius: 12px; font-size: 0.75rem; font-weight: 600; color: var(--badge-text); }
+.lang-python { background: #3572A5; } .lang-node\.js,.lang-nodejs { background: #339933; }
+.lang-typescript { background: #4338ca; } .lang-python\/node\.js,.lang-python-nodejs { background: #6366f1; }
+.lang-unknown { background: #6b7280; }
+.deploy-aws-lambda { background: #e67e22; } .deploy-vercel { background: #111; }
+.deploy-local { background: #6b7280; } .deploy-serverless { background: #7c3aed; }
+.deploy-script-deploy { background: #4b5563; } .deploy-docker\/lambda,.deploy-docker-lambda { background: #d97706; }
+.card-desc { color: var(--text-muted); font-size: 0.88rem; margin-bottom: 12px;
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.card-meta { font-size: 0.82rem; }
+.meta-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 6px; }
+.meta-label { font-weight: 600; min-width: 90px; }
+.pills-wrap { display: flex; flex-wrap: wrap; gap: 4px; }
+.integration-pill { background: var(--bg); border: 1px solid var(--border); border-radius: 10px;
+  padding: 1px 8px; font-size: 0.75rem; white-space: nowrap; }
+.entry-wrap { display: flex; flex-wrap: wrap; gap: 4px; }
+code.entry-point { background: var(--bg); border: 1px solid var(--border); padding: 1px 6px;
+  border-radius: 4px; font-size: 0.78rem; }
+.indicator { font-size: 0.78rem; margin-left: 6px; }
+.indicator.yes { color: #22c55e; } .indicator.no { color: #ef4444; }
+
+.deps-section { margin-top: 10px; font-size: 0.82rem; }
+.deps-section summary { cursor: pointer; color: var(--text-muted); user-select: none; }
+.deps-section summary:hover { color: var(--accent); }
+.deps-wrap { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.dep-tag { background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
+  padding: 1px 7px; font-size: 0.73rem; font-family: monospace; }
+
+.sessions-section { margin-top: 10px; font-size: 0.82rem; }
+.sessions-section summary { cursor: pointer; color: var(--text-muted); user-select: none; }
+.sessions-section summary:hover { color: var(--accent); }
+.sessions-wrap { margin-top: 6px; }
+.session-item { display: flex; align-items: center; gap: 8px; padding: 4px 0;
+  border-bottom: 1px solid var(--border); }
+.session-item:last-child { border-bottom: none; }
+.session-date { font-family: monospace; font-size: 0.75rem; color: var(--text-muted);
+  white-space: nowrap; min-width: 80px; }
+.session-summary { flex: 1; font-size: 0.78rem; overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap; }
+.session-item.primary .session-summary { font-weight: 600; }
+.copy-btn { background: var(--bg); border: 1px solid var(--border); border-radius: 4px;
+  cursor: pointer; padding: 2px 6px; font-size: 0.72rem; color: var(--text-muted);
+  flex-shrink: 0; transition: all 0.15s; }
+.copy-btn:hover { border-color: var(--accent); color: var(--accent); }
+.copy-btn.copied { background: #22c55e; color: #fff; border-color: #22c55e; }
+.last-updated { font-weight: 600; color: var(--text); }
+
+.no-results { text-align: center; padding: 48px 16px; color: var(--text-muted); display: none; }
+footer { text-align: center; margin-top: 40px; padding: 16px; color: var(--text-muted); font-size: 0.82rem; }
+</style>
+</head>
+<body>
+<button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">&#9790; / &#9728;</button>
+<div class="container">
+  <header>
+    <h1>Application Catalog</h1>
+    <p class="subtitle">24 apps &middot; Generated 2026-02-24 12:53 UTC</p>
+  </header>
+
+  <div class="stats-bar">
+    <span class="stat-pill"><strong>Languages:</strong></span><span class='stat-pill'>Node.js: 3</span><span class='stat-pill'>Python: 20</span><span class='stat-pill'>TypeScript: 1</span>
+    <span class="stat-pill"><strong>Deployment:</strong></span><span class='stat-pill'>AWS Lambda: 16</span><span class='stat-pill'>Local: 5</span><span class='stat-pill'>Script Deploy: 1</span><span class='stat-pill'>Serverless: 1</span><span class='stat-pill'>Vercel: 1</span>
+    <span class="stat-pill">README: 16/24</span>
+    <span class="stat-pill">Tests: 5/24</span>
+  </div>
+
+  <div class="controls">
+    <input type="text" class="search-box" id="searchBox" placeholder="Search apps by name, description, or integration&hellip;">
+    <div class="filter-row">
+      <span class="filter-label">Language:</span>
+      <button class="filter-btn active" data-filter-type="language" data-value="all">All</button><button class="filter-btn" data-filter-type="language" data-value="Node.js">Node.js</button><button class="filter-btn" data-filter-type="language" data-value="Python">Python</button><button class="filter-btn" data-filter-type="language" data-value="TypeScript">TypeScript</button>
+    </div>
+    <div class="filter-row">
+      <span class="filter-label">Deploy:</span>
+      <button class="filter-btn active" data-filter-type="deployment" data-value="all">All</button><button class="filter-btn" data-filter-type="deployment" data-value="AWS Lambda">AWS Lambda</button><button class="filter-btn" data-filter-type="deployment" data-value="Local">Local</button><button class="filter-btn" data-filter-type="deployment" data-value="Script Deploy">Script Deploy</button><button class="filter-btn" data-filter-type="deployment" data-value="Serverless">Serverless</button><button class="filter-btn" data-filter-type="deployment" data-value="Vercel">Vercel</button>
+    </div>
+  </div>
+
+  <div class="grid" id="cardGrid">
+
+    <div class="card" data-language="Python" data-deployment="AWS Lambda"
+         data-search="amazon-ynab-reconciler An automated system that scrapes Amazon order history, intelligently matches transactions with YNAB, and updates transaction memos with Amazon categorization and item links. Google APIs Google Auth HTTP/REST TOTP/2FA Web Scraping">
+      <div class="card-header">
+        <h2 class="card-title">amazon-ynab-reconciler</h2>
+        <div class="card-badges">
+          <span class="badge lang-python">Python</span>
+          <span class="badge deploy-aws-lambda">AWS Lambda</span>
+        </div>
+      </div>
+      <p class="card-desc">An automated system that scrapes Amazon order history, intelligently matches transactions with YNAB, and updates transaction memos with Amazon categorization and item links.</p>
+      <div class="card-meta">
+        <div class="meta-row"><span class="meta-label">Last Updated</span><span class="last-updated">2025-12-10</span></div>
+        <div class="meta-row"><span class="meta-label">Integrations</span><div class="pills-wrap"><span class='integration-pill'>Google APIs</span><span class='integration-pill'>Google Auth</span><span class='integration-pill'>HTTP/REST</span><span class='integration-pill'>TOTP/2FA</span><span class='integration-pill'>Web Scraping</span></div></div>
+        <div class="meta-row"><span class="meta-label">Entry Points</span><div class="entry-wrap"><code class='entry-point'>lambda_handler.py</code><code class='entry-point'>src/reconciler_main.py</code></div></div>
+        <div class="meta-row">
+          <span class="meta-label">Source Files</span><span>28</span>
+          <span class="indicator yes">&#10003; README</span>
+          <span class="indicator yes">&#10003; Tests</span>
+        </div>
+      </div>
+      <details class="deps-section"><summary>Dependencies (11)</summary><div class="deps-wrap"><span class='dep-tag'>requests</span><span class='dep-tag'>pyyaml</span><span class='dep-tag'>python-dotenv</span><span class='dep-tag'>pyotp</span><span class='dep-tag'>beautifulsoup4</span><span class='dep-tag'>google-auth</span><span class='dep-tag'>google-auth-oauthlib</span><span class='dep-tag'>google-auth-httplib2</span><span class='dep-tag'>google-api-python-client</span><span class='dep-tag'>pytest</span><span class='dep-tag'>httpx</span></div></details>
+
+    </div>
+    <div class="card" data-language="Node.js" data-deployment="AWS Lambda"
+         data-search="autonomous-email-assistant An intelligent, fully autonomous email management system built with Claude Code Max and GitHub Actions. Monitors Gmail inbox, classifies emails by priority tier, handles routine tasks automatically... Browser Automation Google APIs">
+      <div class="card-header">
+        <h2 class="card-title">autonomous-email-assistant</h2>
+        <div class="card-badges">
+          <span class="badge lang-nodejs">Node.js</span>
+          <span class="badge deploy-aws-lambda">AWS Lambda</span>
+        </div>
+      </div>
+      <p class="card-desc">An intelligent, fully autonomous email management system built with Claude Code Max and GitHub Actions. Monitors Gmail inbox, classifies emails by priority tier, handles routine tasks automatically...</p>
+      <div class="card-meta">
+        <div class="meta-row"><span class="meta-label">Last Updated</span><span class="last-updated">2025-12-10</span></div>
+        <div class="meta-row"><span class="meta-label">Integrations</span><div class="pills-wrap"><span class='integration-pill'>Browser Automation</span><span class='integration-pill'>Google APIs</span></div></div>
+        <div class="meta-row"><span class="meta-label">Entry Points</span><div class="entry-wrap"><code class='entry-point'>lambda_handler.js</code><code class='entry-point'>lambda_handler.py</code></div></div>
+        <div class="meta-row">
+          <span class="meta-label">Source Files</span><span>0</span>
+          <span class="indicator yes">&#10003; README</span>
+          <span class="indicator yes">&#10003; Tests</span>
+        </div>
+      </div>
+      <details class="deps-section"><summary>Dependencies (9)</summary><div class="deps-wrap"><span class='dep-tag'>aws-sdk</span><span class='dep-tag'>axios</span><span class='dep-tag'>express</span><span class='dep-tag'>googleapis</span><span class='dep-tag'>playwright</span><span class='dep-tag'>uuid</span><span class='dep-tag'>winston</span><span class='dep-tag'>@types/jest</span><span class='dep-tag'>jest</span></div></details>
+
+    </div>
+    <div class="card" data-language="Node.js" data-deployment="Serverless"
+         data-search="brandon-family-calendar-reporting AWS Lambda function for automated calendar reporting AWS Google APIs">
+      <div class="card-header">
+        <h2 class="card-title">brandon-family-calendar-reporting</h2>
+        <div class="card-badges">
+          <span class="badge lang-nodejs">Node.js</span>
+          <span class="badge deploy-serverless">Serverless</span>
+        </div>
+      </div>
+      <p class="card-desc">AWS Lambda function for automated calendar reporting</p>
+      <div class="card-meta">
+        <div class="meta-row"><span class="meta-label">Last Updated</span><span class="last-updated">2025-12-09</span></div>
+        <div class="meta-row"><span class="meta-label">Integrations</span><div class="pills-wrap"><span class='integration-pill'>AWS</span><span class='integration-pill'>Google APIs</span></div></div>
+
+        <div class="meta-row">
+          <span class="meta-label">Source Files</span><span>0</span>
+          <span class="indicator no">&#10007; README</span>
+          <span class="indicator no">&#10007; Tests</span>
+        </div>
+      </div>
+      <details class="deps-section"><summary>Dependencies (6)</summary><div class="deps-wrap"><span class='dep-tag'>@aws-sdk/client-ses</span><span class='dep-tag'>@aws-sdk/client-ssm</span><span class='dep-tag'>googleapis</span><span class='dep-tag'>moment-timezone</span><span class='dep-tag'>dotenv</span><span class='dep-tag'>open</span></div></details>
+
+    </div>
+    <div class="card" data-language="Python" data-deployment="AWS Lambda"
+         data-search="credit-card-rewards-tracker Track and optimize credit card rewards across multiple issuers. Get weekly email reports, CLI dashboard access, and intelligent recommendations for maximizing your rewards. AWS HTTP/REST Jinja2 Templates Rich CLI">
+      <div class="card-header">
+        <h2 class="card-title">credit-card-rewards-tracker</h2>
+        <div class="card-badges">
+          <span class="badge lang-python">Python</span>
+          <span class="badge deploy-aws-lambda">AWS Lambda</span>
+        </div>
+      </div>
+      <p class="card-desc">Track and optimize credit card rewards across multiple issuers. Get weekly email reports, CLI dashboard access, and intelligent recommendations for maximizing your rewards.</p>
+      <div class="card-meta">
+        <div class="meta-row"><span class="meta-label">Last Updated</span><span class="last-updated">2025-12-09</span></div>
+        <div class="meta-row"><span class="meta-label">Integrations</span><div class="pills-wrap"><span class='integration-pill'>AWS</span><span class='integration-pill'>HTTP/REST</span><span class='integration-pill'>Jinja2 Templates</span><span class='integration-pill'>Rich CLI</span></div></div>
+        <div class="meta-row"><span class="meta-label">Entry Points</span><div class="entry-wrap"><code class='entry-point'>lambda_handler.py</code><code class='entry-point'>src/rewards_main.py</code></div></div>
+        <div class="meta-row">
+          <span class="meta-label">Source Files</span><span>7</span>
+          <span class="indicator yes">&#10003; README</span>
+          <span class="indicator no">&#10007; Tests</span>
+        </div>
+      </div>
+      <details class="deps-section"><summary>Dependencies (8)</summary><div class="deps-wrap"><span class='dep-tag'>pyyaml</span><span class='dep-tag'>python-dotenv</span><span class='dep-tag'>requests</span><span class='dep-tag'>rich</span><span class='dep-tag'>jinja2</span><span class='dep-tag'>boto3</span><span class='dep-tag'>pytz</span><span class='dep-tag'>python-dateutil</span></div></details>
+
+    </div>
+    <div class="card" data-language="Python" data-deployment="Local"
+         data-search="daily-ai-news-report Daily Ai News Report application AWS HTTP/REST Jinja2 Templates RSS Feeds Web Scraping">
+      <div class="card-header">
+        <h2 class="card-title">daily-ai-news-report</h2>
+        <div class="card-badges">
+          <span class="badge lang-python">Python</span>
+          <span class="badge deploy-local">Local</span>
+        </div>
+      </div>
+      <p class="card-desc">Daily Ai News Report application</p>
+      <div class="card-meta">
+        <div class="meta-row"><span class="meta-label">Last Updated</span><span class="last-updated">2025-12-03</span></div>
+        <div class="meta-row"><span class="meta-label">Integrations</span><div class="pills-wrap"><span class='integration-pill'>AWS</span><span class='integration-pill'>HTTP/REST</span><span class='integration-pill'>Jinja2 Templates</span><span class='integration-pill'>RSS Feeds</span><span class='integration-pill'>Web Scraping</span></div></div>
+
+        <div class="meta-row">
+          <span class="meta-label">Source Files</span><span>0</span>
+          <span class="indicator no">&#10007; README</span>
+          <span class="indicator no">&#10007; Tests</span>
+        </div>
+      </div>
+      <details class="deps-section"><summary>Dependencies (13)</summary><div class="deps-wrap"><span class='dep-tag'>feedparser</span><span class='dep-tag'>beautifulsoup4</span><span class='dep-tag'>requests</span><span class='dep-tag'>python-dotenv</span><span class='dep-tag'>boto3</span><span class='dep-tag'>jinja2</span><span class='dep-tag'>PyYAML</span><span class='dep-tag'>pytest</span><span class='dep-tag'>pytest-mock</span><span class='dep-tag'>pytest-cov</span><span class='dep-tag'>black</span><span class='dep-tag'>flake8</span><span class='dep-tag'>mypy</span></div></details>
+
+    </div>
+    <div class="card" data-language="Python" data-deployment="AWS Lambda"
+         data-search="factor75-meal-selector Automate your weekly Factor 75 meal selection with email-based interaction. AWS Google APIs Google Auth Jinja2 Templates">
+      <div class="card-header">
+        <h2 class="card-title">factor75-meal-selector</h2>
+        <div class="card-badges">
+          <span class="badge lang-python">Python</span>
+          <span class="badge deploy-aws-lambda">AWS Lambda</span>
+        </div>
+      </div>
+      <p class="card-desc">Automate your weekly Factor 75 meal selection with email-based interaction.</p>
+      <div class="card-meta">
+
+        <div class="meta-row"><span class="meta-label">Integrations</span><div class="pills-wrap"><span class='integration-pill'>AWS</span><span class='integration-pill'>Google APIs</span><span class='integration-pill'>Google Auth</span><span class='integration-pill'>Jinja2 Templates</span></div></div>
+        <div class="meta-row"><span class="meta-label">Entry Points</span><div class="entry-wrap"><code class='entry-point'>lambda_handler.py</code><code class='entry-point'>src/factor75_main.py</code></div></div>
+        <div class="meta-row">
+          <span class="meta-label">Source Files</span><span>8</span>
+          <span class="indicator yes">&#10003; README</span>
+          <span class="indicator no">&#10007; Tests</span>
+        </div>
+      </div>
+      <details class="deps-section"><summary>Dependencies (10)</summary><div class="deps-wrap"><span class='dep-tag'>boto3</span><span class='dep-tag'>google-api-python-client</span><span class='dep-tag'>google-auth-oauthlib</span><span class='dep-tag'>google-auth-httplib2</span><span class='dep-tag'>python-dotenv</span><span class='dep-tag'>PyYAML</span><span class='dep-tag'>pytz</span><span class='dep-tag'>Jinja2</span><span class='dep-tag'>python-dateutil</span><span class='dep-tag'>coloredlogs</span></div></details>
+
+    </div>
+    <div class="card" data-language="Python" data-deployment="AWS Lambda"
+         data-search="fireflies-meeting-notes Fireflies Meeting Notes application AWS HTTP/REST">
+      <div class="card-header">
+        <h2 class="card-title">fireflies-meeting-notes</h2>
+        <div class="card-badges">
+          <span class="badge lang-python">Python</span>
+          <span class="badge deploy-aws-lambda">AWS Lambda</span>
+        </div>
+      </div>
+      <p class="card-desc">Fireflies Meeting Notes application</p>
+      <div class="card-meta">
+
+        <div class="meta-row"><span class="meta-label">Integrations</span><div class="pills-wrap"><span class='integration-pill'>AWS</span><span class='integration-pill'>HTTP/REST</span></div></div>
+        <div class="meta-row"><span class="meta-label">Entry Points</span><div class="entry-wrap"><code class='entry-point'>lambda_handler.py</code><code class='entry-point'>src/fireflies_main.py</code></div></div>
+        <div class="meta-row">
+          <span class="meta-label">Source Files</span><span>7</span>
+          <span class="indicator no">&#10007; README</span>
+          <span class="indicator no">&#10007; Tests</span>
+        </div>
+      </div>
+      <details class="deps-section"><summary>Dependencies (3)</summary><div class="deps-wrap"><span class='dep-tag'>requests</span><span class='dep-tag'>boto3</span><span class='dep-tag'>python-dotenv</span></div></details>
+      <details class="sessions-section"><summary>Claude Code Sessions (11)</summary><div class="sessions-wrap"><div class="session-item primary"><span class="session-date">2026-02-24</span><span class="session-summary">Email Visual Redesign — Fireflies Meeting Notes</span><button class="copy-btn" data-sid="15dc650c-05b7-4cb4-9689-3d6a56359f1d" title="Copy resume command">&#x2398;</button></div><div class="session-item primary"><span class="session-date">2026-02-24</span><span class="session-summary">Email Visual Polish — Fireflies Meeting Notes (Round 2)</span><button class="copy-btn" data-sid="34d924d4-b04d-493a-a359-ae0e5c66e4ca" title="Copy resume command">&#x2398;</button></div><div class="session-item primary"><span class="session-date">2026-02-24</span><span class="session-summary">Fireflies Meeting Notes Email — Full Redesign</span><button class="copy-btn" data-sid="6b93350b-d826-415e-b0ba-26a35db2c9c4" title="Copy resume command">&#x2398;</button></div><div class="session-item related"><span class="session-date">2026-02-24</span><span class="session-summary">Backfill All Fireflies Recordings to S3</span><button class="copy-btn" data-sid="73af5c46-3a31-4d3b-a7b9-6666065fcd1f" title="Copy resume command">&#x2398;</button></div><div class="session-item primary"><span class="session-date">2026-02-24</span><span class="session-summary">All Recordings Web Page — Fireflies Meeting Notes</span><button class="copy-btn" data-sid="74e1f15b-90ca-4528-8491-1d1c9444cc7f" title="Copy resume command">&#x2398;</button></div><div class="session-item primary"><span class="session-date">2026-02-24</span><span class="session-summary">Deploy + Resend: Obsidian Note Fix</span><button class="copy-btn" data-sid="a734a4aa-b1ac-4082-84a0-59f3367cebc6" title="Copy resume command">&#x2398;</button></div><div class="session-item related"><span class="session-date">2026-02-24</span><span class="session-summary">Obsidian Notes: AI Title + Full Transcript</span><button class="copy-btn" data-sid="aeea4065-4856-4e9b-add5-66129d87f868" title="Copy resume command">&#x2398;</button></div><div class="session-item related"><span class="session-date">2026-02-24</span><span class="session-summary">Fix: Obsidian Save Button — Clipboard Fails on Mobile</span><button class="copy-btn" data-sid="b2195d66-493b-49d2-b3b8-14226d3601f2" title="Copy resume command">&#x2398;</button></div><div class="session-item related"><span class="session-date">2026-02-24</span><span class="session-summary">Fix: Obsidian Note Naming + Click Latency</span><button class="copy-btn" data-sid="e5e59aaf-eaa2-48b4-bbb0-73746aba8026" title="Copy resume command">&#x2398;</button></div><div class="session-item primary"><span class="session-date">2026-02-23</span><span class="session-summary">Fireflies Meeting Notes Processor</span><button class="copy-btn" data-sid="50c37044-2440-4ff7-8dab-d0d83a647b52" title="Copy resume command">&#x2398;</button></div><div class="session-item related"><span class="session-date">2026-02-23</span><span class="session-summary">Fix Fireflies Email Template + Obsidian One-Click Save</span><button class="copy-btn" data-sid="e5ba9a74-d88f-4d25-a7cc-1b3242dcf0a3" title="Copy resume command">&#x2398;</button></div></div></details>
+    </div>
+    <div class="card" data-language="Python" data-deployment="AWS Lambda"
+         data-search="gmail-email-actions Gmail Email Actions application ">
+      <div class="card-header">
+        <h2 class="card-title">gmail-email-actions</h2>
+        <div class="card-badges">
+          <span class="badge lang-python">Python</span>
+          <span class="badge deploy-aws-lambda">AWS Lambda</span>
+        </div>
+      </div>
+      <p class="card-desc">Gmail Email Actions application</p>
+      <div class="card-meta">
+
+
+        <div class="meta-row"><span class="meta-label">Entry Points</span><div class="entry-wrap"><code class='entry-point'>src/email_actions_main.py</code><code class='entry-point'>src/lambda_handler.py</code></div></div>
+        <div class="meta-row">
+          <span class="meta-label">Source Files</span><span>6</span>
+          <span class="indicator no">&#10007; README</span>
+          <span class="indicator no">&#10007; Tests</span>
+        </div>
+      </div>
+
+      <details class="sessions-section"><summary>Claude Code Sessions (26)</summary><div class="sessions-wrap"><div class="session-item primary"><span class="session-date">2026-02-24</span><span class="session-summary">Add Split-Pane Inline Email Viewer to gmail-email-actions</span><button class="copy-btn" data-sid="04d664ea-0f80-4715-8adb-b5c524342c69" title="Copy resume command">&#x2398;</button></div><div class="session-item primary"><span class="session-date">2026-02-24</span><span class="session-summary">Trash Previous YNAB Review Emails on New Send</span><button class="copy-btn" data-sid="08fb7e0e-5f6c-4de7-9d41-379b66d45e5c" title="Copy resume command">&#x2398;</button></div><div class="session-item related"><span class="session-date">2026-02-24</span><span class="session-summary">Improve List Row Readability (v4)</span><button class="copy-btn" data-sid="158f0d20-4419-49e6-95f4-a15561b0c488" title="Copy resume command">&#x2398;</button></div><div class="session-item primary"><span class="session-date">2026-02-24</span><span class="session-summary">Restyle Coding Digest Email to Match Gmail Email Actions UI</span><button class="copy-btn" data-sid="49839b13-a68b-44e4-80fb-c610651bc0e4" title="Copy resume command">&#x2398;</button></div><div class="session-item primary"><span class="session-date">2026-02-24</span><span class="session-summary">Fireflies Meeting Notes Email — Full Redesign</span><button class="copy-btn" data-sid="6b93350b-d826-415e-b0ba-26a35db2c9c4" title="Copy resume command">&#x2398;</button></div><div class="session-item related"><span class="session-date">2026-02-24</span><span class="session-summary">Polished Digest Email — Clean List UI (v2)</span><button class="copy-btn" data-sid="6d0a85db-7365-444a-9d0b-c79fa60d25a0" title="Copy resume command">&#x2398;</button></div><div class="session-item primary"><span class="session-date">2026-02-24</span><span class="session-summary">All Recordings Web Page — Fireflies Meeting Notes</span><button class="copy-btn" data-sid="74e1f15b-90ca-4528-8491-1d1c9444cc7f" title="Copy resume command">&#x2398;</button></div><div class="session-item related"><span class="session-date">2026-02-24</span><span class="session-summary">Polish Email Digest — v5 Pill Buttons + De-clutter</span><button class="copy-btn" data-sid="7c81b210-65e6-4326-a7d1-6b7866121a46" title="Copy resume command">&#x2398;</button></div><div class="session-item primary"><span class="session-date">2026-02-24</span><span class="session-summary">Combined Tabbed Gmail Inbox (Starred + Unread)</span><button class="copy-btn" data-sid="a4a48749-774f-4773-9b63-a18aef25c36a" title="Copy resume command">&#x2398;</button></div><div class="session-item primary"><span class="session-date">2026-02-24</span><span class="session-summary">Gmail Unread Digest — replicate starred-email automation for unread emails</span><button class="copy-btn" data-sid="a75c219c-7e6b-46de-9a45-7a5b8acd61ff" title="Copy resume command">&#x2398;</button></div><div class="session-item primary"><span class="session-date">2026-02-24</span><span class="session-summary">Add Todoist Tabs to Dashboard Container</span><button class="copy-btn" data-sid="bd460fc6-0e0d-489c-8fcc-d5f2a0445d75" title="Copy resume command">&#x2398;</button></div><div class="session-item related"><span class="session-date">2026-02-24</span><span class="session-summary">Polished Header (v3)</span><button class="copy-btn" data-sid="dba94fc7-08fa-4004-b2d8-9403ba94b5d7" title="Copy resume command">&#x2398;</button></div><div class="session-item primary"><span class="session-date">2026-02-24</span><span class="session-summary">v6 — Plain-text titles + star emoji header</span><button class="copy-btn" data-sid="f1f5ac9f-b8e8-4877-876a-d2ecd638a605" title="Copy resume command">&#x2398;</button></div><div class="session-item related"><span class="session-date">2026-02-24</span><span class="session-summary">Web digest page with one-click unstar</span><button class="copy-btn" data-sid="f49fe541-3461-48bb-8abe-cfcb11b80f06" title="Copy resume command">&#x2398;</button></div><div class="session-item related"><span class="session-date">2026-02-23</span><span class="session-summary">Fireflies Meeting Notes Processor</span><button class="copy-btn" data-sid="50c37044-2440-4ff7-8dab-d0d83a647b52" title="Copy resume command">&#x2398;</button></div><div class="session-item primary"><span class="session-date">2026-02-23</span><span class="session-summary">Rerun Button Placement + Visual Polish</span><button class="copy-btn" data-sid="70f2d5e0-31c7-4957-b3b6-0e15b2b6fb11" title="Copy resume command">&#x2398;</button></div><div class="session-item primary"><span class="session-date">2026-02-23</span><span class="session-summary">Mobile-Friendly Digest Email Redesign</span><button class="copy-btn" data-sid="8a9a3fb4-faa4-43da-8711-585eb371ba70" title="Copy resume command">&#x2398;</button></div><div class="session-item related"><span class="session-date">2026-02-23</span><span class="session-summary">Render Email Content on Lambda Page (Bypass Gmail Deep-Link Limitation)</span><button class="copy-btn" data-sid="9557f750-26f1-49c9-8ad8-7f811b1bccfd" title="Copy resume command">&#x2398;</button></div><div class="session-item related"><span class="session-date">2026-02-23</span><span class="session-summary">update my fireflies app to no longer send this email but rather a detailed summary of notes via emai</span><button class="copy-btn" data-sid="d2eafe9f-c22a-426c-8f1b-166f788d20ed" title="Copy resume command">&#x2398;</button></div><div class="session-item primary"><span class="session-date">2026-02-23</span><span class="session-summary">Auto-Delete Previous Digest Emails When New Digest Is Sent</span><button class="copy-btn" data-sid="db31c9ed-b47f-41ad-aae3-a8eb7cda39a4" title="Copy resume command">&#x2398;</button></div><div class="session-item related"><span class="session-date">2026-02-23</span><span class="session-summary">Fix Gmail Links on iOS via Lambda Redirect</span><button class="copy-btn" data-sid="f417f96d-856a-4bf8-a512-4118d973a942" title="Copy resume command">&#x2398;</button></div><div class="session-item related"><span class="session-date">2026-02-23</span><span class="session-summary">Fix Buttons + Gmail Links + Title Rename</span><button class="copy-btn" data-sid="fd769bd2-d7b0-452d-9034-8a4eb596d18d" title="Copy resume command">&#x2398;</button></div><div class="session-item primary"><span class="session-date">2026-02-22</span><span class="session-summary">Gmail Email Actions — Digest Enhancements</span><button class="copy-btn" data-sid="2bd3e26c-13a5-4f3b-a326-c831a8678b0c" title="Copy resume command">&#x2398;</button></div><div class="session-item primary"><span class="session-date">2026-02-22</span><span class="session-summary">Gmail Starred Email → Todoist + Daily Digest Automation</span><button class="copy-btn" data-sid="34f4f709-e36f-4217-972a-8bed4cd84bd2" title="Copy resume command">&#x2398;</button></div><div class="session-item primary"><span class="session-date">2026-02-22</span><span class="session-summary">Todoist Coding Digest - Daily Email Automation</span><button class="copy-btn" data-sid="73a49379-29e6-43ec-8c53-0f456fc53295" title="Copy resume command">&#x2398;</button></div><div class="session-item related"><span class="session-date">2026-02-22</span><span class="session-summary">Digest Email Visual Redesign</span><button class="copy-btn" data-sid="888ea415-dc47-4475-a825-5f7998b1873b" title="Copy resume command">&#x2398;</button></div></div></details>
+    </div>
+    <div class="card" data-language="Python" data-deployment="AWS Lambda"
+         data-search="gmail-unread-digest Gmail Unread Digest application AWS Google APIs Google Auth HTTP/REST">
+      <div class="card-header">
+        <h2 class="card-title">gmail-unread-digest</h2>
+        <div class="card-badges">
+          <span class="badge lang-python">Python</span>
+          <span class="badge deploy-aws-lambda">AWS Lambda</span>
+        </div>
+      </div>
+      <p class="card-desc">Gmail Unread Digest application</p>
+      <div class="card-meta">
+
+        <div class="meta-row"><span class="meta-label">Integrations</span><div class="pills-wrap"><span class='integration-pill'>AWS</span><span class='integration-pill'>Google APIs</span><span class='integration-pill'>Google Auth</span><span class='integration-pill'>HTTP/REST</span></div></div>
+        <div class="meta-row"><span class="meta-label">Entry Points</span><div class="entry-wrap"><code class='entry-point'>lambda_handler.py</code><code class='entry-point'>src/unread_main.py</code></div></div>
+        <div class="meta-row">
+          <span class="meta-label">Source Files</span><span>4</span>
+          <span class="indicator no">&#10007; README</span>
+          <span class="indicator no">&#10007; Tests</span>
+        </div>
+      </div>
+      <details class="deps-section"><summary>Dependencies (6)</summary><div class="deps-wrap"><span class='dep-tag'>google-api-python-client</span><span class='dep-tag'>google-auth</span><span class='dep-tag'>google-auth-oauthlib</span><span class='dep-tag'>google-auth-httplib2</span><span class='dep-tag'>requests</span><span class='dep-tag'>boto3</span></div></details>
+      <details class="sessions-section"><summary>Claude Code Sessions (5)</summary><div class="sessions-wrap"><div class="session-item primary"><span class="session-date">2026-02-24</span><span class="session-summary">Add Split-Pane Inline Email Viewer to gmail-email-actions</span><button class="copy-btn" data-sid="04d664ea-0f80-4715-8adb-b5c524342c69" title="Copy resume command">&#x2398;</button></div><div class="session-item primary"><span class="session-date">2026-02-24</span><span class="session-summary">Deploy Inline Email Viewer Changes to Lambda</span><button class="copy-btn" data-sid="522633c1-93c3-4ffe-b326-0bf109c3820a" title="Copy resume command">&#x2398;</button></div><div class="session-item primary"><span class="session-date">2026-02-24</span><span class="session-summary">Remove Todoist from Gmail Unread Digest</span><button class="copy-btn" data-sid="549522ea-30c0-4ada-ba03-bb43c6c84f93" title="Copy resume command">&#x2398;</button></div><div class="session-item primary"><span class="session-date">2026-02-24</span><span class="session-summary">Combined Tabbed Gmail Inbox (Starred + Unread)</span><button class="copy-btn" data-sid="a4a48749-774f-4773-9b63-a18aef25c36a" title="Copy resume command">&#x2398;</button></div><div class="session-item primary"><span class="session-date">2026-02-24</span><span class="session-summary">Gmail Unread Digest — replicate starred-email automation for unread emails</span><button class="copy-btn" data-sid="a75c219c-7e6b-46de-9a45-7a5b8acd61ff" title="Copy resume command">&#x2398;</button></div></div></details>
+    </div>
+    <div class="card" data-language="Python" data-deployment="AWS Lambda"
+         data-search="homeschool-events-gwinnett Weekly automated digest of homeschooling events in Gwinnett County, GA. Searches using Perplexity AI and delivers styled HTML emails with one-click &quot;Add to Calendar&quot; buttons. AWS HTTP/REST Web Scraping">
+      <div class="card-header">
+        <h2 class="card-title">homeschool-events-gwinnett</h2>
+        <div class="card-badges">
+          <span class="badge lang-python">Python</span>
+          <span class="badge deploy-aws-lambda">AWS Lambda</span>
+        </div>
+      </div>
+      <p class="card-desc">Weekly automated digest of homeschooling events in Gwinnett County, GA. Searches using Perplexity AI and delivers styled HTML emails with one-click &quot;Add to Calendar&quot; buttons.</p>
+      <div class="card-meta">
+        <div class="meta-row"><span class="meta-label">Last Updated</span><span class="last-updated">2026-02-23</span></div>
+        <div class="meta-row"><span class="meta-label">Integrations</span><div class="pills-wrap"><span class='integration-pill'>AWS</span><span class='integration-pill'>HTTP/REST</span><span class='integration-pill'>Web Scraping</span></div></div>
+        <div class="meta-row"><span class="meta-label">Entry Points</span><div class="entry-wrap"><code class='entry-point'>lambda_handler.py</code><code class='entry-point'>src/events_main.py</code></div></div>
+        <div class="meta-row">
+          <span class="meta-label">Source Files</span><span>13</span>
+          <span class="indicator yes">&#10003; README</span>
+          <span class="indicator no">&#10007; Tests</span>
+        </div>
+      </div>
+      <details class="deps-section"><summary>Dependencies (8)</summary><div class="deps-wrap"><span class='dep-tag'>requests</span><span class='dep-tag'>python-dateutil</span><span class='dep-tag'>pytz</span><span class='dep-tag'>PyYAML</span><span class='dep-tag'>python-dotenv</span><span class='dep-tag'>boto3</span><span class='dep-tag'>beautifulsoup4</span><span class='dep-tag'>lxml</span></div></details>
+      <details class="sessions-section"><summary>Claude Code Sessions (7)</summary><div class="sessions-wrap"><div class="session-item related"><span class="session-date">2026-02-24</span><span class="session-summary">Add Gwinnett County Library as Event Source</span><button class="copy-btn" data-sid="3b2dd4f1-5e7c-49ba-9ce5-c4cf93010b91" title="Copy resume command">&#x2398;</button></div><div class="session-item related"><span class="session-date">2026-02-24</span><span class="session-summary">Filter Events by Drive-Time Radius from Zip 30019</span><button class="copy-btn" data-sid="5aa8c665-52ba-40fe-9fd4-a4ef8a2e304e" title="Copy resume command">&#x2398;</button></div><div class="session-item primary"><span class="session-date">2026-02-24</span><span class="session-summary">Redesign Email Header — Bold &amp; Modern Style</span><button class="copy-btn" data-sid="c675a1ef-1df3-4ad0-b0fc-adf89206b77e" title="Copy resume command">&#x2398;</button></div><div class="session-item related"><span class="session-date">2026-02-24</span><span class="session-summary">Add Relevance Filter to Remove Non-Homeschool Events</span><button class="copy-btn" data-sid="cdf02e4f-9c0b-4d9f-b4b4-d8743cb3aea3" title="Copy resume command">&#x2398;</button></div><div class="session-item primary"><span class="session-date">2026-02-24</span><span class="session-summary">Refine Email Header — Remove Emoji, Clean Typographic Style</span><button class="copy-btn" data-sid="f2522ec2-b785-4edd-a762-4d6800819cb9" title="Copy resume command">&#x2398;</button></div><div class="session-item related"><span class="session-date">2026-02-23</span><span class="session-summary">Filter Events to Gwinnett County Only</span><button class="copy-btn" data-sid="87a4fd2c-d165-4ecf-a8a1-de9c9f45efff" title="Copy resume command">&#x2398;</button></div><div class="session-item primary"><span class="session-date">2026-02-23</span><span class="session-summary">Homeschool Events Gwinnett - Weekly Event Digest Automation</span><button class="copy-btn" data-sid="cf36fde7-bba4-49a0-bef7-5c7159d53f90" title="Copy resume command">&#x2398;</button></div></div></details>
+    </div>
+    <div class="card" data-language="Python" data-deployment="AWS Lambda"
+         data-search="jt-teaching-newsletter Daily morning email with 2 Jesus' Teachings from Obsidian vault AWS Claude AI">
+      <div class="card-header">
+        <h2 class="card-title">jt-teaching-newsletter</h2>
+        <div class="card-badges">
+          <span class="badge lang-python">Python</span>
+          <span class="badge deploy-aws-lambda">AWS Lambda</span>
+        </div>
+      </div>
+      <p class="card-desc">Daily morning email with 2 Jesus' Teachings from Obsidian vault</p>
+      <div class="card-meta">
+        <div class="meta-row"><span class="meta-label">Last Updated</span><span class="last-updated">2026-02-23</span></div>
+        <div class="meta-row"><span class="meta-label">Integrations</span><div class="pills-wrap"><span class='integration-pill'>AWS</span><span class='integration-pill'>Claude AI</span></div></div>
+        <div class="meta-row"><span class="meta-label">Entry Points</span><div class="entry-wrap"><code class='entry-point'>lambda_handler.py</code><code class='entry-point'>src/teaching_main.py</code></div></div>
+        <div class="meta-row">
+          <span class="meta-label">Source Files</span><span>7</span>
+          <span class="indicator no">&#10007; README</span>
+          <span class="indicator no">&#10007; Tests</span>
+        </div>
+      </div>
+      <details class="deps-section"><summary>Dependencies (4)</summary><div class="deps-wrap"><span class='dep-tag'>anthropic</span><span class='dep-tag'>boto3</span><span class='dep-tag'>python-dotenv</span><span class='dep-tag'>PyYAML</span></div></details>
+      <details class="sessions-section"><summary>Claude Code Sessions (7)</summary><div class="sessions-wrap"><div class="session-item primary"><span class="session-date">2026-02-24</span><span class="session-summary">JT Teaching Newsletter — Quality Improvements</span><button class="copy-btn" data-sid="eb888ae2-010a-4eaa-abea-bda40507082e" title="Copy resume command">&#x2398;</button></div><div class="session-item primary"><span class="session-date">2026-02-23</span><span class="session-summary">Fix Missing Verses — JT Teaching Newsletter</span><button class="copy-btn" data-sid="3ebb7e7d-b631-499c-93d4-048b790754c5" title="Copy resume command">&#x2398;</button></div><div class="session-item related"><span class="session-date">2026-02-23</span><span class="session-summary">Fix Empty Verses — Today's Teachings (Feb 23)</span><button class="copy-btn" data-sid="97081298-7af4-4193-be26-7271ccc69056" title="Copy resume command">&#x2398;</button></div><div class="session-item primary"><span class="session-date">2026-02-23</span><span class="session-summary">Homeschool Events Gwinnett - Weekly Event Digest Automation</span><button class="copy-btn" data-sid="cf36fde7-bba4-49a0-bef7-5c7159d53f90" title="Copy resume command">&#x2398;</button></div><div class="session-item primary"><span class="session-date">2026-02-22</span><span class="session-summary">Premium Email Redesign — JT Teaching Newsletter</span><button class="copy-btn" data-sid="06df76fb-4c8a-4aec-9168-e42f2c5fc2b3" title="Copy resume command">&#x2398;</button></div><div class="session-item primary"><span class="session-date">2026-02-22</span><span class="session-summary">JT Teaching Newsletter</span><button class="copy-btn" data-sid="7259b0bb-633e-4c8e-83d5-39860b9c940e" title="Copy resume command">&#x2398;</button></div><div class="session-item related"><span class="session-date">2026-02-22</span><span class="session-summary">Populate 506 Stub Teaching Files with Guessed Verses</span><button class="copy-btn" data-sid="fd41664e-3279-4285-993e-10f93760b534" title="Copy resume command">&#x2398;</button></div></div></details>
+    </div>
+    <div class="card" data-language="Python" data-deployment="AWS Lambda"
+         data-search="love-brittany-tracker Intelligent relationship tracking automation that monitors relationship activities and generates beautiful bi-weekly HTML email reports. Flask Web Server Google APIs Google Auth HTTP/REST Todoist">
+      <div class="card-header">
+        <h2 class="card-title">love-brittany-tracker</h2>
+        <div class="card-badges">
+          <span class="badge lang-python">Python</span>
+          <span class="badge deploy-aws-lambda">AWS Lambda</span>
+        </div>
+      </div>
+      <p class="card-desc">Intelligent relationship tracking automation that monitors relationship activities and generates beautiful bi-weekly HTML email reports.</p>
+      <div class="card-meta">
+        <div class="meta-row"><span class="meta-label">Last Updated</span><span class="last-updated">2025-12-03</span></div>
+        <div class="meta-row"><span class="meta-label">Integrations</span><div class="pills-wrap"><span class='integration-pill'>Flask Web Server</span><span class='integration-pill'>Google APIs</span><span class='integration-pill'>Google Auth</span><span class='integration-pill'>HTTP/REST</span><span class='integration-pill'>Todoist</span></div></div>
+        <div class="meta-row"><span class="meta-label">Entry Points</span><div class="entry-wrap"><code class='entry-point'>lambda_handler.py</code><code class='entry-point'>src/relationship_main.py</code></div></div>
+        <div class="meta-row">
+          <span class="meta-label">Source Files</span><span>11</span>
+          <span class="indicator yes">&#10003; README</span>
+          <span class="indicator yes">&#10003; Tests</span>
+        </div>
+      </div>
+      <details class="deps-section"><summary>Dependencies (16)</summary><div class="deps-wrap"><span class='dep-tag'>google-api-python-client</span><span class='dep-tag'>google-auth-httplib2</span><span class='dep-tag'>google-auth-oauthlib</span><span class='dep-tag'>requests</span><span class='dep-tag'>Flask</span><span class='dep-tag'>PyYAML</span><span class='dep-tag'>python-dotenv</span><span class='dep-tag'>python-dateutil</span><span class='dep-tag'>colorlog</span><span class='dep-tag'>schedule</span><span class='dep-tag'>pytz</span><span class='dep-tag'>todoist-api-python</span><span class='dep-tag'>gql</span><span class='dep-tag'>gql</span><span class='dep-tag'>pytest</span><span class='dep-tag'>pytest-cov</span></div></details>
+      <details class="sessions-section"><summary>Claude Code Sessions (1)</summary><div class="sessions-wrap"><div class="session-item related"><span class="session-date">2026-02-23</span><span class="session-summary">update my fireflies app to no longer send this email but rather a detailed summary of notes via emai</span><button class="copy-btn" data-sid="d2eafe9f-c22a-426c-8f1b-166f788d20ed" title="Copy resume command">&#x2398;</button></div></div></details>
+    </div>
+    <div class="card" data-language="Python" data-deployment="Local"
+         data-search="love-kaelin-tracker Intelligent father-daughter relationship and development tracking automation that monitors activities and generates beautiful weekly HTML email reports. ">
+      <div class="card-header">
+        <h2 class="card-title">love-kaelin-tracker</h2>
+        <div class="card-badges">
+          <span class="badge lang-python">Python</span>
+          <span class="badge deploy-local">Local</span>
+        </div>
+      </div>
+      <p class="card-desc">Intelligent father-daughter relationship and development tracking automation that monitors activities and generates beautiful weekly HTML email reports.</p>
+      <div class="card-meta">
+        <div class="meta-row"><span class="meta-label">Last Updated</span><span class="last-updated">2025-12-03</span></div>
+
+        <div class="meta-row"><span class="meta-label">Entry Points</span><div class="entry-wrap"><code class='entry-point'>src/kaelin_main.py</code></div></div>
+        <div class="meta-row">
+          <span class="meta-label">Source Files</span><span>4</span>
+          <span class="indicator yes">&#10003; README</span>
+          <span class="indicator no">&#10007; Tests</span>
+        </div>
+      </div>
+
+
+    </div>
+    <div class="card" data-language="Python" data-deployment="AWS Lambda"
+         data-search="todoist-coding-digest Todoist Coding Digest application AWS HTTP/REST">
+      <div class="card-header">
+        <h2 class="card-title">todoist-coding-digest</h2>
+        <div class="card-badges">
+          <span class="badge lang-python">Python</span>
+          <span class="badge deploy-aws-lambda">AWS Lambda</span>
+        </div>
+      </div>
+      <p class="card-desc">Todoist Coding Digest application</p>
+      <div class="card-meta">
+
+        <div class="meta-row"><span class="meta-label">Integrations</span><div class="pills-wrap"><span class='integration-pill'>AWS</span><span class='integration-pill'>HTTP/REST</span></div></div>
+        <div class="meta-row"><span class="meta-label">Entry Points</span><div class="entry-wrap"><code class='entry-point'>lambda_handler.py</code><code class='entry-point'>src/digest_main.py</code></div></div>
+        <div class="meta-row">
+          <span class="meta-label">Source Files</span><span>5</span>
+          <span class="indicator no">&#10007; README</span>
+          <span class="indicator no">&#10007; Tests</span>
+        </div>
+      </div>
+      <details class="deps-section"><summary>Dependencies (5)</summary><div class="deps-wrap"><span class='dep-tag'>requests</span><span class='dep-tag'>pytz</span><span class='dep-tag'>PyYAML</span><span class='dep-tag'>python-dotenv</span><span class='dep-tag'>boto3</span></div></details>
+      <details class="sessions-section"><summary>Claude Code Sessions (3)</summary><div class="sessions-wrap"><div class="session-item related"><span class="session-date">2026-02-24</span><span class="session-summary">Restyle Coding Digest Email to Match Gmail Email Actions UI</span><button class="copy-btn" data-sid="49839b13-a68b-44e4-80fb-c610651bc0e4" title="Copy resume command">&#x2398;</button></div><div class="session-item primary"><span class="session-date">2026-02-23</span><span class="session-summary">Homeschool Events Gwinnett - Weekly Event Digest Automation</span><button class="copy-btn" data-sid="cf36fde7-bba4-49a0-bef7-5c7159d53f90" title="Copy resume command">&#x2398;</button></div><div class="session-item primary"><span class="session-date">2026-02-22</span><span class="session-summary">Todoist Coding Digest - Daily Email Automation</span><button class="copy-btn" data-sid="73a49379-29e6-43ec-8c53-0f456fc53295" title="Copy resume command">&#x2398;</button></div></div></details>
+    </div>
+    <div class="card" data-language="Python" data-deployment="AWS Lambda"
+         data-search="todoist-daily-reminders Automated daily reminder creation for Todoist tasks. Creates reminders at 8am, 11am, 4pm, and 7pm for all tasks that are due today and have the @commit label. AWS HTTP/REST">
+      <div class="card-header">
+        <h2 class="card-title">todoist-daily-reminders</h2>
+        <div class="card-badges">
+          <span class="badge lang-python">Python</span>
+          <span class="badge deploy-aws-lambda">AWS Lambda</span>
+        </div>
+      </div>
+      <p class="card-desc">Automated daily reminder creation for Todoist tasks. Creates reminders at 8am, 11am, 4pm, and 7pm for all tasks that are due today and have the @commit label.</p>
+      <div class="card-meta">
+        <div class="meta-row"><span class="meta-label">Last Updated</span><span class="last-updated">2025-12-09</span></div>
+        <div class="meta-row"><span class="meta-label">Integrations</span><div class="pills-wrap"><span class='integration-pill'>AWS</span><span class='integration-pill'>HTTP/REST</span></div></div>
+        <div class="meta-row"><span class="meta-label">Entry Points</span><div class="entry-wrap"><code class='entry-point'>lambda_handler.py</code><code class='entry-point'>src/reminder_main.py</code></div></div>
+        <div class="meta-row">
+          <span class="meta-label">Source Files</span><span>3</span>
+          <span class="indicator yes">&#10003; README</span>
+          <span class="indicator no">&#10007; Tests</span>
+        </div>
+      </div>
+      <details class="deps-section"><summary>Dependencies (4)</summary><div class="deps-wrap"><span class='dep-tag'>requests</span><span class='dep-tag'>python-dateutil</span><span class='dep-tag'>pytz</span><span class='dep-tag'>boto3</span></div></details>
+      <details class="sessions-section"><summary>Claude Code Sessions (2)</summary><div class="sessions-wrap"><div class="session-item related"><span class="session-date">2026-02-23</span><span class="session-summary">update my fireflies app to no longer send this email but rather a detailed summary of notes via emai</span><button class="copy-btn" data-sid="d2eafe9f-c22a-426c-8f1b-166f788d20ed" title="Copy resume command">&#x2398;</button></div><div class="session-item related"><span class="session-date">2026-02-19</span><span class="session-summary">33dd2fcd-9e1</span><button class="copy-btn" data-sid="33dd2fcd-9e1d-4650-a819-36435228faf9" title="Copy resume command">&#x2398;</button></div></div></details>
+    </div>
+    <div class="card" data-language="Node.js" data-deployment="Script Deploy"
+         data-search="todoist-daily-reviewer An AI-powered daily task review system that analyzes your high-priority Todoist tasks and sends you a beautiful email report with suggestions for which tasks Claude can help you complete autonomously. AWS Google APIs">
+      <div class="card-header">
+        <h2 class="card-title">todoist-daily-reviewer</h2>
+        <div class="card-badges">
+          <span class="badge lang-nodejs">Node.js</span>
+          <span class="badge deploy-script-deploy">Script Deploy</span>
+        </div>
+      </div>
+      <p class="card-desc">An AI-powered daily task review system that analyzes your high-priority Todoist tasks and sends you a beautiful email report with suggestions for which tasks Claude can help you complete autonomously.</p>
+      <div class="card-meta">
+        <div class="meta-row"><span class="meta-label">Last Updated</span><span class="last-updated">2025-12-03</span></div>
+        <div class="meta-row"><span class="meta-label">Integrations</span><div class="pills-wrap"><span class='integration-pill'>AWS</span><span class='integration-pill'>Google APIs</span></div></div>
+        <div class="meta-row"><span class="meta-label">Entry Points</span><div class="entry-wrap"><code class='entry-point'>src/index.js</code></div></div>
+        <div class="meta-row">
+          <span class="meta-label">Source Files</span><span>7</span>
+          <span class="indicator yes">&#10003; README</span>
+          <span class="indicator no">&#10007; Tests</span>
+        </div>
+      </div>
+      <details class="deps-section"><summary>Dependencies (5)</summary><div class="deps-wrap"><span class='dep-tag'>@aws-sdk/client-ses</span><span class='dep-tag'>dotenv</span><span class='dep-tag'>googleapis</span><span class='dep-tag'>googleapis-common</span><span class='dep-tag'>jest</span></div></details>
+
+    </div>
+    <div class="card" data-language="Python" data-deployment="AWS Lambda"
+         data-search="todoist-inbox-manager Todoist Inbox Manager application AWS HTTP/REST">
+      <div class="card-header">
+        <h2 class="card-title">todoist-inbox-manager</h2>
+        <div class="card-badges">
+          <span class="badge lang-python">Python</span>
+          <span class="badge deploy-aws-lambda">AWS Lambda</span>
+        </div>
+      </div>
+      <p class="card-desc">Todoist Inbox Manager application</p>
+      <div class="card-meta">
+
+        <div class="meta-row"><span class="meta-label">Integrations</span><div class="pills-wrap"><span class='integration-pill'>AWS</span><span class='integration-pill'>HTTP/REST</span></div></div>
+        <div class="meta-row"><span class="meta-label">Entry Points</span><div class="entry-wrap"><code class='entry-point'>lambda_handler.py</code><code class='entry-point'>src/inbox_main.py</code></div></div>
+        <div class="meta-row">
+          <span class="meta-label">Source Files</span><span>3</span>
+          <span class="indicator no">&#10007; README</span>
+          <span class="indicator no">&#10007; Tests</span>
+        </div>
+      </div>
+      <details class="deps-section"><summary>Dependencies (3)</summary><div class="deps-wrap"><span class='dep-tag'>requests</span><span class='dep-tag'>pytz</span><span class='dep-tag'>boto3</span></div></details>
+      <details class="sessions-section"><summary>Claude Code Sessions (3)</summary><div class="sessions-wrap"><div class="session-item related"><span class="session-date">2026-02-24</span><span class="session-summary">Add Todoist Tabs to Dashboard Container</span><button class="copy-btn" data-sid="bd460fc6-0e0d-489c-8fcc-d5f2a0445d75" title="Copy resume command">&#x2398;</button></div><div class="session-item related"><span class="session-date">2026-02-23</span><span class="session-summary">update my fireflies app to no longer send this email but rather a detailed summary of notes via emai</span><button class="copy-btn" data-sid="d2eafe9f-c22a-426c-8f1b-166f788d20ed" title="Copy resume command">&#x2398;</button></div><div class="session-item primary"><span class="session-date">2026-02-19</span><span class="session-summary">Todoist Inbox Manager Automation</span><button class="copy-btn" data-sid="9b8bc592-e6ee-4f56-90e6-7ff629468248" title="Copy resume command">&#x2398;</button></div></div></details>
+    </div>
+    <div class="card" data-language="Python" data-deployment="Local"
+         data-search="toggl-calendar-sync Automatically synchronize your Toggl Track time entries to Google Calendar in real-time. Flask Web Server Google APIs Google Auth HTTP/REST Todoist">
+      <div class="card-header">
+        <h2 class="card-title">toggl-calendar-sync</h2>
+        <div class="card-badges">
+          <span class="badge lang-python">Python</span>
+          <span class="badge deploy-local">Local</span>
+        </div>
+      </div>
+      <p class="card-desc">Automatically synchronize your Toggl Track time entries to Google Calendar in real-time.</p>
+      <div class="card-meta">
+        <div class="meta-row"><span class="meta-label">Last Updated</span><span class="last-updated">2025-12-09</span></div>
+        <div class="meta-row"><span class="meta-label">Integrations</span><div class="pills-wrap"><span class='integration-pill'>Flask Web Server</span><span class='integration-pill'>Google APIs</span><span class='integration-pill'>Google Auth</span><span class='integration-pill'>HTTP/REST</span><span class='integration-pill'>Todoist</span></div></div>
+        <div class="meta-row"><span class="meta-label">Entry Points</span><div class="entry-wrap"><code class='entry-point'>src/main.py</code></div></div>
+        <div class="meta-row">
+          <span class="meta-label">Source Files</span><span>6</span>
+          <span class="indicator yes">&#10003; README</span>
+          <span class="indicator no">&#10007; Tests</span>
+        </div>
+      </div>
+      <details class="deps-section"><summary>Dependencies (16)</summary><div class="deps-wrap"><span class='dep-tag'>google-api-python-client</span><span class='dep-tag'>google-auth-httplib2</span><span class='dep-tag'>google-auth-oauthlib</span><span class='dep-tag'>requests</span><span class='dep-tag'>Flask</span><span class='dep-tag'>PyYAML</span><span class='dep-tag'>python-dotenv</span><span class='dep-tag'>python-dateutil</span><span class='dep-tag'>colorlog</span><span class='dep-tag'>schedule</span><span class='dep-tag'>pytz</span><span class='dep-tag'>todoist-api-python</span><span class='dep-tag'>gql</span><span class='dep-tag'>gql</span><span class='dep-tag'>pytest</span><span class='dep-tag'>pytest-cov</span></div></details>
+
+    </div>
+    <div class="card" data-language="Python" data-deployment="Local"
+         data-search="toggl-daily-productivity Automated daily email reports showing your Toggl time tracking performance metrics. AWS HTTP/REST">
+      <div class="card-header">
+        <h2 class="card-title">toggl-daily-productivity</h2>
+        <div class="card-badges">
+          <span class="badge lang-python">Python</span>
+          <span class="badge deploy-local">Local</span>
+        </div>
+      </div>
+      <p class="card-desc">Automated daily email reports showing your Toggl time tracking performance metrics.</p>
+      <div class="card-meta">
+        <div class="meta-row"><span class="meta-label">Last Updated</span><span class="last-updated">2025-12-09</span></div>
+        <div class="meta-row"><span class="meta-label">Integrations</span><div class="pills-wrap"><span class='integration-pill'>AWS</span><span class='integration-pill'>HTTP/REST</span></div></div>
+        <div class="meta-row"><span class="meta-label">Entry Points</span><div class="entry-wrap"><code class='entry-point'>src/main.py</code></div></div>
+        <div class="meta-row">
+          <span class="meta-label">Source Files</span><span>7</span>
+          <span class="indicator yes">&#10003; README</span>
+          <span class="indicator no">&#10007; Tests</span>
+        </div>
+      </div>
+      <details class="deps-section"><summary>Dependencies (8)</summary><div class="deps-wrap"><span class='dep-tag'>requests</span><span class='dep-tag'>PyYAML</span><span class='dep-tag'>python-dotenv</span><span class='dep-tag'>python-dateutil</span><span class='dep-tag'>pytz</span><span class='dep-tag'>schedule</span><span class='dep-tag'>boto3</span><span class='dep-tag'>colorlog</span></div></details>
+
+    </div>
+    <div class="card" data-language="Python" data-deployment="Local"
+         data-search="twilio-personal A comprehensive Python application for managing Twilio SMS operations for personal use, including automated reminders, alerts, and bulk messaging capabilities. Click CLI Rich CLI Twilio SMS">
+      <div class="card-header">
+        <h2 class="card-title">twilio-personal</h2>
+        <div class="card-badges">
+          <span class="badge lang-python">Python</span>
+          <span class="badge deploy-local">Local</span>
+        </div>
+      </div>
+      <p class="card-desc">A comprehensive Python application for managing Twilio SMS operations for personal use, including automated reminders, alerts, and bulk messaging capabilities.</p>
+      <div class="card-meta">
+        <div class="meta-row"><span class="meta-label">Last Updated</span><span class="last-updated">2025-12-03</span></div>
+        <div class="meta-row"><span class="meta-label">Integrations</span><div class="pills-wrap"><span class='integration-pill'>Click CLI</span><span class='integration-pill'>Rich CLI</span><span class='integration-pill'>Twilio SMS</span></div></div>
+
+        <div class="meta-row">
+          <span class="meta-label">Source Files</span><span>4</span>
+          <span class="indicator yes">&#10003; README</span>
+          <span class="indicator no">&#10007; Tests</span>
+        </div>
+      </div>
+      <details class="deps-section"><summary>Dependencies (5)</summary><div class="deps-wrap"><span class='dep-tag'>twilio</span><span class='dep-tag'>python-dotenv</span><span class='dep-tag'>click</span><span class='dep-tag'>rich</span><span class='dep-tag'>pyyaml</span></div></details>
+      <details class="sessions-section"><summary>Claude Code Sessions (2)</summary><div class="sessions-wrap"><div class="session-item primary"><span class="session-date">2026-02-22</span><span class="session-summary">'/Users/terrancebrandon/Desktop/Code Projects (Official)/My Workspace/My-Workspace-TB-/My-Workspace-</span><button class="copy-btn" data-sid="0bebbe53-d7a3-4998-99ec-14c75c0121e6" title="Copy resume command">&#x2398;</button></div><div class="session-item primary"><span class="session-date">2026-02-22</span><span class="session-summary">Get Twilio Working via Toll-Free Number Verification</span><button class="copy-btn" data-sid="f46c79e7-ea08-4cb4-93c5-3eda51f4c91c" title="Copy resume command">&#x2398;</button></div></div></details>
+    </div>
+    <div class="card" data-language="Python" data-deployment="AWS Lambda"
+         data-search="weekly-atlanta-news-report Automated weekly news digest for Atlanta, GA. Aggregates local news from major Atlanta news sources via RSS feeds and delivers a curated email report every Friday at 6:30 PM EST. AWS HTTP/REST Jinja2 Templates RSS Feeds Web Scraping">
+      <div class="card-header">
+        <h2 class="card-title">weekly-atlanta-news-report</h2>
+        <div class="card-badges">
+          <span class="badge lang-python">Python</span>
+          <span class="badge deploy-aws-lambda">AWS Lambda</span>
+        </div>
+      </div>
+      <p class="card-desc">Automated weekly news digest for Atlanta, GA. Aggregates local news from major Atlanta news sources via RSS feeds and delivers a curated email report every Friday at 6:30 PM EST.</p>
+      <div class="card-meta">
+        <div class="meta-row"><span class="meta-label">Last Updated</span><span class="last-updated">2025-12-09</span></div>
+        <div class="meta-row"><span class="meta-label">Integrations</span><div class="pills-wrap"><span class='integration-pill'>AWS</span><span class='integration-pill'>HTTP/REST</span><span class='integration-pill'>Jinja2 Templates</span><span class='integration-pill'>RSS Feeds</span><span class='integration-pill'>Web Scraping</span></div></div>
+        <div class="meta-row"><span class="meta-label">Entry Points</span><div class="entry-wrap"><code class='entry-point'>lambda_handler.py</code><code class='entry-point'>src/news_main.py</code></div></div>
+        <div class="meta-row">
+          <span class="meta-label">Source Files</span><span>6</span>
+          <span class="indicator yes">&#10003; README</span>
+          <span class="indicator yes">&#10003; Tests</span>
+        </div>
+      </div>
+      <details class="deps-section"><summary>Dependencies (16)</summary><div class="deps-wrap"><span class='dep-tag'>feedparser</span><span class='dep-tag'>beautifulsoup4</span><span class='dep-tag'>requests</span><span class='dep-tag'>python-dateutil</span><span class='dep-tag'>pytz</span><span class='dep-tag'>PyYAML</span><span class='dep-tag'>python-dotenv</span><span class='dep-tag'>jinja2</span><span class='dep-tag'>boto3</span><span class='dep-tag'>pytest</span><span class='dep-tag'>pytest-cov</span><span class='dep-tag'>pytest-mock</span><span class='dep-tag'>responses</span><span class='dep-tag'>black</span><span class='dep-tag'>flake8</span><span class='dep-tag'>mypy</span></div></details>
+      <details class="sessions-section"><summary>Claude Code Sessions (1)</summary><div class="sessions-wrap"><div class="session-item primary"><span class="session-date">2026-02-23</span><span class="session-summary">Homeschool Events Gwinnett - Weekly Event Digest Automation</span><button class="copy-btn" data-sid="cf36fde7-bba4-49a0-bef7-5c7159d53f90" title="Copy resume command">&#x2398;</button></div></div></details>
+    </div>
+    <div class="card" data-language="Python" data-deployment="AWS Lambda"
+         data-search="weekly-budget-report Automated weekly budget reports delivered to your inbox every Saturday at 7pm, powered by YNAB transaction data and beautiful HTML email reports. AWS Google APIs Google Auth HTTP/REST Jinja2 Templates">
+      <div class="card-header">
+        <h2 class="card-title">weekly-budget-report</h2>
+        <div class="card-badges">
+          <span class="badge lang-python">Python</span>
+          <span class="badge deploy-aws-lambda">AWS Lambda</span>
+        </div>
+      </div>
+      <p class="card-desc">Automated weekly budget reports delivered to your inbox every Saturday at 7pm, powered by YNAB transaction data and beautiful HTML email reports.</p>
+      <div class="card-meta">
+        <div class="meta-row"><span class="meta-label">Last Updated</span><span class="last-updated">2025-12-03</span></div>
+        <div class="meta-row"><span class="meta-label">Integrations</span><div class="pills-wrap"><span class='integration-pill'>AWS</span><span class='integration-pill'>Google APIs</span><span class='integration-pill'>Google Auth</span><span class='integration-pill'>HTTP/REST</span><span class='integration-pill'>Jinja2 Templates</span></div></div>
+        <div class="meta-row"><span class="meta-label">Entry Points</span><div class="entry-wrap"><code class='entry-point'>lambda_handler.py</code><code class='entry-point'>src/budget_main.py</code></div></div>
+        <div class="meta-row">
+          <span class="meta-label">Source Files</span><span>6</span>
+          <span class="indicator yes">&#10003; README</span>
+          <span class="indicator yes">&#10003; Tests</span>
+        </div>
+      </div>
+      <details class="deps-section"><summary>Dependencies (15)</summary><div class="deps-wrap"><span class='dep-tag'>requests</span><span class='dep-tag'>python-dateutil</span><span class='dep-tag'>pytz</span><span class='dep-tag'>PyYAML</span><span class='dep-tag'>python-dotenv</span><span class='dep-tag'>google-auth</span><span class='dep-tag'>google-auth-oauthlib</span><span class='dep-tag'>google-auth-httplib2</span><span class='dep-tag'>google-api-python-client</span><span class='dep-tag'>jinja2</span><span class='dep-tag'>boto3</span><span class='dep-tag'>pytest</span><span class='dep-tag'>pytest-cov</span><span class='dep-tag'>pytest-mock</span><span class='dep-tag'>responses</span></div></details>
+      <details class="sessions-section"><summary>Claude Code Sessions (1)</summary><div class="sessions-wrap"><div class="session-item primary"><span class="session-date">2026-02-22</span><span class="session-summary">Todoist Coding Digest - Daily Email Automation</span><button class="copy-btn" data-sid="73a49379-29e6-43ec-8c53-0f456fc53295" title="Copy resume command">&#x2398;</button></div></div></details>
+    </div>
+    <div class="card" data-language="TypeScript" data-deployment="Vercel"
+         data-search="ynab-dashboard A Next.js web application for managing YNAB transactions with deep linking support from email reports. Next.js React Tailwind CSS Zustand State">
+      <div class="card-header">
+        <h2 class="card-title">ynab-dashboard</h2>
+        <div class="card-badges">
+          <span class="badge lang-typescript">TypeScript</span>
+          <span class="badge deploy-vercel">Vercel</span>
+        </div>
+      </div>
+      <p class="card-desc">A Next.js web application for managing YNAB transactions with deep linking support from email reports.</p>
+      <div class="card-meta">
+        <div class="meta-row"><span class="meta-label">Last Updated</span><span class="last-updated">2025-12-10</span></div>
+        <div class="meta-row"><span class="meta-label">Integrations</span><div class="pills-wrap"><span class='integration-pill'>Next.js</span><span class='integration-pill'>React</span><span class='integration-pill'>Tailwind CSS</span><span class='integration-pill'>Zustand State</span></div></div>
+
+        <div class="meta-row">
+          <span class="meta-label">Source Files</span><span>27</span>
+          <span class="indicator yes">&#10003; README</span>
+          <span class="indicator no">&#10007; Tests</span>
+        </div>
+      </div>
+      <details class="deps-section"><summary>Dependencies (27)</summary><div class="deps-wrap"><span class='dep-tag'>@radix-ui/react-dialog</span><span class='dep-tag'>@radix-ui/react-dropdown-menu</span><span class='dep-tag'>@radix-ui/react-label</span><span class='dep-tag'>@radix-ui/react-select</span><span class='dep-tag'>@radix-ui/react-slot</span><span class='dep-tag'>@radix-ui/react-toast</span><span class='dep-tag'>@tanstack/query-sync-storage-persister</span><span class='dep-tag'>@tanstack/react-query</span><span class='dep-tag'>@tanstack/react-query-persist-client</span><span class='dep-tag'>class-variance-authority</span><span class='dep-tag'>clsx</span><span class='dep-tag'>lucide-react</span><span class='dep-tag'>next</span><span class='dep-tag'>react</span><span class='dep-tag'>react-dom</span><span class='dep-tag'>tailwind-merge</span><span class='dep-tag'>zustand</span><span class='dep-tag'>@netlify/plugin-nextjs</span><span class='dep-tag'>@types/node</span><span class='dep-tag'>@types/react</span><span class='dep-tag'>@types/react-dom</span><span class='dep-tag'>autoprefixer</span><span class='dep-tag'>eslint</span><span class='dep-tag'>eslint-config-next</span><span class='dep-tag'>postcss</span><span class='dep-tag'>tailwindcss</span><span class='dep-tag'>typescript</span></div></details>
+
+    </div>
+    <div class="card" data-language="Python" data-deployment="AWS Lambda"
+         data-search="ynab-transaction-reviewer An intelligent daily email system that proactively pushes uncategorized YNAB transactions for review, featuring smart categorization suggestions and one-click actions. AWS Google APIs Google Auth HTTP/REST">
+      <div class="card-header">
+        <h2 class="card-title">ynab-transaction-reviewer</h2>
+        <div class="card-badges">
+          <span class="badge lang-python">Python</span>
+          <span class="badge deploy-aws-lambda">AWS Lambda</span>
+        </div>
+      </div>
+      <p class="card-desc">An intelligent daily email system that proactively pushes uncategorized YNAB transactions for review, featuring smart categorization suggestions and one-click actions.</p>
+      <div class="card-meta">
+        <div class="meta-row"><span class="meta-label">Last Updated</span><span class="last-updated">2026-02-23</span></div>
+        <div class="meta-row"><span class="meta-label">Integrations</span><div class="pills-wrap"><span class='integration-pill'>AWS</span><span class='integration-pill'>Google APIs</span><span class='integration-pill'>Google Auth</span><span class='integration-pill'>HTTP/REST</span></div></div>
+        <div class="meta-row"><span class="meta-label">Entry Points</span><div class="entry-wrap"><code class='entry-point'>src/reviewer_main.py</code></div></div>
+        <div class="meta-row">
+          <span class="meta-label">Source Files</span><span>11</span>
+          <span class="indicator yes">&#10003; README</span>
+          <span class="indicator no">&#10007; Tests</span>
+        </div>
+      </div>
+      <details class="deps-section"><summary>Dependencies (11)</summary><div class="deps-wrap"><span class='dep-tag'>requests</span><span class='dep-tag'>PyYAML</span><span class='dep-tag'>python-dateutil</span><span class='dep-tag'>google-api-python-client</span><span class='dep-tag'>google-auth</span><span class='dep-tag'>google-auth-oauthlib</span><span class='dep-tag'>google-auth-httplib2</span><span class='dep-tag'>boto3</span><span class='dep-tag'>pytest</span><span class='dep-tag'>black</span><span class='dep-tag'>flake8</span></div></details>
+      <details class="sessions-section"><summary>Claude Code Sessions (1)</summary><div class="sessions-wrap"><div class="session-item primary"><span class="session-date">2026-02-24</span><span class="session-summary">Trash Previous YNAB Review Emails on New Send</span><button class="copy-btn" data-sid="08fb7e0e-5f6c-4de7-9d41-379b66d45e5c" title="Copy resume command">&#x2398;</button></div></div></details>
+    </div>
+  </div>
+
+  <div class="no-results" id="noResults">No apps match your filters.</div>
+
+  <footer>
+    Regenerate: <code>npm run catalog</code> or <code>python3 scripts/generate_app_catalog.py</code>
+  </footer>
+</div>
+
+<script>
+(function() {
+  // Theme toggle
+  const toggle = document.getElementById('themeToggle');
+  const root = document.documentElement;
+  function setTheme(t) { root.className = t; localStorage.setItem('catalog-theme', t); }
+  const saved = localStorage.getItem('catalog-theme');
+  if (saved) root.className = saved;
+  toggle.addEventListener('click', function() {
+    const isDark = root.classList.contains('dark') ||
+      (!root.classList.contains('light') && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    setTheme(isDark ? 'light' : 'dark');
+  });
+
+  // Filtering
+  const cards = Array.from(document.querySelectorAll('.card'));
+  const searchBox = document.getElementById('searchBox');
+  const noResults = document.getElementById('noResults');
+  let activeLanguage = 'all', activeDeployment = 'all';
+
+  function applyFilters() {
+    const q = searchBox.value.toLowerCase();
+    let visible = 0;
+    cards.forEach(function(card) {
+      const matchLang = activeLanguage === 'all' || card.dataset.language === activeLanguage;
+      const matchDeploy = activeDeployment === 'all' || card.dataset.deployment === activeDeployment;
+      const matchSearch = !q || card.dataset.search.toLowerCase().includes(q);
+      const show = matchLang && matchDeploy && matchSearch;
+      card.classList.toggle('hidden', !show);
+      if (show) visible++;
+    });
+    noResults.style.display = visible === 0 ? 'block' : 'none';
+  }
+
+  searchBox.addEventListener('input', applyFilters);
+
+  document.querySelectorAll('.filter-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      const type = btn.dataset.filterType;
+      const value = btn.dataset.value;
+      // Update active state in the same row
+      btn.parentElement.querySelectorAll('.filter-btn').forEach(function(b) { b.classList.remove('active'); });
+      btn.classList.add('active');
+      if (type === 'language') activeLanguage = value;
+      else activeDeployment = value;
+      applyFilters();
+    });
+  });
+  // Copy session resume command
+  document.querySelectorAll('.copy-btn').forEach(function(btn) {
+    btn.addEventListener('click', function(ev) {
+      ev.stopPropagation();
+      var sid = btn.dataset.sid;
+      var cmd = 'claude --resume ' + sid;
+      navigator.clipboard.writeText(cmd).then(function() {
+        btn.textContent = '\u2713';
+        btn.classList.add('copied');
+        setTimeout(function() { btn.innerHTML = '\u2398'; btn.classList.remove('copied'); }, 1500);
+      });
+    });
+  });
+})();
+</script>
+</body>
+</html>

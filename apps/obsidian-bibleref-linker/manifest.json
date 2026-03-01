@@ -1,0 +1,9 @@
+{
+  "id": "obsidian-bibleref-linker",
+  "name": "BibleRef Linker",
+  "version": "1.0.0",
+  "minAppVersion": "1.0.0",
+  "description": "Auto-links Bible verse references to BibleRef.com and shows verse text in a popover on hover.",
+  "author": "Terrance Brandon",
+  "isDesktopOnly": false
+}
