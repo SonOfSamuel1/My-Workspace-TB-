@@ -127,13 +127,9 @@ def _build_followup_card(
 
     res_url = html.escape(base_url + "?action=followup_resolved&thread_id=" + tid_enc)
     resolve_btn = (
-        ""
-        if reviewed
-        else (
-            f'<button class="resolve-btn" '
-            f"onclick=\"event.stopPropagation();doResolve(this,'{tid_safe}','{res_url}')\">"
-            "Resolved</button>"
-        )
+        f'<button class="resolve-btn" '
+        f"onclick=\"event.stopPropagation();doResolve(this,'{tid_safe}','{res_url}')\">"
+        "Resolved</button>"
     )
 
     gmail_btn = ""
@@ -473,8 +469,6 @@ def build_followup_html(
         "btn.style.cursor='default';btn.style.pointerEvents='auto';"
         "var card=btn.closest('.task-card');"
         "if(card){card.classList.remove('unreviewed-card');card.classList.add('reviewed-card');"
-        "var acts=card.querySelectorAll('.resolve-btn');"
-        "for(var i=0;i<acts.length;i++)acts[i].style.display='none';"
         "var rl=document.getElementById('reviewed-list');"
         "if(rl){var es=rl.querySelector('.empty-state');if(es)es.remove();rl.insertBefore(card,rl.firstChild);}"
         "var rb=document.getElementById('reviewed-badge');"

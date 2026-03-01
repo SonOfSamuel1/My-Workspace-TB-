@@ -368,27 +368,7 @@ def _build_event_card(
 
     card_extra = " reviewed-card" if reviewed else " unreviewed-card"
 
-    if reviewed:
-        # Reviewed: clean card with just badge + gcal link + timer
-        return (
-            f'<div class="task-card{card_extra}" id="card-{idx}">'
-            f'<div class="card-row">'
-            f'<div class="card-content">'
-            f'<div class="task-title">'
-            f"{title}"
-            f'<span class="cal-type-badge" style="background:{cal_color}">{cal_label}</span>'
-            f"</div>"
-            f'<div class="task-meta">{meta_line}</div>'
-            f'<div class="task-actions">'
-            f"{review_btn}"
-            f"{timer_btn}"
-            f"{gcal_html}"
-            f"</div>"
-            f"</div></div>"
-            f"</div>"
-        )
-
-    # Unreviewed: Review + Add to Todoist + Commit + Timer + gcal
+    # Always show all buttons regardless of review status
     return (
         f'<div class="task-card{card_extra}" id="card-{idx}">'
         f'<div class="card-row">'
@@ -860,9 +840,7 @@ def build_calendar_html(
         "btn.className='review-btn reviewed';btn.textContent='\u2713 Reviewed (7d)';"
         "btn.style.cursor='default';btn.style.pointerEvents='auto';"
         "var card=btn.closest('.task-card');"
-        "if(card){card.classList.remove('unreviewed-card');card.classList.add('reviewed-card');"
-        "var acts=card.querySelectorAll('.todoist-btn,.commit-btn');"
-        "for(var i=0;i<acts.length;i++)acts[i].style.display='none';}"
+        "if(card){card.classList.remove('unreviewed-card');card.classList.add('reviewed-card');}"
         "if(typeof calendarCount!=='undefined'){calendarCount=Math.max(0,calendarCount-1);"
         "if(typeof postCount==='function')postCount();}"
         "var b=document.getElementById('unrev-badge');"
