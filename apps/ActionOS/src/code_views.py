@@ -597,6 +597,17 @@ def build_code_projects_html(
         "var msg='Look at this task on Todoist and complete it: '+url;"
         "navigator.clipboard.writeText(msg).then(function(){"
         "btn.textContent='\\u2713';setTimeout(function(){btn.innerHTML=orig;},1500);"
+        f'fetch("{base_action_url}?action=planned_label&task_id="+taskId)'
+        ".then(function(r){return r.json();})"
+        ".then(function(d){if(d.ok){"
+        "var card=document.getElementById('card-'+taskId);"
+        "if(card){"
+        "var cb=card.querySelector('.commit-btn');"
+        "if(cb){cb.textContent='\\u2713 Planned';cb.classList.add('committed');"
+        "cb.style.background=cv('--ok-bg');cb.style.color=cv('--ok');}"
+        "_moveCardToSection(card,'list-planned');"
+        "}"
+        "}});"
         "}).catch(function(){btn.textContent='!';setTimeout(function(){btn.innerHTML=orig;},1500);});}"
         # Keep old commit/bestcase functions for other views that might reference them
         "function doCommit(taskId,btn){"
