@@ -517,6 +517,17 @@ def _build_email_card(
                 "Skip Inbox</button>"
             )
 
+    # Claude button
+    safe_subject = subject.replace("'", "\\'")
+    safe_from = html.escape(from_raw).replace("'", "\\'")
+    safe_gmail = html.escape(gmail_link).replace("'", "\\'")
+    cc_btn = (
+        f'<button class="assign-cc-btn" title="Assign CC" '
+        f"onclick=\"event.stopPropagation();doCopyEmailCC(this,'{safe_subject}','{safe_from}','{safe_gmail}')\">"
+        + _CC_LABEL
+        + "</button>"
+    )
+
     meta_parts = []
     if sender:
         meta_parts.append(sender)
@@ -540,7 +551,7 @@ def _build_email_card(
         f'<div class="task-title">{subject}</div>'
         f'<div class="task-meta">{meta_line}</div>'
         f'<div class="task-actions">'
-        f"{review_btn}{unstar_btn}{create_todoist_btn}{skip_inbox_btn}"
+        f"{review_btn}{unstar_btn}{create_todoist_btn}{skip_inbox_btn}{cc_btn}"
         f"</div>"
         f"</div></div>"
         f"</div>"
@@ -696,6 +707,17 @@ def _build_calendar_card(
             f"Open in Calendar \u2197</a>"
         )
 
+    # Claude button
+    safe_title = title.replace("'", "\\'")
+    safe_date = html.escape(date_display).replace("'", "\\'")
+    safe_location = html.escape(event.get("location", "")).replace("'", "\\'")
+    cc_btn = (
+        f'<button class="assign-cc-btn" title="Assign CC" '
+        f"onclick=\"event.stopPropagation();doCopyCalCC(this,'{safe_title}','{safe_date}','{safe_location}')\">"
+        + _CC_LABEL
+        + "</button>"
+    )
+
     # Meta line
     meta_parts = [date_display]
     if location:
@@ -715,7 +737,7 @@ def _build_calendar_card(
         f"</div>"
         f'<div class="task-meta">{meta_line}</div>'
         f'<div class="task-actions">'
-        f"{review_btn}{todoist_btn}{commit_btn}{timer_btn}{gcal_html}"
+        f"{review_btn}{todoist_btn}{commit_btn}{timer_btn}{gcal_html}{cc_btn}"
         f"</div>"
         f"</div></div>"
         f"</div>"
@@ -771,6 +793,16 @@ def _build_unread_email_card(
         "Create Todoist</button>"
     )
 
+    # Claude button
+    safe_from = html.escape(from_raw).replace("'", "\\'")
+    safe_gmail = html.escape(gmail_link).replace("'", "\\'")
+    cc_btn = (
+        f'<button class="assign-cc-btn" title="Assign CC" '
+        f"onclick=\"event.stopPropagation();doCopyEmailCC(this,'{safe_subject}','{safe_from}','{safe_gmail}')\">"
+        + _CC_LABEL
+        + "</button>"
+    )
+
     # Build open URL for email viewer
     open_url = ""
     if gmail_link and email_actions_url and email_actions_token:
@@ -806,7 +838,7 @@ def _build_unread_email_card(
         f'<div class="task-title">{subject}</div>'
         f'<div class="task-meta">{meta_line}</div>'
         f'<div class="task-actions">'
-        f"{markread_btn}{skip_inbox_btn}{create_todoist_btn}"
+        f"{markread_btn}{skip_inbox_btn}{create_todoist_btn}{cc_btn}"
         f"</div>"
         f"</div></div>"
         f"</div>"
@@ -898,6 +930,17 @@ def _build_followup_email_card(
                 f"Open in Gmail \u2197</a>"
             )
 
+    # Claude button
+    safe_subject = subject.replace("'", "\\'")
+    safe_sender = html.escape(email.get("sender", email.get("from", ""))).replace("'", "\\'")
+    safe_gmail = html.escape(gmail_link).replace("'", "\\'")
+    cc_btn = (
+        f'<button class="assign-cc-btn" title="Assign CC" '
+        f"onclick=\"event.stopPropagation();doCopyFollowupCC(this,'{safe_subject}','{safe_sender}','{safe_gmail}')\">"
+        + _CC_LABEL
+        + "</button>"
+    )
+
     # Build open URL for email viewer
     open_url = ""
     if email_actions_url and email_actions_token and msg_id:
@@ -933,7 +976,7 @@ def _build_followup_email_card(
         f'<div class="task-meta">{meta_line}</div>'
         f"{snippet_html}"
         f'<div class="task-actions">'
-        f"{review_btn}{resolve_btn}{gmail_btn}"
+        f"{review_btn}{resolve_btn}{gmail_btn}{cc_btn}"
         f"</div>"
         f"</div></div>"
         f"</div>"
@@ -1705,6 +1748,27 @@ def build_home_html(
         "function doCopyCC(taskId,content,btn){"
         "var orig=btn.innerHTML;"
         "var msg='Task: '+content+'\\nID: '+taskId;"
+        "navigator.clipboard.writeText(msg).then(function(){"
+        "btn.textContent='\u2713';setTimeout(function(){btn.innerHTML=orig;},1500);"
+        "}).catch(function(){btn.textContent='!';setTimeout(function(){btn.innerHTML=orig;},1500);});}"
+        # --- Copy email for Claude ---
+        "function doCopyEmailCC(btn,subject,fromAddr,gmailLink){"
+        "var orig=btn.innerHTML;"
+        "var msg='Please handle this email in my inbox:\\n\\nSubject: '+subject+'\\nFrom: '+fromAddr+(gmailLink?'\\nGmail: '+gmailLink:'');"
+        "navigator.clipboard.writeText(msg).then(function(){"
+        "btn.textContent='\u2713';setTimeout(function(){btn.innerHTML=orig;},1500);"
+        "}).catch(function(){btn.textContent='!';setTimeout(function(){btn.innerHTML=orig;},1500);});}"
+        # --- Copy calendar event for Claude ---
+        "function doCopyCalCC(btn,title,dateStr,location){"
+        "var orig=btn.innerHTML;"
+        "var msg='Calendar event:\\n\\nTitle: '+title+'\\nDate: '+dateStr+(location?'\\nLocation: '+location:'');"
+        "navigator.clipboard.writeText(msg).then(function(){"
+        "btn.textContent='\u2713';setTimeout(function(){btn.innerHTML=orig;},1500);"
+        "}).catch(function(){btn.textContent='!';setTimeout(function(){btn.innerHTML=orig;},1500);});}"
+        # --- Copy followup email for Claude ---
+        "function doCopyFollowupCC(btn,subject,sender,gmailLink){"
+        "var orig=btn.innerHTML;"
+        "var msg='Please follow up on this email:\\n\\nSubject: '+subject+'\\nFrom: '+sender+(gmailLink?'\\nGmail: '+gmailLink:'');"
         "navigator.clipboard.writeText(msg).then(function(){"
         "btn.textContent='\u2713';setTimeout(function(){btn.innerHTML=orig;},1500);"
         "}).catch(function(){btn.textContent='!';setTimeout(function(){btn.innerHTML=orig;},1500);});}"

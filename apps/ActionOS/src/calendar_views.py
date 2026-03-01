@@ -17,6 +17,8 @@ _EASTERN = ZoneInfo("America/New_York")
 
 logger = logging.getLogger(__name__)
 
+_CC_LABEL = "Claude"
+
 _FONT = (
     "'Inter','SF Pro Display',-apple-system,BlinkMacSystemFont,"
     "'Segoe UI',Roboto,sans-serif"
@@ -366,10 +368,21 @@ def _build_event_card(
             f'{_timer_svg} <span class="timer-label">Countdown</span></button>'
         )
 
+    # Claude button
+    safe_title = title.replace("'", "\\'")
+    safe_date = date_range.replace("'", "\\'")
+    safe_location = location.replace("'", "\\'")
+    cc_btn = (
+        f'<button class="assign-cc-btn" title="Assign CC" '
+        f"onclick=\"event.stopPropagation();doCopyCalCC(this,'{safe_title}','{safe_date}','{safe_location}')\">"
+        + _CC_LABEL
+        + "</button>"
+    )
+
     card_extra = " reviewed-card" if reviewed else " unreviewed-card"
 
     if reviewed:
-        # Reviewed: clean card with just badge + gcal link + timer
+        # Reviewed: clean card with just badge + gcal link + timer + claude
         return (
             f'<div class="task-card{card_extra}" id="card-{idx}">'
             f'<div class="card-row">'
@@ -383,12 +396,13 @@ def _build_event_card(
             f"{review_btn}"
             f"{timer_btn}"
             f"{gcal_html}"
+            f"{cc_btn}"
             f"</div>"
             f"</div></div>"
             f"</div>"
         )
 
-    # Unreviewed: Review + Add to Todoist + Commit + Timer + gcal
+    # Unreviewed: Review + Add to Todoist + Commit + Timer + gcal + Claude
     return (
         f'<div class="task-card{card_extra}" id="card-{idx}">'
         f'<div class="card-row">'
@@ -408,6 +422,7 @@ def _build_event_card(
         f"Commit</button>"
         f"{timer_btn}"
         f"{gcal_html}"
+        f"{cc_btn}"
         f"</div>"
         f"</div></div>"
         f"</div>"
@@ -749,10 +764,15 @@ def build_calendar_html(
         ".gcal-link{color:var(--accent-l);font-size:12px;font-weight:500;"
         "text-decoration:none;white-space:nowrap;}"
         ".gcal-link:hover{text-decoration:underline;}"
+        ".assign-cc-btn{display:inline-flex;align-items:center;justify-content:center;"
+        "padding:4px 10px;border-radius:6px;"
+        "background:rgba(196,120,64,0.10);border:1px solid rgba(196,120,64,0.25);"
+        "cursor:pointer;transition:background .15s;color:#c47840;font-size:13px;font-weight:600;}"
+        ".assign-cc-btn:hover{background:rgba(196,120,64,0.25);}"
         ".empty-state{text-align:center;color:var(--text-2);padding:24px 20px;font-size:14px;}"
         "@media(max-width:768px){"
         ".task-actions{gap:6px;}"
-        ".action-select,.review-btn,.todoist-btn,.commit-btn,.timer-btn{font-size:11px;padding:4px 6px;}"
+        ".action-select,.review-btn,.todoist-btn,.commit-btn,.timer-btn,.assign-cc-btn{font-size:11px;padding:4px 6px;}"
         "}"
         "::-webkit-scrollbar{width:6px;}"
         "::-webkit-scrollbar-track{background:transparent;}"
@@ -911,6 +931,13 @@ def build_calendar_html(
         "}).catch(function(){"
         "btn.textContent='Commit';btn.style.background='';btn.style.color='';"
         "btn.style.pointerEvents='auto';});}"
+        # --- Copy calendar event for Claude ---
+        "function doCopyCalCC(btn,title,dateStr,location){"
+        "var orig=btn.innerHTML;"
+        "var msg='Calendar event:\\n\\nTitle: '+title+'\\nDate: '+dateStr+(location?'\\nLocation: '+location:'');"
+        "navigator.clipboard.writeText(msg).then(function(){"
+        "btn.textContent='\u2713';setTimeout(function(){btn.innerHTML=orig;},1500);"
+        "}).catch(function(){btn.textContent='!';setTimeout(function(){btn.innerHTML=orig;},1500);});}"
         "function toggleChecklist(section){"
         "var body=document.getElementById('cl-body-'+section);"
         "var btn=document.getElementById('cl-btn-'+section);"
