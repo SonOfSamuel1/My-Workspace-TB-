@@ -634,13 +634,9 @@ def _build_calendar_card(
         + loc_enc
     )
     todoist_btn = (
-        ""
-        if reviewed
-        else (
-            f'<button class="todoist-btn" '
-            f"onclick=\"event.stopPropagation();doCalTodoist(this,{idx},'{todoist_url}')\">"
-            "Add to Todoist</button>"
-        )
+        f'<button class="todoist-btn" '
+        f"onclick=\"event.stopPropagation();doCalTodoist(this,{idx},'{todoist_url}')\">"
+        "Add to Todoist</button>"
     )
 
     # Commit button
@@ -657,13 +653,9 @@ def _build_calendar_card(
         + loc_enc
     )
     commit_btn = (
-        ""
-        if reviewed
-        else (
-            f'<button class="commit-btn" '
-            f"onclick=\"event.stopPropagation();doCalCommit(this,{idx},'{commit_url}')\">"
-            "Commit</button>"
-        )
+        f'<button class="commit-btn" '
+        f"onclick=\"event.stopPropagation();doCalCommit(this,{idx},'{commit_url}')\">"
+        "Commit</button>"
     )
 
     # Prep Timer button (today/tomorrow timed events only)
@@ -867,17 +859,15 @@ def _build_followup_email_card(
             "Review</button>"
         )
 
-    # Resolved button
-    resolve_btn = ""
-    if not reviewed:
-        res_url = html.escape(
-            base_url + "?action=followup_resolved&thread_id=" + tid_enc
-        )
-        resolve_btn = (
-            f'<button class="resolve-btn" '
-            f"onclick=\"event.stopPropagation();doResolve(this,'{tid_safe}','{res_url}')\">"
-            "Resolved</button>"
-        )
+    # Resolved button — always show regardless of review status
+    res_url = html.escape(
+        base_url + "?action=followup_resolved&thread_id=" + tid_enc
+    )
+    resolve_btn = (
+        f'<button class="resolve-btn" '
+        f"onclick=\"event.stopPropagation();doResolve(this,'{tid_safe}','{res_url}')\">"
+        "Resolved</button>"
+    )
 
     # Open in Gmail iOS app — use googlegmail:///cv={thread_id} scheme
     # to deep link to the specific conversation.
@@ -1625,9 +1615,7 @@ def build_home_html(
         "btn.className='review-btn reviewed';btn.textContent='\u2713 Reviewed (7d)';"
         "btn.style.cursor='default';btn.style.pointerEvents='auto';"
         "var card=btn.closest('.task-card');"
-        "if(card){card.classList.add('reviewed-card');card.style.opacity='0.65';"
-        "var acts=card.querySelectorAll('.todoist-btn,.commit-btn');"
-        "for(var i=0;i<acts.length;i++)acts[i].style.display='none';}"
+        "if(card){card.classList.add('reviewed-card');card.style.opacity='0.65';}"
         "_updateBadge('calendar');"
         "}else{btn.textContent='Review';btn.style.pointerEvents='auto';}"
         "}).catch(function(){btn.textContent='Review';btn.style.pointerEvents='auto';});}"
@@ -1798,9 +1786,7 @@ def build_home_html(
         "btn.className='review-btn reviewed';btn.textContent='\u2713 Reviewed (7d)';"
         "btn.style.cursor='default';btn.style.pointerEvents='auto';"
         "var card=btn.closest('.task-card');"
-        "if(card){card.classList.add('reviewed-card');"
-        "var acts=card.querySelectorAll('.resolve-btn');"
-        "for(var i=0;i<acts.length;i++)acts[i].style.display='none';}"
+        "if(card){card.classList.add('reviewed-card');}"
         "_updateBadge('followup');"
         "}else{btn.textContent='Review';btn.style.pointerEvents='auto';}"
         "}).catch(function(){btn.textContent='Review';btn.style.pointerEvents='auto';});}"
