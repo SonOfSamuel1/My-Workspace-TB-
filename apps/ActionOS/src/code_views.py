@@ -308,30 +308,30 @@ def build_code_projects_html(
         # ── In Progress ───────────────────────────────────────────────────
         + '<div class="section-hdr">'
         f'<span class="section-title" style="color:var(--ok);">In Progress</span>'
-        f'<span class="section-badge" style="background:var(--ok-bg);color:var(--ok);'
+        f'<span class="section-badge" id="sbadge-in_progress" style="background:var(--ok-bg);color:var(--ok);'
         f'border:1px solid var(--ok-b);">{len(in_progress_tasks)}</span>'
-        "</div>" + '<div class="task-list">' + in_progress_cards + "</div>"
+        "</div>" + '<div class="task-list" data-section="in_progress">' + in_progress_cards + "</div>"
         # ── Planned ───────────────────────────────────────────────────────
         + '<div class="section-divider"></div>'
         + '<div class="section-hdr" style="margin-top:4px;">'
         f'<span class="section-title" style="color:var(--warn);">Planned</span>'
-        f'<span class="section-badge" style="background:var(--warn-bg);color:var(--warn);'
+        f'<span class="section-badge" id="sbadge-planned" style="background:var(--warn-bg);color:var(--warn);'
         f'border:1px solid var(--warn-b);">{len(planned_tasks)}</span>'
-        "</div>" + '<div class="task-list">' + planned_cards + "</div>"
+        "</div>" + '<div class="task-list" data-section="planned">' + planned_cards + "</div>"
         # ── Backlog ───────────────────────────────────────────────────────
         + '<div class="section-divider"></div>'
         + '<div class="section-hdr" style="margin-top:4px;">'
         f'<span class="section-title" style="color:var(--text-2);">Backlog</span>'
-        f'<span class="section-badge" style="background:var(--border);color:var(--text-2);'
+        f'<span class="section-badge" id="sbadge-backlog" style="background:var(--border);color:var(--text-2);'
         f'border:1px solid var(--border-h);">{len(backlog_tasks)}</span>'
-        "</div>" + '<div class="task-list">' + backlog_cards + "</div>"
+        "</div>" + '<div class="task-list" data-section="backlog">' + backlog_cards + "</div>"
         # ── New Issues ────────────────────────────────────────────────────
         + '<div class="section-divider"></div>'
         + '<div class="section-hdr" style="margin-top:4px;">'
         f'<span class="section-title" style="color:var(--accent-l);">New Issues</span>'
-        f'<span class="section-badge" style="background:var(--accent-bg);color:var(--accent-l);'
+        f'<span class="section-badge" id="sbadge-issues" style="background:var(--accent-bg);color:var(--accent-l);'
         f'border:1px solid var(--accent-b);">{len(issues_tasks)}</span>'
-        "</div>" + '<div class="task-list">' + issues_cards + "</div>" + "</div>"
+        "</div>" + '<div class="task-list" data-section="issues">' + issues_cards + "</div>" + "</div>"
         # Right pane — detail / email viewer
         + '<div id="viewer-pane">'
         '<div class="viewer-mobile-header">'
@@ -398,6 +398,12 @@ def build_code_projects_html(
         )
         + "}"
         "var undoTimers={};"
+        "function _sectionBadge(card,delta){"
+        "var tl=card.closest('[data-section]');"
+        "if(!tl)return;"
+        "var badge=document.getElementById('sbadge-'+tl.getAttribute('data-section'));"
+        "if(badge){var n=parseInt(badge.textContent,10)+delta;if(n<0)n=0;badge.textContent=n;}"
+        "}"
         "function removeCard(id){"
         "var card=document.getElementById('card-'+id);"
         "if(card){card.classList.add('removing');setTimeout(function(){card.remove();},350);}}"
@@ -406,7 +412,7 @@ def build_code_projects_html(
         "card.classList.add('undo-state');"
         "var bar=card.querySelector('.undo-bar');"
         "bar.innerHTML=msg+' <a onclick=\"undoTimers[\\''+taskId+'\\'].undo()\">Undo</a>';"
-        "bar.style.display='flex';updateCount();"
+        "bar.style.display='flex';updateCount();_sectionBadge(card,-1);"
         "var timer=setTimeout(function(){delete undoTimers[taskId];removeCard(taskId);},5000);"
         "undoTimers[taskId]={timer:timer,undo:function(){"
         "clearTimeout(timer);delete undoTimers[taskId];"
@@ -415,7 +421,7 @@ def build_code_projects_html(
         "var card=document.getElementById('card-'+taskId);if(!card)return;"
         "card.classList.remove('undo-state');"
         "var bar=card.querySelector('.undo-bar');bar.style.display='none';bar.innerHTML='';"
-        "undoCount();}"
+        "undoCount();_sectionBadge(card,1);}"
         "function doMove(taskId,projectId,sel){"
         "if(!projectId)return;"
         "var card=document.getElementById('card-'+taskId);"
@@ -692,13 +698,13 @@ def build_code_projects_html(
         "if(!projectId)return;var cards=getSelectedCards();"
         "cards.forEach(function(card){var taskId=card.getAttribute('data-task-id');"
         f'fetch("{base_action_url}&action=move&task_id="+taskId+"&project_id="+projectId)'
-        ".then(function(r){if(r.ok){card.classList.add('removing');"
+        ".then(function(r){if(r.ok){_sectionBadge(card,-1);card.classList.add('removing');"
         "setTimeout(function(){card.remove();updateCount();updateSelection();},350);}});});}"
         "function bulkComplete(){"
         "var cards=getSelectedCards();"
         "cards.forEach(function(card){var taskId=card.getAttribute('data-task-id');"
         f'fetch("{base_action_url}&action=complete&task_id="+taskId)'
-        ".then(function(r){if(r.ok){card.classList.add('removing');"
+        ".then(function(r){if(r.ok){_sectionBadge(card,-1);card.classList.add('removing');"
         "setTimeout(function(){card.remove();updateCount();updateSelection();},350);}});});}"
         "function bulkSetDueDate(dateValue){"
         "var cards=getSelectedCards();"
