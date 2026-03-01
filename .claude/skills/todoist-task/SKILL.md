@@ -1,18 +1,15 @@
 ---
-description:
-  Fetch and complete a Todoist task when the user shares a Todoist task link
+description: Fetch and complete a Todoist task when the user shares a Todoist task link
 user_invocable: true
 ---
 
 # Todoist Task Handler
 
-When the user shares a Todoist task URL (e.g.
-`https://app.todoist.com/app/task/<TASK_ID>`), follow this workflow:
+When the user shares a Todoist task URL (e.g. `https://app.todoist.com/app/task/<TASK_ID>`), follow this workflow:
 
 ## 1. Extract the Task ID
 
 The task ID is the last path segment of the URL:
-
 ```
 https://app.todoist.com/app/task/6g5MJfgjWQ4ggmVC
                                   ^^^^^^^^^^^^^^^^
@@ -39,7 +36,6 @@ curl -s "https://api.todoist.com/api/v1/tasks/<TASK_ID>" \
 ```
 
 The response contains:
-
 - `content` — the task title / what needs to be done
 - `description` — optional additional details
 - `project_id` — which project the task belongs to
@@ -65,18 +61,16 @@ A successful close returns HTTP **204** (no content).
 
 ## API Reference
 
-| Endpoint                    | Method | Purpose                 |
-| --------------------------- | ------ | ----------------------- |
-| `/api/v1/tasks/<id>`        | GET    | Fetch task details      |
-| `/api/v1/tasks/<id>/close`  | POST   | Mark task complete      |
-| `/api/v1/tasks`             | POST   | Create a new task       |
-| `/api/v1/tasks/<id>`        | POST   | Update a task           |
-| `/api/v1/tasks/<id>/reopen` | POST   | Reopen a completed task |
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/api/v1/tasks/<id>` | GET | Fetch task details |
+| `/api/v1/tasks/<id>/close` | POST | Mark task complete |
+| `/api/v1/tasks` | POST | Create a new task |
+| `/api/v1/tasks/<id>` | POST | Update a task |
+| `/api/v1/tasks/<id>/reopen` | POST | Reopen a completed task |
 
 ## Important Notes
 
-- Always use API **v1** (`/api/v1/`). The v2 REST API (`/rest/v2/`) is
-  deprecated and returns 410.
+- Always use API **v1** (`/api/v1/`). The v2 REST API (`/rest/v2/`) is deprecated and returns 410.
 - The API token is a **personal token** — do not log or expose it in output.
-- Always confirm with the user before closing a task if the work required is
-  ambiguous.
+- Always confirm with the user before closing a task if the work required is ambiguous.

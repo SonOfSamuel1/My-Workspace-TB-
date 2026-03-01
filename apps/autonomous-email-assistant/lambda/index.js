@@ -114,7 +114,8 @@ async function sendFormattedReport(mode, processingResults, hour) {
         pendingForTomorrow: processingResults.pendingForTomorrow || [],
         costs: processingResults.costs || { total: 0 },
         insights: processingResults.insights || [],
-        topSenders: processingResults.topSenders || []
+        topSenders: processingResults.topSenders || [],
+        etaEmails: processingResults.etaEmails || []
       });
     } else if (mode === 'midday_check' && processingResults.tier1Escalations?.length > 0) {
       // Midday urgent items alert
@@ -143,6 +144,27 @@ async function sendFormattedReport(mode, processingResults, hour) {
       subject: emailContent.subject,
       messageId: result.messageId
     });
+
+    // Send separate ETA digest email at EOD if there are ETA emails
+    if (mode === 'eod_report' && processingResults.etaEmails?.length > 0) {
+      try {
+        const etaDigest = await emailGenerator.generateETADigest(processingResults.etaEmails);
+        if (etaDigest) {
+          const etaResult = await emailSender.sendHtmlEmail({
+            to: userEmail,
+            subject: etaDigest.subject,
+            htmlContent: etaDigest.html,
+            textContent: etaDigest.plainText
+          });
+          contextLogger.info('ETA digest email sent successfully', {
+            etaCount: processingResults.etaEmails.length,
+            messageId: etaResult.messageId
+          });
+        }
+      } catch (etaError) {
+        contextLogger.error('Failed to send ETA digest email', { error: etaError.message });
+      }
+    }
 
     return result;
   } catch (error) {
@@ -287,6 +309,7 @@ LABELS SYSTEM:
 7. Travel - Travel related
 8. Expenses - Receipts, invoices
 9. Newsletters - Subscriptions
+10. ETA/Acquisitions - Entrepreneurship Through Acquisition: deal flow, broker listings, business-for-sale alerts, search fund newsletters (auto-archived, collected for daily ETA digest)
 
 TIER CLASSIFICATION:
 
@@ -310,6 +333,7 @@ TIER 2 (Handle Independently):
 - Administrative tasks
 - Travel confirmations
 - Expense receipts
+- ETA (Entrepreneurship Through Acquisition) emails: deal flow, broker listings, acquisition platforms, search fund newsletters
 
 TIER 3 (Draft for Approval):
 - Meeting decline requests
@@ -339,6 +363,13 @@ YOUR TASKS FOR THIS HOUR:
    - Classify into Tier 1/2/3/4
    - Apply appropriate Gmail label
    - Take action based on tier
+
+   SPECIAL: ETA (ENTREPRENEURSHIP THROUGH ACQUISITION) EMAILS
+   - Identify deal flow emails, broker listings, business-for-sale alerts, acquisition platform notifications, search fund newsletters, due diligence updates
+   - Common senders/platforms: BizBuySell, Axial, SearchFunder, Acquire.com, Empire Flippers, Quiet Light, FE International, Flippa, BusinessesForSale.com, DealStream, brokers/intermediaries, SBA lenders, search fund community, ETA mailing lists
+   - Common keywords: "new listing", "business for sale", "acquisition opportunity", "deal flow", "asking price", "EBITDA", "SDE", "revenue", "search fund", "LOI", "due diligence", "broker", "intermediary"
+   - Action: Label as "ETA/Acquisitions", archive from inbox (remove INBOX label), do NOT draft a response
+   - Collect full details for the etaEmails array: sender, subject, full body text, and extracted deal details (business name, asking price, revenue, EBITDA/SDE, industry, location) when available
 
 4. UPDATE "WAITING FOR" ITEMS:
    - Check emails with "Waiting For" label
@@ -419,6 +450,24 @@ This JSON will be parsed programmatically to generate HTML email reports.
       "email": "sender@email.com",
       "count": 5,
       "averageTier": "Tier 2"
+    }
+  ],
+  "etaEmails": [
+    {
+      "id": "Gmail message ID",
+      "from": "sender or platform name",
+      "subject": "Email subject line",
+      "timestamp": "ISO timestamp",
+      "bodyText": "Full email body text (plain text, not HTML)",
+      "dealDetails": {
+        "businessName": "Name if identifiable",
+        "askingPrice": "$X",
+        "revenue": "$X",
+        "ebitda": "$X",
+        "industry": "Industry if mentioned",
+        "location": "Location if mentioned",
+        "broker": "Broker/platform name"
+      }
     }
   ],
   "summary": "Brief text summary for plain text fallback"

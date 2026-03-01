@@ -5,6 +5,7 @@ and iframes for all ActionOS views. All iframes point back to the
 same unified Lambda function URL.
 """
 
+import html
 from typing import List, Tuple
 
 _FONT = (
@@ -32,17 +33,20 @@ def build_shell_html(
     base = function_url.rstrip("/")
 
     # All tab URLs point to the same Lambda with view= param
-    # Lazy-load strategy: only the first tab (@commit) preloads at page load.
+    # Lazy-load strategy: only the first tab (Home) preloads at page load.
     # All others load on first switchTab() call.
     tabs: List[Tuple[str, str, str, bool]] = [
-        ("commit", "@commit", f"{base}?action=web&view=commit&embed=1", True),
+        ("home", "Home", f"{base}?action=web&view=home&embed=1", True),
+        ("commit", "@commit", f"{base}?action=web&view=commit&embed=1", False),
         ("starred", "Starred", f"{base}?action=web&view=starred&embed=1", False),
         ("unread", "Unread", f"{base}?action=web&view=unread&embed=1", False),
         ("inbox", "Inbox", f"{base}?action=web&view=inbox&embed=1", False),
         ("p1", "P1", f"{base}?action=web&view=p1&embed=1", False),
+        ("p1nodate", "P1 No Date", f"{base}?action=web&view=p1nodate&embed=1", False),
         ("bestcase", "Best Case", f"{base}?action=web&view=bestcase&embed=1", False),
         ("calendar", "Calendar", f"{base}?action=web&view=calendar&embed=1", False),
         ("followup", "Follow-up", f"{base}?action=web&view=followup&embed=1", False),
+        ("sabbath", "Sabbath", f"{base}?action=web&view=sabbath&embed=1", False),
         ("code", "Code", f"{base}?action=web&view=code&embed=1", False),
     ]
 
@@ -60,16 +64,27 @@ def build_shell_html(
         )
 
     # Generate iframe HTML (lazy: non-first tabs use dark placeholder)
-    # Use about:blank with matching background instead of default white to
+    # Use srcdoc with matching background instead of about:blank to
     # prevent white flash while iframe content loads from Lambda.
+    _dark_srcdoc = (
+        "<html><head><style>"
+        "html,body{margin:0;background:#1a1a1a;color-scheme:dark}"
+        "@media(prefers-color-scheme:light){html,body{background:#eeeef0;color-scheme:light}}"
+        "</style></head><body></body></html>"
+    )
     iframes_html = ""
     for i, (tid, _label, url, preload) in enumerate(tabs):
         display = "" if i == 0 else "display:none;"
-        src = url if preload else "about:blank"
-        iframes_html += (
-            f'<iframe id="frame-{tid}" src="{src}" style="{display}"'
-            f' data-src="{url}"></iframe>'
-        )
+        if preload:
+            iframes_html += (
+                f'<iframe id="frame-{tid}" src="{url}" style="{display}"'
+                f' data-src="{url}"></iframe>'
+            )
+        else:
+            iframes_html += (
+                f'<iframe id="frame-{tid}" srcdoc="{html.escape(_dark_srcdoc)}" style="{display}"'
+                f' data-src="{url}"></iframe>'
+            )
 
     # Tab URLs JSON for lazy loading
     tab_urls_json = (
@@ -84,13 +99,16 @@ def build_shell_html(
     first_badge = "..."
     # Per-section SVG icons (20x20, stroke-based)
     _section_icons = {
+        "home": '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>',
         "starred": '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>',
         "unread": '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>',
         "inbox": '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>',
         "commit": '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>',
         "p1": '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>',
+        "p1nodate": '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="9" y1="14" x2="15" y2="20"/><line x1="15" y1="14" x2="9" y2="20"/></svg>',
         "bestcase": '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.5 5.5L19 10l-5.5 1.5L12 17l-1.5-5.5L5 10l5.5-1.5L12 3z"/><path d="M19 15l.5 2 2 .5-2 .5-.5 2-.5-2-2-.5 2-.5.5-2z"/></svg>',
         "calendar": '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>',
+        "sabbath": '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2c-1 4-4 6-4 10a4 4 0 0 0 8 0c0-4-3-6-4-10z"/><line x1="12" y1="16" x2="12" y2="22"/></svg>',
         "code": '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>',
         "followup": '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg>',
     }
@@ -346,9 +364,9 @@ def build_shell_html(
         ".qa-fab{display:flex;bottom:88px;}"
         "}"
         # Bottom navigation bar (Todoist floating pill style)
-        ".bottom-nav{display:flex;position:fixed;bottom:20px;left:16px;right:16px;"
+        ".bottom-nav{display:flex;position:fixed;bottom:20px;left:16px;right:84px;"
         "background:var(--bg-s1);border:1px solid var(--border-h);"
-        "border-radius:100px;padding:4px 6px;"
+        "border-radius:100px;padding:0 6px;height:56px;"
         "box-shadow:0 4px 20px rgba(0,0,0,0.35),0 1px 6px rgba(0,0,0,0.2);"
         "z-index:999;justify-content:space-around;align-items:center;gap:4px;}"
         "@supports(padding-bottom:env(safe-area-inset-bottom)){"
@@ -360,11 +378,68 @@ def build_shell_html(
         ".bottom-nav-item:hover{background:var(--border);color:rgba(255,255,255,0.8);}"
         ".bottom-nav-item.active{color:#fff;background:rgba(255,255,255,0.1);}"
         ".bottom-nav-item svg{width:20px;height:20px;}"
+        ".bottom-nav-search{display:flex;position:fixed;bottom:20px;right:20px;width:56px;height:56px;"
+        "border-radius:50%;border:none;"
+        "background:var(--bg-s1);border:1px solid var(--border-h);"
+        "color:rgba(255,255,255,0.55);cursor:pointer;"
+        "align-items:center;justify-content:center;flex-shrink:0;"
+        "box-shadow:0 4px 20px rgba(0,0,0,0.35),0 1px 6px rgba(0,0,0,0.2);"
+        "z-index:999;-webkit-tap-highlight-color:transparent;"
+        "touch-action:manipulation;transition:color .15s,background .15s;}"
+        "@supports(padding-bottom:env(safe-area-inset-bottom)){"
+        ".bottom-nav-search{bottom:calc(20px + env(safe-area-inset-bottom));}}"
+        ".bottom-nav-search:active{background:var(--border-h);color:#fff;}"
+        ".bottom-nav-search svg{width:24px;height:24px;}"
         "@media(prefers-color-scheme:light){"
         ".bottom-nav{background:#fff;box-shadow:0 4px 20px rgba(0,0,0,0.12),0 1px 6px rgba(0,0,0,0.08);}"
         ".bottom-nav-item{color:rgba(0,0,0,0.45);}"
         ".bottom-nav-item:hover{color:rgba(0,0,0,0.7);}"
-        ".bottom-nav-item.active{color:#000;background:rgba(0,0,0,0.06);}}"
+        ".bottom-nav-item.active{color:#000;background:rgba(0,0,0,0.06);}"
+        ".bottom-nav-search{background:#fff;border-color:rgba(0,0,0,0.08);"
+        "color:rgba(0,0,0,0.45);"
+        "box-shadow:0 4px 20px rgba(0,0,0,0.12),0 1px 6px rgba(0,0,0,0.08);}"
+        ".bottom-nav-search:active{background:rgba(0,0,0,0.06);color:#000;}}"
+        # Search overlay
+        ".search-overlay{display:none;position:fixed;top:0;left:0;right:0;"
+        "bottom:calc(76px + env(safe-area-inset-bottom));z-index:10000;"
+        "background:var(--bg-base);flex-direction:column;}"
+        ".search-overlay.open{display:flex;}"
+        ".search-header{display:flex;align-items:center;gap:10px;padding:12px 16px;"
+        "border-bottom:1px solid var(--border);}"
+        ".search-back{background:none;border:none;color:var(--text-2);cursor:pointer;"
+        "width:36px;height:36px;border-radius:50%;display:flex;align-items:center;"
+        "justify-content:center;flex-shrink:0;}"
+        ".search-back:hover{background:var(--border);color:var(--text-1);}"
+        ".search-input{flex:1;font-family:inherit;font-size:16px;background:var(--bg-s2);"
+        "border:1px solid var(--border-h);border-radius:10px;padding:10px 14px;"
+        "color:var(--text-1);outline:none;}"
+        ".search-input:focus{border-color:rgba(99,102,241,0.5);}"
+        ".search-input::placeholder{color:var(--text-3);}"
+        ".search-results{flex:1;overflow-y:auto;padding:8px 16px;"
+        "-webkit-overflow-scrolling:touch;}"
+        ".search-empty{text-align:center;color:var(--text-3);padding:40px 20px;font-size:14px;}"
+        ".search-section-label{font-size:11px;font-weight:700;color:var(--text-2);"
+        "text-transform:uppercase;letter-spacing:.5px;padding:12px 0 6px;}"
+        ".search-item{display:flex;align-items:flex-start;gap:12px;"
+        "background:var(--bg-s1);border:1px solid var(--border);border-radius:8px;"
+        "padding:14px 16px;margin-bottom:10px;cursor:pointer;"
+        "transition:border-color .15s,background .15s;}"
+        ".search-item:hover{border-color:var(--border-h);background:var(--bg-s2);}"
+        ".search-item:active{background:var(--border);}"
+        ".search-item-icon{width:32px;height:32px;border-radius:8px;flex-shrink:0;"
+        "display:flex;align-items:center;justify-content:center;}"
+        ".search-item-icon.task{background:var(--accent-bg);color:var(--accent-l);}"
+        ".search-item-icon.event{background:var(--ok-bg);color:var(--ok);}"
+        ".search-item-body{flex:1;min-width:0;}"
+        ".search-item-title{font-size:14px;font-weight:500;color:var(--text-1);"
+        "white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}"
+        ".search-item-meta{font-size:12px;color:var(--text-2);margin-top:2px;"
+        "white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}"
+        ".search-type-badge{display:inline-block;font-size:10px;font-weight:700;"
+        "text-transform:uppercase;letter-spacing:.5px;padding:2px 6px;"
+        "border-radius:4px;margin-right:6px;vertical-align:middle;}"
+        ".search-type-badge.task{background:var(--accent-bg);color:var(--accent-l);}"
+        ".search-type-badge.event{background:var(--ok-bg);color:var(--ok);}"
         "::-webkit-scrollbar{width:6px;}"
         "::-webkit-scrollbar-track{background:transparent;}"
         "::-webkit-scrollbar-thumb{background:var(--scrollbar);border-radius:3px;}"
@@ -433,7 +508,7 @@ def build_shell_html(
         '<button class="section-dd-edit-btn" id="section-dd-edit-btn" onclick="toggleEditMode()">Edit</button>'
         "</div>" + dropdown_items_html + "</div>"
         # Mobile FAB + bottom sheet (Todoist-style with SVG icons)
-        '<button class="qa-fab" id="qa-fab" onclick="openMobileSheet()">'
+        '<button class="qa-fab" id="qa-fab" onclick="window.location.href=\'todoist://addtask\'">'
         '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">'
         '<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>'
         "</svg></button>"
@@ -504,12 +579,9 @@ def build_shell_html(
         "</div>"
         # Bottom navigation bar (mobile, Todoist-style)
         '<nav class="bottom-nav" id="bottom-nav">'
-        '<div class="bottom-nav-item" data-tab="commit" onclick="switchTab(\'commit\')">'
-        '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>'
-        "<span>Commit</span></div>"
-        '<div class="bottom-nav-item" data-tab="bestcase" onclick="switchTab(\'bestcase\')">'
-        '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.5 5.5L19 10l-5.5 1.5L12 17l-1.5-5.5L5 10l5.5-1.5L12 3z"/><path d="M19 15l.5 2 2 .5-2 .5-.5 2-.5-2-2-.5 2-.5.5-2z"/></svg>'
-        "<span>BC</span></div>"
+        '<div class="bottom-nav-item" data-tab="home" onclick="switchTab(\'home\')">'
+        '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>'
+        "<span>Home</span></div>"
         '<div class="bottom-nav-item" data-tab="calendar" onclick="switchTab(\'calendar\')">'
         '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>'
         "<span>Calendar</span></div>"
@@ -520,6 +592,22 @@ def build_shell_html(
         '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>'
         "<span>Code</span></div>"
         "</nav>"
+        '<button class="bottom-nav-search" id="nav-search-btn" onclick="openSearch()">'
+        '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>'
+        "</button>"
+        # Search overlay (full-screen)
+        '<div class="search-overlay" id="search-overlay">'
+        '<div class="search-header">'
+        '<button class="search-back" onclick="closeSearch()">'
+        '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>'
+        "</button>"
+        '<input type="search" class="search-input" id="search-input" placeholder="Search actions &amp; calendar..." '
+        'autocomplete="off" autocorrect="off" autocapitalize="off">'
+        "</div>"
+        '<div class="search-results" id="search-results">'
+        '<div class="search-empty">Search across all your actions and calendar events</div>'
+        "</div>"
+        "</div>"
         # JavaScript
         "<script>"
         "var _resizeTimer;function autoResize(el){clearTimeout(_resizeTimer);_resizeTimer=setTimeout(function(){el.style.height='auto';el.style.height=el.scrollHeight+'px';},50);};"
@@ -536,16 +624,7 @@ def build_shell_html(
         "if(first){first.addEventListener('load',dismiss,{once:true});}"
         "setTimeout(dismiss,4000);"  # fallback: dismiss after 4 seconds max
         "})();"
-        # Paint dark background into all about:blank iframes immediately
-        "(function(){"
-        "var darkCSS='<html><head><style>html,body{margin:0;background:#1a1a1a}"
-        "@media(prefers-color-scheme:light){html,body{background:#eeeef0}}"
-        "</style></head><body></body></html>';"
-        "tabIds.forEach(function(id){"
-        "var f=document.getElementById('frame-'+id);"
-        "if(f&&f.src.indexOf('about:blank')!==-1){"
-        "try{var d=f.contentDocument;if(d){d.open();d.write(darkCSS);d.close();}}catch(e){}"
-        "}});})();"
+        # srcdoc already provides dark background for lazy iframes
         # goHome: on mobile open section picker, on desktop reload
         "function goHome(e){"
         "e.preventDefault();"
@@ -564,12 +643,8 @@ def build_shell_html(
         "document.getElementById('frame-'+id).style.display=id===tab?'block':'none';"
         "});"
         "var frame=document.getElementById('frame-'+tab);"
-        "if(frame&&frame.src.indexOf('about:blank')!==-1){"
-        "try{var d=frame.contentDocument;"
-        "if(d){d.open();d.write('<html><head><style>html,body{margin:0;"
-        "background:#1a1a1a}@media(prefers-color-scheme:light)"
-        "{html,body{background:#eeeef0}}</style></head><body></body></html>');"
-        "d.close();}}catch(e){}"
+        "if(frame&&(!frame.src||frame.src==='about:blank'||frame.hasAttribute('srcdoc'))){"
+        "frame.removeAttribute('srcdoc');"
         "frame.src=tabUrls[tab];"
         "}"
         # Sync mobile picker label/badge
@@ -735,6 +810,75 @@ def build_shell_html(
         "activeFrame.contentWindow.location.reload();}"
         "}"
         "}).catch(function(){btn.disabled=false;});}"
+        # Search functionality
+        "var _searchTimer=null;"
+        "function openSearch(){"
+        "document.getElementById('search-overlay').classList.add('open');"
+        "var inp=document.getElementById('search-input');"
+        "inp.value='';inp.focus();"
+        "document.getElementById('search-results').innerHTML="
+        "'<div class=\"search-empty\">Search across all your actions and calendar events</div>';"
+        "inp.addEventListener('input',_onSearchInput);"
+        "}"
+        "function closeSearch(){"
+        "document.getElementById('search-overlay').classList.remove('open');"
+        "clearTimeout(_searchTimer);"
+        "}"
+        "function _onSearchInput(e){"
+        "clearTimeout(_searchTimer);"
+        "var q=e.target.value.trim();"
+        "if(!q){"
+        "document.getElementById('search-results').innerHTML="
+        "'<div class=\"search-empty\">Search across all your actions and calendar events</div>';"
+        "return;}"
+        "if(q.length<2)return;"
+        "_searchTimer=setTimeout(function(){_doSearch(q);},300);"
+        "}"
+        "function _doSearch(q){"
+        "document.getElementById('search-results').innerHTML="
+        "'<div class=\"search-empty\">Searching...</div>';"
+        f"fetch('{base}?action=search&q='+encodeURIComponent(q))"
+        ".then(function(r){return r.json();})"
+        ".then(function(d){"
+        "var html='';"
+        "var items=[];"
+        "if(d.tasks)d.tasks.forEach(function(t){items.push({type:'task',data:t});});"
+        "if(d.events)d.events.forEach(function(ev){items.push({type:'event',data:ev});});"
+        "items.forEach(function(item){"
+        "if(item.type==='task'){"
+        "var t=item.data;"
+        "var pri=t.priority===4?'P1':t.priority===3?'P2':t.priority===2?'P3':'';"
+        "var meta=[];"
+        "if(t.project_name)meta.push(t.project_name);"
+        "if(pri)meta.push(pri);"
+        "if(t.due_date)meta.push(t.due_date);"
+        "if(t.labels&&t.labels.length)meta.push(t.labels.join(', '));"
+        "html+='<div class=\"search-item\" onclick=\"closeSearch();switchTab(\\'commit\\')\">'"
+        '+\'<div class="search-item-icon task"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg></div>\''
+        "+'<div class=\"search-item-body\">'"
+        "+'<div class=\"search-item-title\"><span class=\"search-type-badge task\">Task</span>'+_esc(t.content)+'</div>'"
+        "+(meta.length?'<div class=\"search-item-meta\">'+_esc(meta.join(' · '))+'</div>':'')+'</div></div>';"
+        "}else{"
+        "var ev=item.data;"
+        "var meta=[];"
+        "if(ev.start){"
+        "var dt=ev.start.length>10?new Date(ev.start).toLocaleDateString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}):ev.start;"
+        "meta.push(dt);}"
+        "if(ev.location)meta.push(ev.location);"
+        "if(ev.calendar_type)meta.push(ev.calendar_type);"
+        "html+='<div class=\"search-item\" onclick=\"closeSearch();switchTab(\\'calendar\\')\">'"
+        '+\'<div class="search-item-icon event"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div>\''
+        "+'<div class=\"search-item-body\">'"
+        "+'<div class=\"search-item-title\"><span class=\"search-type-badge event\">Event</span>'+_esc(ev.title)+'</div>'"
+        "+(meta.length?'<div class=\"search-item-meta\">'+_esc(meta.join(' · '))+'</div>':'')+'</div></div>';"
+        "}"
+        "});"
+        "if(!html)html='<div class=\"search-empty\">No results found</div>';"
+        "document.getElementById('search-results').innerHTML=html;"
+        "}).catch(function(){"
+        "document.getElementById('search-results').innerHTML='<div class=\"search-empty\">Search failed</div>';});"
+        "}"
+        "function _esc(s){var d=document.createElement('div');d.textContent=s;return d.innerHTML;}"
         # postMessage handler (badge counts + viewer open)
         "window.addEventListener('message',function(e){"
         "if(e.data&&e.data.type==='count'){"
@@ -750,7 +894,7 @@ def build_shell_html(
         "if(e.data&&(e.data.type==='markread'||e.data.type==='unstar'||e.data.type==='skip-inbox')){"
         # Reload starred frame when an email is actioned from the viewer
         "var sf=document.getElementById('frame-starred');"
-        "if(sf&&sf.src.indexOf('about:blank')===-1)sf.contentWindow.location.reload();"
+        "if(sf&&sf.src&&!sf.hasAttribute('srcdoc'))sf.contentWindow.location.reload();"
         "}"
         "if(e.data&&e.data.type==='viewer-open'){closeSectionPicker();}"
         "},{passive:true});"
@@ -932,7 +1076,7 @@ def build_shell_html(
         f"fetch('{base}?action=count_all')"
         ".then(function(r){return r.json();})"
         ".then(function(d){"
-        "['unread','inbox','commit','p1','bestcase','calendar','code','followup'].forEach(function(id){"
+        "['home','unread','inbox','commit','p1','bestcase','calendar','code','followup'].forEach(function(id){"
         "if(d[id]!==undefined){"
         "var b=document.getElementById('badge-'+id);"
         "if(b)b.textContent=d[id];"

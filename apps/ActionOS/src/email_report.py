@@ -54,18 +54,7 @@ _SVG_RECORD = (
     '<svg style="display:inline-block;vertical-align:middle" width="10" height="10" '
     'viewBox="0 0 10 10"><circle cx="5" cy="5" r="4" fill="currentColor"/></svg>'
 )
-_CC_ICON_SVG = (
-    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 9 7" width="18" height="14" '
-    'shape-rendering="crispEdges">'
-    '<rect x="2" y="0" width="5" height="5" fill="#c47840"/>'
-    '<rect x="3" y="1" width="1" height="1" fill="#1a1005"/>'
-    '<rect x="5" y="1" width="1" height="1" fill="#1a1005"/>'
-    '<rect x="0" y="3" width="2" height="2" fill="#c47840"/>'
-    '<rect x="7" y="3" width="2" height="2" fill="#c47840"/>'
-    '<rect x="2" y="5" width="2" height="2" fill="#c47840"/>'
-    '<rect x="5" y="5" width="2" height="2" fill="#c47840"/>'
-    "</svg>"
-)
+_CC_LABEL = "Claude"
 
 
 def _days_ago(date_str: str) -> str:
@@ -472,7 +461,7 @@ def build_cards_html(
             'style="display:inline-flex;align-items:center;justify-content:center;'
             "padding:5px 10px;min-height:36px;background:rgba(196,120,64,0.10);"
             "border:1px solid rgba(196,120,64,0.25);border-radius:6px;"
-            'cursor:pointer;">' + _CC_ICON_SVG + "</button>"
+            'cursor:pointer;">' + _CC_LABEL + "</button>"
         )
 
         # Action row: mark read + skip inbox + assign cc + date picker + priority + move to todoist dropdown
@@ -987,7 +976,7 @@ def build_web_html(
         "function updateCount(){"
         "var remaining=document.querySelectorAll('.email-card').length;"
         "var el=document.getElementById('item-count');"
-        "if(el){el.textContent=remaining+' item'+(remaining===1?'':'s');}"
+        "if(el){el.textContent=remaining;}"
         "try{window.parent.postMessage({type:'count',source:VIEW_TYPE,count:remaining},'*');}catch(e){}"
         "if(remaining===0){"
         "var list=document.getElementById('card-list');"
@@ -1300,7 +1289,13 @@ def build_web_html(
         "--scrollbar:rgba(0,0,0,0.12);color-scheme:light;}}"
         "*{box-sizing:border-box;}"
         + embed_css
-        + ".split-wrap{display:flex;height:"
+        + ".section-hdr{display:flex;align-items:center;gap:8px;padding:16px 0 8px;"
+        "font-size:11px;font-weight:600;text-transform:uppercase;"
+        "letter-spacing:0.6px;border-bottom:1px solid var(--border);margin-bottom:10px;"
+        "position:sticky;top:0;z-index:10;background:var(--bg-base);}"
+        ".section-badge{background:var(--border);color:var(--text-2);font-size:11px;"
+        "font-weight:700;padding:2px 7px;border-radius:8px;}"
+        ".split-wrap{display:flex;height:"
         + split_height
         + ";overflow:hidden;}"
         ".left-pane{flex:0 0 45%;min-width:0;overflow-y:auto;}"
@@ -1410,10 +1405,11 @@ def build_web_html(
         '<div class="left-pane">'
         '<div id="ptr-indicator"><div id="ptr-spinner"></div></div>'
         '<div style="max-width:700px;margin:0 auto;min-height:100%;">'
-        '<div style="padding:12px 16px 0;">'
-        '<div style="font-size:13px;color:var(--text-2);">'
-        '<span id="item-count">' + str(count) + " item" + plural + "</span>"
-        " &middot; " + today + "</div>"
+        '<div style="padding:0 16px;">'
+        '<div class="section-hdr" style="color:var(--text-2);">'
+        '<span>' + today.upper() + "</span>"
+        '<span class="section-badge" id="item-count">' + str(count) + "</span>"
+        "</div>"
         "</div>"
         # Select all row
         + (
@@ -1432,10 +1428,10 @@ def build_web_html(
         + (
             '<button class="viewer-cc-btn assign-cc-btn" title="Assign CC" '
             'style="display:none;position:absolute;top:10px;right:58px;z-index:11;'
-            "padding:5px 8px;background:rgba(196,120,64,0.10);"
+            "padding:5px 10px;background:rgba(196,120,64,0.10);"
             "border:1px solid rgba(196,120,64,0.25);border-radius:6px;"
-            'cursor:pointer;line-height:0;align-items:center;justify-content:center;" '
-            'onclick="viewerCopyCC(this)">' + _CC_ICON_SVG + "</button>"
+            'cursor:pointer;color:#c47840;font-size:13px;font-weight:600;align-items:center;justify-content:center;" '
+            'onclick="viewerCopyCC(this)">' + _CC_LABEL + "</button>"
         )
         + '<button class="close-btn" onclick="closeViewer()" title="Close">&times;</button>'
         # Mobile-only back header (replaces small × button on phones)
@@ -1449,7 +1445,7 @@ def build_web_html(
             'style="display:none;background:rgba(196,120,64,0.10);'
             "border:1px solid rgba(196,120,64,0.25);"
             'align-items:center;justify-content:center;" '
-            'onclick="viewerCopyCC(this)">' + _CC_ICON_SVG + "</button>"
+            'onclick="viewerCopyCC(this)">' + _CC_LABEL + "</button>"
         )
         + "</div>"
         "</div>"

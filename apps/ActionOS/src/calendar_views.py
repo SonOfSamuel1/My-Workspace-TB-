@@ -25,16 +25,22 @@ _CAL_TYPE_LABELS = {
     "family": "Family",
     "medical": "Medical",
     "birthdays": "Birthday",
+    "love_god": "Love God",
     "love_brittany": "Love Brittany",
     "love_children": "Love Children",
+    "love_friends_family": "Love Friends & Family",
+    "fishing_for_men": "Fishing For Men",
 }
 
 _CAL_TYPE_COLORS = {
     "family": "#818cf8",
     "medical": "#22c55e",
     "birthdays": "#eab308",
+    "love_god": "#f59e0b",
     "love_brittany": "#a78bfa",
     "love_children": "#a78bfa",
+    "love_friends_family": "#ec4899",
+    "fishing_for_men": "#06b6d4",
 }
 
 
@@ -108,10 +114,16 @@ def _categorize_event(event: Dict[str, Any]) -> str:
         return "tomorrow"
 
     # Calendar-type routing (dedicated calendars)
+    if cal_type == "love_god":
+        return "love_god"
     if cal_type == "love_brittany":
         return "love_brittany"
     if cal_type == "love_children":
         return "love_children"
+    if cal_type == "love_friends_family":
+        return "love_friends_family"
+    if cal_type == "fishing_for_men":
+        return "fishing_for_men"
     if cal_type == "medical":
         return "medical"
     if cal_type == "birthdays":
@@ -165,6 +177,14 @@ _REVIEWED_SECTIONS = [
         "--border-h",
     ),
     (
+        "love_god",
+        "Love God",
+        "--gold",
+        "--gold-bg",
+        "--gold",
+        "--gold-b",
+    ),
+    (
         "love_brittany",
         "Love Brittany",
         "--purple",
@@ -179,6 +199,22 @@ _REVIEWED_SECTIONS = [
         "--purple-bg",
         "--purple",
         "--purple-b",
+    ),
+    (
+        "love_friends_family",
+        "Love Friends & Family",
+        "--pink",
+        "--pink-bg",
+        "--pink",
+        "--pink-b",
+    ),
+    (
+        "fishing_for_men",
+        "Fishing For Men",
+        "--teal",
+        "--teal-bg",
+        "--teal",
+        "--teal-b",
     ),
     ("medical", "Medical Appointments", "--ok", "--ok-bg", "--ok", "--ok-b"),
     ("travel", "Travel", "--warn", "--warn-bg", "--warn", "--warn-b"),
@@ -446,7 +482,7 @@ def build_calendar_html(
             else (f'<div class="empty-state">No {label.lower()}</div>')
         )
         checklist_html = ""
-        if key in ("love_brittany", "love_children"):
+        if key in ("love_god", "love_brittany", "love_children", "love_friends_family"):
             cl_content = html.escape(checklists.get(key, ""))
             save_url = html.escape(
                 function_url.rstrip("/") + "?action=calendar_save_checklist"
@@ -507,6 +543,9 @@ def build_calendar_html(
         "--warn:#eab308;--warn-bg:rgba(234,179,8,0.10);--warn-b:rgba(234,179,8,0.20);"
         "--err:#ef4444;--err-bg:rgba(239,68,68,0.10);--err-b:rgba(239,68,68,0.20);"
         "--purple:#a78bfa;--purple-bg:rgba(167,139,250,0.10);--purple-b:rgba(167,139,250,0.20);"
+        "--teal:#06b6d4;--teal-bg:rgba(6,182,212,0.10);--teal-b:rgba(6,182,212,0.20);"
+        "--gold:#f59e0b;--gold-bg:rgba(245,158,11,0.10);--gold-b:rgba(245,158,11,0.20);"
+        "--pink:#ec4899;--pink-bg:rgba(236,72,153,0.10);--pink-b:rgba(236,72,153,0.20);"
         "--scrollbar:rgba(255,255,255,0.10);color-scheme:dark;}"
         "@media(prefers-color-scheme:light){:root{"
         "--bg-base:#eeeef0;--bg-s0:#fff;--bg-s1:#fff;--bg-s2:#f5f5f7;"
@@ -519,6 +558,9 @@ def build_calendar_html(
         "--warn:#e37400;--warn-bg:#fef7e0;--warn-b:rgba(227,116,0,0.20);"
         "--err:#d93025;--err-bg:#fce8e6;--err-b:rgba(217,48,37,0.20);"
         "--purple:#7c4dff;--purple-bg:#ede7f6;--purple-b:rgba(124,77,255,0.20);"
+        "--teal:#0891b2;--teal-bg:#ecfeff;--teal-b:rgba(8,145,178,0.20);"
+        "--gold:#d97706;--gold-bg:#fffbeb;--gold-b:rgba(217,119,6,0.20);"
+        "--pink:#db2777;--pink-bg:#fdf2f8;--pink-b:rgba(219,39,119,0.20);"
         "--scrollbar:rgba(0,0,0,0.12);color-scheme:light;}}"
         "*{box-sizing:border-box;margin:0;padding:0;}"
         "body{font-family:" + _FONT + ";background:var(--bg-base);color:var(--text-1);"

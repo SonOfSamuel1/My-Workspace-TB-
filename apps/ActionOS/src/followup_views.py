@@ -18,18 +18,7 @@ _FONT = (
     "'Segoe UI',Roboto,sans-serif"
 )
 
-_CC_ICON_SVG = (
-    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 9 7" width="18" height="14" '
-    'shape-rendering="crispEdges">'
-    '<rect x="2" y="0" width="5" height="5" fill="#c47840"/>'
-    '<rect x="3" y="1" width="1" height="1" fill="#1a1005"/>'
-    '<rect x="5" y="1" width="1" height="1" fill="#1a1005"/>'
-    '<rect x="0" y="3" width="2" height="2" fill="#c47840"/>'
-    '<rect x="7" y="3" width="2" height="2" fill="#c47840"/>'
-    '<rect x="2" y="5" width="2" height="2" fill="#c47840"/>'
-    '<rect x="5" y="5" width="2" height="2" fill="#c47840"/>'
-    "</svg>"
-)
+_CC_LABEL = "Claude"
 
 
 def _is_followup_reviewed(thread_id: str, state: dict) -> bool:
@@ -155,7 +144,7 @@ def _build_followup_card(
         f'<button class="assign-cc-btn" title="Assign CC" '
         f'onclick="event.stopPropagation();doCopyFollowupForClaude(this,'
         f"'{safe_subject_cc}','{safe_recipient_cc}','{safe_gmail_cc}')\">"
-        + _CC_ICON_SVG
+        + _CC_LABEL
         + "</button>"
     )
 
@@ -365,9 +354,9 @@ def build_followup_html(
         "border:1px solid var(--border);cursor:pointer;transition:background .15s;}"
         ".resolve-btn:hover{background:var(--border-h);color:var(--text-1);}"
         ".assign-cc-btn{display:inline-flex;align-items:center;justify-content:center;"
-        "padding:5px 8px;border-radius:6px;"
+        "padding:5px 10px;border-radius:6px;"
         "background:rgba(196,120,64,0.10);border:1px solid rgba(196,120,64,0.25);"
-        "cursor:pointer;transition:background .15s;line-height:0;}"
+        "cursor:pointer;transition:background .15s;color:#c47840;font-size:13px;font-weight:600;}"
         ".assign-cc-btn:hover{background:rgba(196,120,64,0.25);}"
         ".gcal-link{color:var(--accent-l);font-size:12px;font-weight:500;"
         "text-decoration:none;white-space:nowrap;}"

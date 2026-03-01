@@ -21,7 +21,9 @@ VIEW_TITLES = {
     "inbox": "Inbox",
     "commit": "@commit Today",
     "p1": "Priority 1",
+    "p1nodate": "P1 — No Date",
     "bestcase": "Best Case Today",
+    "sabbath": "Sabbath",
 }
 
 _FONT = (
@@ -29,18 +31,7 @@ _FONT = (
     "'Segoe UI',Roboto,sans-serif"
 )
 
-_CC_ICON_SVG = (
-    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 9 7" width="18" height="14" '
-    'shape-rendering="crispEdges">'
-    '<rect x="2" y="0" width="5" height="5" fill="#c47840"/>'
-    '<rect x="3" y="1" width="1" height="1" fill="#1a1005"/>'
-    '<rect x="5" y="1" width="1" height="1" fill="#1a1005"/>'
-    '<rect x="0" y="3" width="2" height="2" fill="#c47840"/>'
-    '<rect x="7" y="3" width="2" height="2" fill="#c47840"/>'
-    '<rect x="2" y="5" width="2" height="2" fill="#c47840"/>'
-    '<rect x="5" y="5" width="2" height="2" fill="#c47840"/>'
-    "</svg>"
-)
+_CC_LABEL = "Claude"
 
 
 def _relative_age(added_at):
@@ -349,7 +340,7 @@ def _build_task_card(
     copy_claude_btn = (
         f'<button class="assign-cc-btn" title="Assign CC" '
         f"onclick=\"event.stopPropagation();doCopyForClaude('{task_id}','{content}',this)\">"
-        + _CC_ICON_SVG
+        + _CC_LABEL
         + "</button>"
     )
 
@@ -419,6 +410,7 @@ def build_view_html(
     embed=False,
     email_actions_url="",
     email_actions_token="",
+    checklists=None,
 ):
     """Build the full HTML page for a Todoist view.
 
@@ -499,6 +491,59 @@ def build_view_html(
         post_message_js = (
             f'window.parent.postMessage({{type:"count",source:"{view_name}",'
             f'count:{count}}},"*");'
+        )
+
+    # Checklist card for commit view
+    checklist_card_html = ""
+    checklist_css = ""
+    checklist_js = ""
+    if view_name == "commit" and checklists is not None:
+        cl_key = "remember_power_christ"
+        cl_content = html.escape(checklists.get(cl_key, ""))
+        checklist_card_html = (
+            f'<div class="checklist-card" data-section="{cl_key}">'
+            f'<div class="checklist-header">'
+            f'<span class="checklist-title">Remember Your Power in Christ</span>'
+            f'<button class="checklist-edit-btn" id="cl-btn-{cl_key}" '
+            f"onclick=\"toggleChecklist('{cl_key}')\">"
+            f"Edit</button>"
+            f"</div>"
+            f'<div class="checklist-body" id="cl-body-{cl_key}" contenteditable="false">'
+            f"{cl_content}"
+            f"</div></div>"
+        )
+        checklist_css = (
+            ".checklist-card{background:var(--bg-s1);border:1px solid var(--border);border-radius:8px;"
+            "padding:14px 16px;margin-bottom:10px;}"
+            ".checklist-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}"
+            ".checklist-title{font-size:12px;font-weight:700;color:var(--text-2);text-transform:uppercase;letter-spacing:.5px;}"
+            ".checklist-edit-btn{font-family:inherit;font-size:12px;font-weight:600;padding:4px 12px;"
+            "border-radius:6px;border:1px solid var(--accent-b);background:var(--accent-bg);"
+            "color:var(--accent-l);cursor:pointer;}"
+            ".checklist-body{font-size:14px;color:var(--text-1);line-height:1.6;min-height:40px;"
+            "outline:none;border-radius:4px;padding:4px;}"
+            ".checklist-body[contenteditable=true]{background:var(--bg-s2);border:1px solid var(--accent-b);}"
+        )
+        save_url = base_action_url + "?action=calendar_save_checklist"
+        checklist_js = (
+            "function toggleChecklist(section){"
+            "var body=document.getElementById('cl-body-'+section);"
+            "var btn=document.getElementById('cl-btn-'+section);"
+            "if(body.contentEditable==='true'){"
+            "saveChecklist(section);body.contentEditable='false';btn.textContent='Edit';"
+            "}else{"
+            "body.contentEditable='true';btn.textContent='Save';body.focus();"
+            "}}"
+            "function saveChecklist(section){"
+            "var body=document.getElementById('cl-body-'+section);"
+            "var content=body.innerText;"
+            f"var url='{save_url}';"
+            "fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},"
+            "body:JSON.stringify({section:section,content:content})})"
+            ".then(function(r){return r.json();})"
+            ".then(function(d){"
+            "if(!d.ok){alert('Save failed');}"
+            "}).catch(function(){alert('Save failed');});}"
         )
 
     # Determine split-pane height
@@ -640,9 +685,9 @@ def build_view_html(
         ".bestcase-btn.remove{background:var(--ok-bg);color:var(--ok);border-color:var(--ok-b);}"
         ".bestcase-btn.remove:hover{background:var(--err-bg);color:var(--err);border-color:var(--err-b);}"
         ".assign-cc-btn{display:inline-flex;align-items:center;justify-content:center;"
-        "padding:5px 8px;border-radius:6px;"
+        "padding:5px 10px;border-radius:6px;"
         "background:rgba(196,120,64,0.10);border:1px solid rgba(196,120,64,0.25);"
-        "cursor:pointer;transition:background .15s;line-height:0;}"
+        "cursor:pointer;transition:background .15s;color:#c47840;font-size:13px;font-weight:600;}"
         ".assign-cc-btn:hover{background:rgba(196,120,64,0.25);}"
         ".task-card.undo-state .card-row{display:none;}"
         ".undo-bar{display:flex;align-items:center;justify-content:center;"
@@ -696,9 +741,7 @@ def build_view_html(
         "color:var(--accent-l);text-decoration:none;font-size:13px;font-weight:500;}"
         ".attachment-item a:hover{background:var(--border);}"
         ".attachment-file-icon{width:20px;height:20px;flex-shrink:0;}"
-        ".comment-text{font-size:13px;color:var(--text-2);padding:8px 0;line-height:1.5;white-space:pre-wrap;word-break:break-word;}"
-        ".comment-text a{color:var(--accent-l);text-decoration:underline;}"
-        ".comment-text a:hover{opacity:0.8;}"
+        ".comment-text{font-size:13px;color:var(--text-2);padding:8px 0;line-height:1.5;}"
         "#lb-overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;"
         "z-index:1000;background:rgba(0,0,0,0.92);flex-direction:column;"
         "align-items:center;justify-content:center;touch-action:none;}"
@@ -734,12 +777,14 @@ def build_view_html(
         "::-webkit-scrollbar{width:6px;}"
         "::-webkit-scrollbar-track{background:transparent;}"
         "::-webkit-scrollbar-thumb{background:var(--scrollbar);border-radius:3px;}"
-        "</style>"
+        + checklist_css
+        + "</style>"
         "</head><body>" + header_html + '<div class="split-wrap" id="split-wrap">'
         # Left pane — task list
         + '<div class="left-pane">'
         + subheader_html
         + '<div class="task-list">'
+        + checklist_card_html
         + cards_html
         + "</div></div>"
         # Right pane — task detail / email viewer
@@ -779,15 +824,7 @@ def build_view_html(
         # JavaScript
         + "<script>"
         "var _cs=getComputedStyle(document.documentElement);function cv(n){return _cs.getPropertyValue(n).trim();}"
-        'var _ccIcon=\'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 9 7" width="18" height="14" shape-rendering="crispEdges">'
-        '<rect x="2" y="0" width="5" height="5" fill="#c47840"/>'
-        '<rect x="3" y="1" width="1" height="1" fill="#1a1005"/>'
-        '<rect x="5" y="1" width="1" height="1" fill="#1a1005"/>'
-        '<rect x="0" y="3" width="2" height="2" fill="#c47840"/>'
-        '<rect x="7" y="3" width="2" height="2" fill="#c47840"/>'
-        '<rect x="2" y="5" width="2" height="2" fill="#c47840"/>'
-        '<rect x="5" y="5" width="2" height="2" fill="#c47840"/>'
-        "</svg>';"
+        "var _ccIcon='Claude';"
         f'var viewName="{view_name}";'
         "var taskCount="
         + str(count)
@@ -884,7 +921,8 @@ def build_view_html(
         "function doSetDueDate(taskId,dateValue,input){"
         "input.disabled=true;"
         f'fetch("{base_action_url}?action=due_date&task_id="+taskId+"&date="+encodeURIComponent(dateValue))'
-        ".then(function(r){if(r.ok){"
+        ".then(function(r){return r.json();})"
+        ".then(function(d){if(d.ok){"
         "input.disabled=false;"
         "input.style.borderColor='rgba(34,197,94,0.5)';"
         "setTimeout(function(){input.style.borderColor='';},1500);"
@@ -894,7 +932,8 @@ def build_view_html(
         "if(dateValue>today){"
         "showUndo(taskId,'Moved to '+dateValue+'.',function(){"
         f'fetch("{base_action_url}?action=due_date&task_id="+taskId+"&date="+encodeURIComponent(today))'
-        ".then(function(r2){if(r2.ok){input.disabled=false;input.value=today;"
+        ".then(function(r2){return r2.json();})"
+        ".then(function(d2){if(d2.ok){input.disabled=false;input.value=today;"
         "restoreCard(taskId);}else{removeCard(taskId);}})"
         ".catch(function(){removeCard(taskId);});});"
         "updateCount();}}"
@@ -1014,8 +1053,6 @@ def build_view_html(
         # Task detail pane
         "function esc(s){var d=document.createElement('div');"
         "d.appendChild(document.createTextNode(String(s)));return d.innerHTML;}"
-        "function linkify(s){return s.replace(/(https?:\\/\\/[^\\s<'\"]+)/g,"
-        "'<a href=\"$1\" target=\"_blank\" rel=\"noopener\">$1</a>');}"
         "function doCopyForClaude(taskId,taskTitle,btn){"
         "var orig=btn.innerHTML;"
         "var url='https://app.todoist.com/app/task/'+taskId;"
@@ -1190,7 +1227,7 @@ def build_view_html(
         "}"
         "}"
         "if(c.content){"
-        "ah+='<div class=\"comment-text\">'+linkify(esc(c.content))+'</div>';"
+        "ah+='<div class=\"comment-text\">'+esc(c.content)+'</div>';"
         "}"
         "});"
         "ah+='</div></div>';"
@@ -1322,6 +1359,7 @@ def build_view_html(
         "document.querySelectorAll('.select-cb:checked').forEach(function(cb){cb.checked=false;});"
         "updateSelection();"
         "}"
-        "</script>"
+        + checklist_js
+        + "</script>"
         "</body></html>"
     )

@@ -29,6 +29,9 @@ _PROJECTS_TTL = 120  # seconds
 _inbox_ids_cache: dict = {"data": None, "ts": 0}
 _INBOX_IDS_TTL = 300  # seconds
 
+_all_tasks_cache: dict = {"data": None, "ts": 0}
+_ALL_TASKS_TTL = 60  # seconds
+
 
 class TodoistService:
     """Service for interacting with Todoist API v1."""
@@ -126,6 +129,23 @@ class TodoistService:
         _inbox_ids_cache["ts"] = now
         logger.info(f"Cached inbox project IDs: {inbox_ids}")
         return inbox_ids
+
+    def get_all_tasks(self):
+        """Return all tasks across all projects (TTL-cached, 60s)."""
+        now = time.time()
+        if (
+            _all_tasks_cache["data"] is not None
+            and (now - _all_tasks_cache["ts"]) < _ALL_TASKS_TTL
+        ):
+            logger.info(
+                f"Using cached all-tasks ({len(_all_tasks_cache['data'])} tasks)"
+            )
+            return _all_tasks_cache["data"]
+        tasks = self._get_all_pages("tasks", max_pages=5)
+        _all_tasks_cache["data"] = tasks
+        _all_tasks_cache["ts"] = now
+        logger.info(f"Fetched {len(tasks)} all-tasks (cached for {_ALL_TASKS_TTL}s)")
+        return tasks
 
     # ------------------------------------------------------------------
     # Tasks
@@ -522,6 +542,43 @@ class TodoistService:
             logger.error(f"Failed to create task '{content}': {e}")
             return None
 
+    def get_sabbath_tasks(self):
+        """Fetch tasks from the 'Sabbath Actions' project and with 'Sabbath Approved' label.
+
+        Returns combined, deduplicated list of tasks from both sources plus the projects list.
+        """
+        projects = self.get_all_projects()
+
+        # Find the "Sabbath Actions" project
+        sabbath_project = None
+        for p in projects:
+            if p.get("name") == "Sabbath Actions":
+                sabbath_project = p
+                break
+
+        # Fetch tasks from both sources
+        project_tasks = []
+        if sabbath_project:
+            project_tasks = self._get_all_pages(
+                "tasks", {"project_id": sabbath_project["id"]}
+            )
+
+        label_tasks = self._get_all_pages("tasks", {"label": "Sabbath Approved"})
+
+        # Deduplicate
+        seen_ids = set()
+        combined = []
+        for t in project_tasks + label_tasks:
+            if t["id"] not in seen_ids:
+                combined.append(t)
+                seen_ids.add(t["id"])
+
+        logger.info(
+            f"Sabbath tasks: {len(project_tasks)} from project, "
+            f"{len(label_tasks)} from label, {len(combined)} combined"
+        )
+        return combined, projects
+
     def get_code_project_tasks(self):
         """Fetch all tasks from Claude Code-related projects.
 
@@ -597,8 +654,14 @@ class TodoistService:
                 f"{API_BASE}/tasks/{task_id}",
                 headers=self.headers,
                 json=payload,
+                timeout=10,
             )
-            response.raise_for_status()
+            if not response.ok:
+                logger.error(
+                    f"Failed to update due date for task {task_id}: "
+                    f"status={response.status_code} body={response.text[:200]}"
+                )
+                return False
             logger.info(f"Updated due date for task {task_id} to '{date_string}'")
             return True
         except requests.exceptions.RequestException as e:

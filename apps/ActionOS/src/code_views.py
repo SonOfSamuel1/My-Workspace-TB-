@@ -146,14 +146,14 @@ def build_code_projects_html(
         "color:var(--text-1);font-size:13px;font-weight:600;padding:6px 14px;border-radius:6px;cursor:pointer;}"
         ".refresh-btn:hover{background:var(--border-h);}"
         # Section headers (sticky on mobile)
-        ".section-hdr{display:flex;align-items:center;justify-content:space-between;"
-        "padding:14px 16px 6px;max-width:700px;margin:0 auto;"
+        ".section-hdr{display:flex;align-items:center;gap:8px;padding:16px 16px 8px;"
+        "font-size:11px;font-weight:600;text-transform:uppercase;"
+        "letter-spacing:0.6px;border-bottom:1px solid var(--border);margin-bottom:0;"
+        "max-width:700px;margin-left:auto;margin-right:auto;"
         "position:sticky;top:0;z-index:10;background:var(--bg-base);}"
-        ".section-title{font-size:11px;font-weight:700;text-transform:uppercase;"
-        "letter-spacing:0.8px;}"
-        ".section-badge{font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;}"
-        ".section-divider{height:1px;background:var(--border);margin:12px 16px 0;"
-        "max-width:calc(700px);margin-left:auto;margin-right:auto;}"
+        ".section-hdr+.section-hdr{margin-top:14px;}"
+        ".section-badge{background:var(--border);color:var(--text-2);font-size:11px;"
+        "font-weight:700;padding:2px 7px;border-radius:8px;}"
         # Split-pane layout
         f".split-wrap{{display:flex;height:{split_height};overflow:hidden;}}"
         ".left-pane{flex:0 0 45%;overflow-y:auto;}"
@@ -244,9 +244,9 @@ def build_code_projects_html(
         ".backlog-btn.active{background:var(--ok-bg);color:var(--ok);border-color:var(--ok-b);}"
         # Develop button (cyan/teal)
         ".assign-cc-btn{display:inline-flex;align-items:center;justify-content:center;"
-        "padding:5px 8px;border-radius:6px;"
+        "padding:5px 10px;border-radius:6px;"
         "background:rgba(196,120,64,0.10);border:1px solid rgba(196,120,64,0.25);"
-        "cursor:pointer;transition:background .15s;line-height:0;}"
+        "cursor:pointer;transition:background .15s;color:#c47840;font-size:13px;font-weight:600;}"
         ".assign-cc-btn:hover{background:rgba(196,120,64,0.25);}"
         ".develop-btn{font-family:inherit;font-size:12px;font-weight:600;padding:5px 14px;"
         "border-radius:6px;background:rgba(6,182,212,0.10);color:#06b6d4;"
@@ -303,9 +303,7 @@ def build_code_projects_html(
         "color:var(--accent-l);text-decoration:none;font-size:13px;font-weight:500;}"
         ".attachment-item a:hover{background:var(--border);}"
         ".attachment-file-icon{width:20px;height:20px;flex-shrink:0;}"
-        ".comment-text{font-size:13px;color:var(--text-2);padding:8px 0;line-height:1.5;white-space:pre-wrap;word-break:break-word;}"
-        ".comment-text a{color:var(--accent-l);text-decoration:underline;}"
-        ".comment-text a:hover{opacity:0.8;}"
+        ".comment-text{font-size:13px;color:var(--text-2);padding:8px 0;line-height:1.5;}"
         "#lb-overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;"
         "z-index:1000;background:rgba(0,0,0,0.92);flex-direction:column;"
         "align-items:center;justify-content:center;touch-action:none;}"
@@ -345,36 +343,29 @@ def build_code_projects_html(
         + '<div class="left-pane">'
         # ── Planned ───────────────────────────────────────────────────────
         + '<div class="section-hdr">'
-        f'<span class="section-title" style="color:var(--warn);">Planned</span>'
-        f'<span class="section-badge" style="background:var(--warn-bg);color:var(--warn);'
-        f'border:1px solid var(--warn-b);">{len(planned_tasks)}</span>'
+        f'<span style="color:var(--warn);">Planned</span>'
+        f'<span class="section-badge">{len(planned_tasks)}</span>'
         "</div>"
         + '<div class="task-list" id="list-planned">'
         + planned_cards
         + "</div>"
         # ── New Issues ────────────────────────────────────────────────────
-        + '<div class="section-divider"></div>'
-        + '<div class="section-hdr" style="margin-top:4px;">'
-        f'<span class="section-title" style="color:var(--accent-l);">New Issues</span>'
-        f'<span class="section-badge" style="background:var(--accent-bg);color:var(--accent-l);'
-        f'border:1px solid var(--accent-b);">{len(issues_tasks)}</span>'
+        + '<div class="section-hdr">'
+        f'<span style="color:var(--accent-l);">New Issues</span>'
+        f'<span class="section-badge">{len(issues_tasks)}</span>'
         "</div>" + '<div class="task-list" id="list-issues">' + issues_cards + "</div>"
         # ── In Progress ───────────────────────────────────────────────────
-        + '<div class="section-divider"></div>'
-        + '<div class="section-hdr" style="margin-top:4px;">'
-        f'<span class="section-title" style="color:var(--ok);">In Progress</span>'
-        f'<span class="section-badge" style="background:var(--ok-bg);color:var(--ok);'
-        f'border:1px solid var(--ok-b);">{len(in_progress_tasks)}</span>'
+        + '<div class="section-hdr">'
+        f'<span style="color:var(--ok);">In Progress</span>'
+        f'<span class="section-badge">{len(in_progress_tasks)}</span>'
         "</div>"
         + '<div class="task-list" id="list-inprogress">'
         + in_progress_cards
         + "</div>"
         # ── Backlog ───────────────────────────────────────────────────────
-        + '<div class="section-divider"></div>'
-        + '<div class="section-hdr" style="margin-top:4px;">'
-        f'<span class="section-title" style="color:var(--text-2);">Backlog</span>'
-        f'<span class="section-badge" style="background:var(--border);color:var(--text-2);'
-        f'border:1px solid var(--border-h);">{len(backlog_tasks)}</span>'
+        + '<div class="section-hdr">'
+        f'<span style="color:var(--text-2);">Backlog</span>'
+        f'<span class="section-badge">{len(backlog_tasks)}</span>'
         "</div>"
         + '<div class="task-list" id="list-backlog">'
         + backlog_cards
@@ -418,15 +409,7 @@ def build_code_projects_html(
         + "<script>"
         "var _cs=getComputedStyle(document.documentElement);"
         "function cv(n){return _cs.getPropertyValue(n).trim();}"
-        'var _ccIcon=\'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 9 7" width="18" height="14" shape-rendering="crispEdges">'
-        '<rect x="2" y="0" width="5" height="5" fill="#c47840"/>'
-        '<rect x="3" y="1" width="1" height="1" fill="#1a1005"/>'
-        '<rect x="5" y="1" width="1" height="1" fill="#1a1005"/>'
-        '<rect x="0" y="3" width="2" height="2" fill="#c47840"/>'
-        '<rect x="7" y="3" width="2" height="2" fill="#c47840"/>'
-        '<rect x="2" y="5" width="2" height="2" fill="#c47840"/>'
-        '<rect x="5" y="5" width="2" height="2" fill="#c47840"/>'
-        "</svg>';"
+        "var _ccIcon='Claude';"
         "var viewName='code';"
         f"var taskCount={total_count};"
         + post_message_js
@@ -485,11 +468,12 @@ def build_code_projects_html(
         "function doSetDueDate(taskId,dateValue,input){"
         "input.disabled=true;"
         f'fetch("{base_action_url}?action=due_date&task_id="+taskId+"&date="+encodeURIComponent(dateValue))'
-        ".then(function(r){if(r.ok){"
+        ".then(function(r){return r.json();})"
+        ".then(function(d){if(d.ok){"
         "input.disabled=false;input.style.borderColor='rgba(34,197,94,0.5)';"
         "setTimeout(function(){input.style.borderColor='';},1500);"
-        "}else{input.disabled=false;alert('Due date update failed');}}"
-        ").catch(function(){input.disabled=false;alert('Due date update failed');});}"
+        "}else{input.disabled=false;alert('Due date update failed');}})"
+        ".catch(function(){input.disabled=false;alert('Due date update failed');});}"
         "function dateChanged(input,taskId){"
         "var pill=input.closest('.date-pill');"
         "var ico=pill.querySelector('.date-icon-wrap');"
@@ -599,17 +583,6 @@ def build_code_projects_html(
         "var msg='Look at this task on Todoist and complete it: '+url;"
         "navigator.clipboard.writeText(msg).then(function(){"
         "btn.textContent='\\u2713';setTimeout(function(){btn.innerHTML=orig;},1500);"
-        f'fetch("{base_action_url}?action=planned_label&task_id="+taskId)'
-        ".then(function(r){return r.json();})"
-        ".then(function(d){if(d.ok){"
-        "var card=document.getElementById('card-'+taskId);"
-        "if(card){"
-        "var cb=card.querySelector('.commit-btn');"
-        "if(cb){cb.textContent='\\u2713 Planned';cb.classList.add('committed');"
-        "cb.style.background=cv('--ok-bg');cb.style.color=cv('--ok');}"
-        "_moveCardToSection(card,'list-planned');"
-        "}"
-        "}});"
         "}).catch(function(){btn.textContent='!';setTimeout(function(){btn.innerHTML=orig;},1500);});}"
         # Keep old commit/bestcase functions for other views that might reference them
         "function doCommit(taskId,btn){"
@@ -652,8 +625,6 @@ def build_code_projects_html(
         ").catch(function(){btn.disabled=false;btn.textContent='Remove Commit';alert('Remove failed');});}"
         "function esc(s){var d=document.createElement('div');"
         "d.appendChild(document.createTextNode(String(s)));return d.innerHTML;}"
-        "function linkify(s){return s.replace(/(https?:\\/\\/[^\\s<'\"]+)/g,"
-        "'<a href=\"$1\" target=\"_blank\" rel=\"noopener\">$1</a>');}"
         f"function doUpdateTask(taskId,payload,callback){{"
         f"payload.task_id=taskId;"
         f'fetch("{base_action_url}?action=update_task",{{method:"POST",'
@@ -807,7 +778,7 @@ def build_code_projects_html(
         "}"
         "}"
         "if(c.content){"
-        "ah+='<div class=\"comment-text\">'+linkify(esc(c.content))+'</div>';"
+        "ah+='<div class=\"comment-text\">'+esc(c.content)+'</div>';"
         "}"
         "});"
         "ah+='</div></div>';"
