@@ -893,21 +893,39 @@ def handle_action(event: dict) -> dict:
         }
 
     # -----------------------------------------------------------------------
-    # Gmail redirect — 302 to mail.google.com so iOS universal links open
-    # the Gmail app with the specific thread.  No auth required; the Gmail
-    # URL itself is harmless.
+    # Gmail open — top-level page that tries the Gmail iOS app deep link,
+    # then falls back to the web URL.  Custom URL schemes are blocked
+    # inside iframes, so this must run at the top level via target=_top.
     # -----------------------------------------------------------------------
     if params.get("action") == "gmail_open":
         _thread = params.get("thread_id", "")
         if _thread:
-            _gmail_url = f"https://mail.google.com/mail/u/0/#inbox/{_thread}"
+            _app_url = f"googlegmail:///cv={_thread}/accountId=0&create-new-tab"
+            _web_url = f"https://mail.google.com/mail/u/0/#inbox/{_thread}"
+            _html = (
+                "<!DOCTYPE html><html><head>"
+                "<meta charset=utf-8>"
+                "<meta name=viewport content='width=device-width,initial-scale=1'>"
+                "<style>body{background:#1a1a2e;color:#fff;font-family:system-ui;"
+                "display:flex;align-items:center;justify-content:center;height:100vh;"
+                "margin:0}p{text-align:center;font-size:18px}</style>"
+                "</head><body>"
+                "<p>Opening in Gmail&hellip;</p>"
+                "<script>"
+                f"var appUrl='{_app_url}';"
+                f"var webUrl='{_web_url}';"
+                "var t=setTimeout(function(){window.location.href=webUrl},1500);"
+                "window.location.href=appUrl;"
+                "</script>"
+                "</body></html>"
+            )
             return {
-                "statusCode": 302,
+                "statusCode": 200,
                 "headers": {
-                    "Location": _gmail_url,
+                    "Content-Type": "text/html; charset=utf-8",
                     "Cache-Control": "no-store",
                 },
-                "body": "",
+                "body": _html,
             }
 
     # -----------------------------------------------------------------------
