@@ -1,0 +1,40 @@
+gofundme_widow_digest:
+  # Algolia search config (public keys from GoFundMe's client-side code)
+  algolia:
+    app_id: "E7PHE9BB38"
+    api_key: "2a43f30c25e7719436f10fed6d788170"
+    index: "prod_funds_feed_replica_1"
+
+  # Search queries to find widow campaigns
+  search_queries:
+    - "widow needs help"
+    - "widow struggling"
+    - "widow support"
+    - "widowed mother help"
+    - "lost my husband help"
+    - "husband passed away help"
+
+  # Filtering
+  filters:
+    # Only include campaigns created in the last N days
+    max_age_days: 7
+    # Minimum goal amount (USD equivalent) to filter out test campaigns
+    min_goal_amount: 500
+    # Maximum results per search query
+    hits_per_query: 20
+    # Countries to include (ISO codes, empty = all)
+    countries: ["US"]
+    # Currency codes to include (empty = all)
+    currencies: ["USD"]
+
+  # Todoist config
+  todoist:
+    # Project to create the digest task in (fetched from Parameter Store)
+    project_name: "Giving"
+    # Labels to apply to the created task
+    labels: ["widow-assist", "gofundme"]
+    # Priority (1=normal, 4=urgent)
+    priority: 2
+
+  # Output
+  max_campaigns_per_digest: 15
