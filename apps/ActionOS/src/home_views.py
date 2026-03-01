@@ -963,12 +963,21 @@ def _build_section_html(
     if not cards_html:
         cards_html = '<div class="empty-state">Nothing here \u2713</div>'
 
+    display = "none" if collapsed else "block"
+    chevron = "\u25b6" if collapsed else "\u25bc"
+
     return (
-        f'<div class="section-hdr" style="color:{border_color};">'
+        f'<div class="section-hdr" style="color:{border_color};cursor:pointer;" '
+        f'onclick="var b=document.getElementById(\'body-{key}\'),'
+        f"c=this.querySelector('.chevron');"
+        f"if(b.style.display==='none'){{b.style.display='block';c.textContent='\\u25BC';}}"
+        f"else{{b.style.display='none';c.textContent='\\u25B6';}}"
+        f'">'
+        f'<span class="chevron" style="font-size:9px;width:10px;">{chevron}</span>'
         f"<span>{html.escape(label.upper())}</span>"
         f"{badge_html}"
         f"</div>"
-        f'<div class="section-cards" id="body-{key}">'
+        f'<div class="section-cards" id="body-{key}" style="display:{display};">'
         f"{cards_html}"
         f"</div>"
     )
