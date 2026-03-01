@@ -2,13 +2,11 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { CreditCard, LayoutDashboard, ArrowRightLeft, Wallet, Trophy } from 'lucide-react';
+import { LayoutDashboard, Wallet, Gift } from 'lucide-react';
 
 const navItems = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/cards', label: 'Cards', icon: CreditCard },
-  { href: '/recommendations', label: 'Best Cards', icon: Trophy },
-  { href: '/redemptions', label: 'Redemptions', icon: ArrowRightLeft },
+  { href: '/benefits', label: 'All Benefits', icon: Gift },
 ];
 
 export default function Navbar() {
@@ -23,7 +21,7 @@ export default function Navbar() {
               <div className="p-2 gradient-primary rounded-lg">
                 <Wallet className="w-5 h-5 text-white" />
               </div>
-              <span className="font-bold text-xl text-gray-900">Rewards Tracker</span>
+              <span className="font-bold text-xl text-gray-900">Benefits Tracker</span>
             </Link>
           </div>
 
