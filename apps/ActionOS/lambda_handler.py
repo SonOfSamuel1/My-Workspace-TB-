@@ -1237,6 +1237,14 @@ def handle_action(event: dict) -> dict:
                 home_state = _load_home_reviewed_state()
                 cal_state = _load_calendar_state()
 
+                _toggl_tok_home = os.environ.get("TOGGL_API_TOKEN", "")
+                toggl_projects = _fetch_toggl_projects(_toggl_tok_home)
+                toggl_time_totals = (
+                    _fetch_toggl_time_entries(_toggl_tok_home)
+                    if _toggl_tok_home
+                    else {}
+                )
+
                 body = build_home_html(
                     commit_tasks=commit_tasks,
                     bestcase_tasks=bestcase_tasks,
@@ -1253,6 +1261,8 @@ def handle_action(event: dict) -> dict:
                     function_url=function_url,
                     action_token=expected,
                     embed=True,
+                    toggl_projects=toggl_projects,
+                    toggl_time_totals=toggl_time_totals,
                 )
                 return {
                     "statusCode": 200,

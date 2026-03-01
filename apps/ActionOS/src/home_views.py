@@ -188,6 +188,8 @@ def _build_task_card(
     idx: int,
     email_actions_url: str = "",
     email_actions_token: str = "",
+    toggl_project_options_html: str = "",
+    toggl_time_totals=None,
 ) -> str:
     """Build a task card with full action buttons for Home view."""
     task_id = html.escape(str(task.get("id", "")))
@@ -352,6 +354,42 @@ def _build_task_card(
         + "</button>"
     )
 
+    # Toggl timer button
+    toggl_select = ""
+    if toggl_project_options_html:
+        safe_subj = raw_content.replace("'", "\\'").replace('"', "&quot;")
+        toggl_select = (
+            '<select class="toggl-timer-select"'
+            ' onclick="event.stopPropagation()"'
+            ' data-subject="' + safe_subj + '"'
+            ' onchange="event.stopPropagation();doTogglStart(this)">'
+            + toggl_project_options_html
+            + "</select>"
+        )
+
+    # Total time tracked from Toggl
+    time_tracked_html = ""
+    if toggl_time_totals:
+        total_secs = toggl_time_totals.get(raw_content, 0)
+        if total_secs > 0:
+            hours = total_secs // 3600
+            mins = (total_secs % 3600) // 60
+            if hours > 0:
+                time_str = f"{hours}h {mins}m"
+            else:
+                time_str = f"{mins}m"
+            _clock_icon = (
+                '<svg class="time-icon" width="12" height="12" viewBox="0 0 24 24" '
+                'fill="none" stroke="currentColor" stroke-width="2" '
+                'stroke-linecap="round" stroke-linejoin="round">'
+                '<circle cx="12" cy="12" r="10"/>'
+                '<polyline points="12 6 12 12 16 14"/></svg>'
+            )
+            time_tracked_html = (
+                f'<span class="time-tracked">'
+                f'{_clock_icon} {time_str}</span>'
+            )
+
     # Data attributes for detail pane
     gmail_link = _extract_gmail_link(description)
     msg_id_field = _extract_msg_id(description)
@@ -398,7 +436,7 @@ def _build_task_card(
         f'<div class="task-meta">{meta_line}</div>'
         f'<div class="task-actions">'
         f'{review_btn}{move_select}{priority_select}{due_date_input}'
-        f'{complete_btn}{commit_btn}{bestcase_btn}{cc_btn}'
+        f'{complete_btn}{commit_btn}{bestcase_btn}{cc_btn}{toggl_select}{time_tracked_html}'
         f'</div>'
         f"</div></div>"
         f"</div>"
@@ -930,9 +968,27 @@ def build_home_html(
     embed: bool = False,
     email_actions_url: str = "",
     email_actions_token: str = "",
+    toggl_projects=None,
+    toggl_time_totals=None,
 ) -> str:
     """Build the Home aggregated view HTML."""
     projects_by_id = _build_projects_by_id(projects)
+
+    # Build Toggl project options HTML for timer dropdowns
+    toggl_project_options_html = ""
+    if toggl_projects:
+        toggl_project_options_html = (
+            '<option value="" disabled selected>\u25b6 Toggl\u2026</option>'
+        )
+        for tp in sorted(toggl_projects, key=lambda p: p.get("name", "").lower()):
+            toggl_project_options_html += (
+                '<option value="' + str(tp.get("id", "")) + '"'
+                ' data-workspace-id="'
+                + str(tp.get("workspace_id", ""))
+                + '">'
+                + html.escape(tp.get("name", ""))
+                + "</option>"
+            )
     home_state = home_state or {}
     cal_state = cal_state or {}
     followup_state = followup_state or {}
@@ -972,6 +1028,8 @@ def build_home_html(
                 task, key, rev, tr, function_url, projects_by_id, idx,
                 email_actions_url=email_actions_url,
                 email_actions_token=email_actions_token,
+                toggl_project_options_html=toggl_project_options_html,
+                toggl_time_totals=toggl_time_totals,
             )
             if rev:
                 reviewed_cards += card
@@ -1314,6 +1372,17 @@ def build_home_html(
         "background:rgba(196,120,64,0.10);border:1px solid rgba(196,120,64,0.25);"
         "cursor:pointer;transition:background .15s;color:#c47840;font-size:13px;font-weight:600;}"
         ".assign-cc-btn:hover{background:rgba(196,120,64,0.25);}"
+        # Toggl timer select
+        ".toggl-timer-select{font-family:inherit;font-size:12px;font-weight:600;"
+        "padding:5px 8px;border-radius:6px;"
+        "background:var(--ok-bg);color:var(--ok);border:1px solid var(--ok-b);cursor:pointer;"
+        "transition:background .15s ease-out;-webkit-appearance:none;appearance:none;}"
+        ".toggl-timer-select:hover{background:var(--ok-b);}"
+        # Time tracked display
+        ".time-tracked{font-size:12px;font-weight:600;color:var(--text-2);"
+        "display:inline-flex;align-items:center;gap:4px;padding:5px 10px;"
+        "background:var(--bg-s2);border:1px solid var(--border);border-radius:6px;}"
+        ".time-icon{flex-shrink:0;}"
         # Detail pane
         "#home-detail-pane{display:none;}"
         ".viewer-mobile-header{display:none;}"
@@ -1349,6 +1418,8 @@ def build_home_html(
         ".task-actions{gap:6px;}"
         ".review-btn,.markread-btn,.complete-btn,.commit-btn,.bestcase-btn,.todoist-btn,"
         ".skip-inbox-btn,.resolve-btn,.timer-btn{font-size:11px;padding:3px 8px;}"
+        ".toggl-timer-select{font-size:11px;padding:4px 6px;}"
+        ".time-tracked{font-size:11px;padding:4px 8px;}"
         ".move-pill-select{font-size:10px;max-width:70px;}"
         ".action-select{font-size:10px;padding:3px 4px;}"
         ".date-pill-input{font-size:10px;width:80px;}"
@@ -1520,6 +1591,35 @@ def build_home_html(
         "navigator.clipboard.writeText(msg).then(function(){"
         "btn.textContent='\u2713';setTimeout(function(){btn.innerHTML=orig;},1500);"
         "}).catch(function(){btn.textContent='!';setTimeout(function(){btn.innerHTML=orig;},1500);});}"
+        # --- Toggl timer ---
+        "function doTogglStart(sel){"
+        "var opt=sel.options[sel.selectedIndex];"
+        "var projectId=sel.value;"
+        "if(!projectId)return;"
+        "var workspaceId=opt?opt.getAttribute('data-workspace-id'):'';"
+        "var subject=sel.getAttribute('data-subject')||'';"
+        "sel.disabled=true;"
+        "fetch(_homeUrl+'?action=toggl_start',{method:'POST',headers:{'Content-Type':'application/json'},"
+        "body:JSON.stringify({subject:subject,project_id:projectId,workspace_id:workspaceId})})"
+        ".then(function(r){return r.json();})"
+        ".then(function(d){"
+        "if(d.ok){"
+        "var ind=document.createElement('span');"
+        "ind.className='time-tracked';"
+        "ind.style.color='var(--ok)';"
+        "var dot=document.createElementNS('http://www.w3.org/2000/svg','svg');"
+        "dot.setAttribute('width','10');dot.setAttribute('height','10');dot.setAttribute('viewBox','0 0 10 10');"
+        "dot.style.display='inline-block';dot.style.verticalAlign='middle';"
+        "var c=document.createElementNS('http://www.w3.org/2000/svg','circle');"
+        "c.setAttribute('cx','5');c.setAttribute('cy','5');c.setAttribute('r','4');c.setAttribute('fill','currentColor');"
+        "dot.appendChild(c);ind.appendChild(dot);"
+        "ind.appendChild(document.createTextNode(' Running'));"
+        "sel.parentNode.replaceChild(ind,sel);"
+        "}else{"
+        "sel.disabled=false;sel.selectedIndex=0;"
+        "}"
+        "}).catch(function(){sel.disabled=false;sel.selectedIndex=0;});"
+        "}"
         # --- Unstar email ---
         "function doUnstar(msgId,btn){"
         "btn.style.pointerEvents='none';btn.textContent='Unstarring\u2026';"
