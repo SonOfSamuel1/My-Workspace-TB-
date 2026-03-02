@@ -1787,12 +1787,17 @@ def handle_action(event: dict) -> dict:
 
         try:
             from calendar_service import CalendarService
-            from todoist_service import TodoistService
 
-            # Get the task title
-            service = TodoistService(todoist_token)
-            task = service.get_task(task_id)
-            task_title = task.get("content", "Action") if task else "Action"
+            # Use provided title (for emails) or look up from Todoist (for tasks)
+            task_title_param = params.get("task_title", "")
+            if task_title_param:
+                task_title = task_title_param
+            else:
+                from todoist_service import TodoistService
+
+                service = TodoistService(todoist_token)
+                task = service.get_task(task_id)
+                task_title = task.get("content", "Action") if task else "Action"
 
             # Create calendar events
             cal = CalendarService(

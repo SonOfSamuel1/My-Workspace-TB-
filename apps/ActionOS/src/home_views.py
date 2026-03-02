@@ -564,6 +564,14 @@ def _build_email_card(
         + "</button>"
     )
 
+    # Schedule button
+    schedule_btn = (
+        f'<button class="schedule-btn" '
+        f"onclick=\"event.stopPropagation();openScheduleModal('{msg_id}','{safe_subject}')\">"
+        '<svg class="schedule-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01M16 18h.01"/></svg>'
+        " Schedule</button>"
+    )
+
     meta_parts = []
     if sender:
         meta_parts.append(sender)
@@ -587,7 +595,7 @@ def _build_email_card(
         f'<div class="task-title">{subject}</div>'
         f'<div class="task-meta">{meta_line}</div>'
         f'<div class="task-actions">'
-        f"{review_btn}{unstar_btn}{create_todoist_btn}{skip_inbox_btn}{cc_btn}"
+        f"{review_btn}{unstar_btn}{create_todoist_btn}{skip_inbox_btn}{schedule_btn}{cc_btn}"
         f"</div>"
         f"</div></div>"
         f"</div>"
@@ -880,6 +888,14 @@ def _build_unread_email_card(
         + "</button>"
     )
 
+    # Schedule button
+    schedule_btn = (
+        f'<button class="schedule-btn" '
+        f"onclick=\"event.stopPropagation();openScheduleModal('{msg_id}','{safe_subject}')\">"
+        '<svg class="schedule-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01M16 18h.01"/></svg>'
+        " Schedule</button>"
+    )
+
     # Build open URL for email viewer
     open_url = ""
     if gmail_link and email_actions_url and email_actions_token:
@@ -915,7 +931,7 @@ def _build_unread_email_card(
         f'<div class="task-title">{subject}</div>'
         f'<div class="task-meta">{meta_line}</div>'
         f'<div class="task-actions">'
-        f"{markread_btn}{skip_inbox_btn}{create_todoist_btn}{cc_btn}"
+        f"{markread_btn}{skip_inbox_btn}{create_todoist_btn}{schedule_btn}{cc_btn}"
         f"</div>"
         f"</div></div>"
         f"</div>"
@@ -2338,9 +2354,9 @@ def build_home_html(
         "try{window.parent.postMessage({type:'viewer-close'},'*');}catch(e){}}"
         "function closeDetailView(){closeHomeDetail();}"
         # Schedule modal JS
-        "var _schedTaskId='',_schedMins=0;"
-        "function openScheduleModal(taskId){"
-        "_schedTaskId=taskId;_schedMins=0;"
+        "var _schedTaskId='',_schedMins=0,_schedTitle='';"
+        "function openScheduleModal(taskId,title){"
+        "_schedTaskId=taskId;_schedMins=0;_schedTitle=title||'';"
         "document.querySelectorAll('.duration-opt').forEach(function(b){b.classList.remove('selected');});"
         "var btn=document.getElementById('schedule-confirm');"
         "btn.disabled=true;btn.textContent='Schedule';"
@@ -2361,7 +2377,7 @@ def build_home_html(
         "document.getElementById('schedule-confirm').addEventListener('click',function(){"
         "if(!_schedTaskId||!_schedMins)return;"
         "var btn=this;btn.disabled=true;btn.textContent='Creating...';"
-        "fetch(_homeUrl+'?action=schedule_action&task_id='+_schedTaskId+'&duration='+_schedMins)"
+        "fetch(_homeUrl+'?action=schedule_action&task_id='+_schedTaskId+'&duration='+_schedMins+(_schedTitle?'&task_title='+encodeURIComponent(_schedTitle):''))"
         ".then(function(r){return r.json();})"
         ".then(function(d){if(d.ok){"
         "btn.textContent='\\u2713 '+d.events_created+' events created!';"
@@ -2398,9 +2414,9 @@ def build_home_html(
         "node.parentNode.replaceChild(frag,node);"
         "}}});});}linkifyTitles();"
         # Schedule modal JS
-        "var _schedTaskId=null,_schedMins=0;"
-        "function openScheduleModal(taskId){"
-        "_schedTaskId=taskId;_schedMins=0;"
+        "var _schedTaskId=null,_schedMins=0,_schedTitle='';"
+        "function openScheduleModal(taskId,title){"
+        "_schedTaskId=taskId;_schedMins=0;_schedTitle=title||'';"
         "document.querySelectorAll('.duration-opt').forEach(function(b){"
         "b.classList.remove('selected');});"
         "var btn=document.getElementById('schedule-confirm');"
@@ -2409,7 +2425,7 @@ def build_home_html(
         "}"
         "function closeScheduleModal(){"
         "document.getElementById('schedule-overlay').classList.remove('open');"
-        "_schedTaskId=null;_schedMins=0;"
+        "_schedTaskId=null;_schedMins=0;_schedTitle='';"
         "}"
         "document.querySelectorAll('.duration-opt').forEach(function(b){"
         "b.addEventListener('click',function(){"
@@ -2424,7 +2440,7 @@ def build_home_html(
         "document.getElementById('schedule-confirm').addEventListener('click',function(){"
         "if(!_schedTaskId||!_schedMins)return;"
         "var btn=this;btn.disabled=true;btn.textContent='Scheduling...';"
-        "fetch(_homeUrl+'?action=schedule_action&task_id='+_schedTaskId+'&duration='+_schedMins)"
+        "fetch(_homeUrl+'?action=schedule_action&task_id='+_schedTaskId+'&duration='+_schedMins+(_schedTitle?'&task_title='+encodeURIComponent(_schedTitle):''))"
         ".then(function(r){return r.json();})"
         ".then(function(d){"
         "if(d.ok){"
