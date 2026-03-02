@@ -142,10 +142,13 @@ force-resolve or auto-close.
 > **Always merge to main BEFORE deploying.** Never deploy from a worktree branch
 > — the deploy must run from the merged main branch.
 
-If the task changed any deployable app (e.g. ActionOS, a Lambda function),
-deploy it now using the appropriate deploy script (e.g.
-`./scripts/deploy-lambda-zip.sh`). If the task was a non-deployable change
-(docs, local scripts, etc.), skip this step.
+If the task changed ActionOS or any other Railway-hosted app, deploy to Railway:
+
+```bash
+cd apps/ActionOS && railway up --service actionos --detach
+```
+
+If the task was a non-deployable change (docs, local scripts, etc.), skip this step.
 
 ## 11. Ask Before Closing & Pushing
 
