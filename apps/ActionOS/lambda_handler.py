@@ -966,12 +966,24 @@ def handle_action(event: dict) -> dict:
     # -----------------------------------------------------------------------
     if params.get("action") == "obsidian_open":
         _vault = params.get("vault", "")
-        _file = params.get("file", "")
+        _file = params.get("file", "")  # path without .md extension
         if _vault and _file:
+            # Append reflection prompts to the note via the Advanced URI plugin.
+            # Requires: https://obsidian.md/plugins?id=obsidian-advanced-uri
+            _filepath = _file + ".md"
+            _reflection_content = (
+                "\n\n---\n\n"
+                "## My Reflections\n\n"
+                "**What does this teaching mean?**\n\n\n\n"
+                "**Am I obeying this teaching today?**\n\n\n\n"
+                "**What's something practical that I can do to obey this teaching right away?**\n\n"
+            )
             _obs_url = (
-                f"obsidian://open"
+                "obsidian://advanced-uri"
                 f"?vault={urllib.parse.quote(_vault, safe='')}"
-                f"&file={urllib.parse.quote(_file, safe='')}"
+                f"&filepath={urllib.parse.quote(_filepath, safe='')}"
+                f"&mode=append"
+                f"&data={urllib.parse.quote(_reflection_content, safe='')}"
             )
             _html = (
                 "<!DOCTYPE html><html><head>"
