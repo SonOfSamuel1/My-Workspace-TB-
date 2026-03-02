@@ -62,18 +62,25 @@ class CalendarService:
 
         self.service = build("calendar", "v3", credentials=creds, cache_discovery=False)
 
-    def get_upcoming_events(self, days: int = 90) -> List[Dict[str, Any]]:
+    def get_upcoming_events(self, days: int = 90, lookback_days: int = 0) -> List[Dict[str, Any]]:
         """Fetch from all calendars in parallel, deduplicate by event ID, sort by start time.
+
+        Args:
+            days: How many days forward to fetch.
+            lookback_days: How many days back to also include (for prev-occurrence lookups).
 
         Returns a list of dicts:
           {id, title, start, end, is_all_day, location, description, html_link, calendar_type}
         """
         now = datetime.now(timezone.utc)
-        # Use start of today (Eastern) so timed events that already started
-        # earlier today are still returned by the Google Calendar API.
-        local_now = now.astimezone(_EASTERN_TZ)
-        today_start = local_now.replace(hour=0, minute=0, second=0, microsecond=0)
-        time_min = today_start.isoformat()
+        if lookback_days > 0:
+            time_min = (now - timedelta(days=lookback_days)).isoformat()
+        else:
+            # Use start of today (Eastern) so timed events that already started
+            # earlier today are still returned by the Google Calendar API.
+            local_now = now.astimezone(_EASTERN_TZ)
+            today_start = local_now.replace(hour=0, minute=0, second=0, microsecond=0)
+            time_min = today_start.isoformat()
 
         def _fetch_one(cal_type, cal_id):
             cal_days = _CALENDAR_DAY_OVERRIDES.get(cal_type, days)

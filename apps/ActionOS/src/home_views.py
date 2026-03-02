@@ -604,6 +604,18 @@ def _build_email_card(
     )
 
 
+def _format_short_date(iso: str) -> str:
+    """Format an ISO datetime/date string as 'Feb 3' (short month + day)."""
+    try:
+        if len(iso) > 10:
+            dt = datetime.fromisoformat(iso).astimezone(_EASTERN)
+        else:
+            dt = datetime.strptime(iso, "%Y-%m-%d")
+        return dt.strftime("%b %-d")
+    except Exception:
+        return iso[:10]
+
+
 def _build_calendar_card(
     event: Dict[str, Any],
     reviewed: bool,
@@ -615,6 +627,8 @@ def _build_calendar_card(
     has_prep_action: bool = False,
     prep_task_id: str = "",
     prep_completed: bool = False,
+    last_date: str = "",
+    next_date: str = "",
 ) -> str:
     """Build a calendar event card with full action buttons."""
     eid = html.escape(str(event.get("id", "")))
@@ -806,6 +820,17 @@ def _build_calendar_card(
         + "</button>"
     )
 
+    # Schedule badges (last / next occurrence, shown with green event badge style)
+    schedule_badges = ""
+    if last_date:
+        schedule_badges += (
+            f'<span class="event-schedule-badge">Last: {html.escape(_format_short_date(last_date))}</span>'
+        )
+    if next_date:
+        schedule_badges += (
+            f'<span class="event-schedule-badge">Next: {html.escape(_format_short_date(next_date))}</span>'
+        )
+
     # Meta line
     meta_parts = [date_display]
     if location:
@@ -824,6 +849,7 @@ def _build_calendar_card(
         f'<span class="cal-type-badge" style="background:{cal_color};">{cal_label}</span>'
         f"{todoist_indicator}"
         f"{prep_indicator}"
+        f"{schedule_badges}"
         f"</div>"
         f'<div class="task-meta">{meta_line}</div>'
         f'<div class="task-actions">'
@@ -1157,6 +1183,7 @@ def build_home_html(
     email_actions_token: str = "",
     toggl_time_totals=None,
     todoist_tasks: List[Dict[str, Any]] = None,
+    all_calendar_events: List[Dict[str, Any]] = None,
 ) -> str:
     """Build the Home aggregated view HTML."""
     projects_by_id = _build_projects_by_id(projects)
@@ -1177,6 +1204,30 @@ def build_home_html(
     cal_state = cal_state or {}
     followup_state = followup_state or {}
     followup_reviews = followup_state.get("reviews", {})
+
+    # Build title → sorted start-date list for prev/next occurrence lookup.
+    _schedule_source = all_calendar_events if all_calendar_events is not None else calendar_events
+    _title_dates: Dict[str, List[str]] = {}
+    for ev in _schedule_source:
+        t = (ev.get("title") or "").strip().lower()
+        s = (ev.get("start") or "")[:19]
+        if t and s:
+            _title_dates.setdefault(t, []).append(s)
+    for t in _title_dates:
+        _title_dates[t].sort()
+
+    def _get_schedule(title: str, start: str):
+        """Return (last_date, next_date) ISO strings relative to *start*."""
+        dates = _title_dates.get((title or "").strip().lower(), [])
+        s = (start or "")[:19]
+        last = next_occ = ""
+        for d in dates:
+            if d < s:
+                last = d
+            elif d > s:
+                next_occ = d
+                break
+        return last, next_occ
 
     _card_idx = [0]
 
@@ -1290,12 +1341,17 @@ def build_home_html(
         ev_title_lower = (event.get("title") or "").strip().lower()
         _todoist_tid = _todoist_title_map.get(ev_title_lower, "")
         _prep_tid = _todoist_prep_map.get(ev_title_lower, "")
+        last_date, next_date = _get_schedule(event.get("title", ""), event.get("start", ""))
+        _prep_done = _todoist_prep_completed_map.get(ev_title_lower, False)
         card = _build_calendar_card(
             event, rev, days_rem, function_url, idx,
             has_todoist_action=bool(_todoist_tid),
             todoist_task_id=_todoist_tid,
             has_prep_action=bool(_prep_tid),
             prep_task_id=_prep_tid,
+            prep_completed=_prep_done,
+            last_date=last_date,
+            next_date=next_date,
         )
         if rev:
             pass  # Hide reviewed calendar events
@@ -1533,6 +1589,9 @@ def build_home_html(
         "background:var(--warn-bg);color:var(--warn);"
         "padding:2px 7px;border-radius:6px;white-space:nowrap;}"
         ".prep-indicator.prep-done{background:var(--ok-bg);color:var(--ok);}"
+        ".event-schedule-badge{font-size:10px;font-weight:700;text-decoration:none;"
+        "background:var(--ok-bg);color:var(--ok);border:1px solid var(--ok-b);"
+        "padding:2px 7px;border-radius:6px;white-space:nowrap;}"
         ".pri-badge{font-size:10px;font-weight:700;"
         "padding:2px 6px;border-radius:5px;white-space:nowrap;flex-shrink:0;}"
         ".task-meta{font-size:12px;color:var(--text-2);margin-bottom:10px;line-height:1.5;"

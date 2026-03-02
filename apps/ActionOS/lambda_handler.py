@@ -1256,7 +1256,7 @@ def handle_action(event: dict) -> dict:
                     f_inbox = ex.submit(service.get_inbox_tasks)
                     f_all_todoist = ex.submit(service.get_all_tasks)
                     f_prep_todoist = ex.submit(service.get_event_prep_tasks)
-                    f_calendar = ex.submit(cal.get_upcoming_events, 90)
+                    f_calendar = ex.submit(cal.get_upcoming_events, 90, 60)
                     f_starred = ex.submit(gmail.get_starred_emails)
                     f_unread = ex.submit(
                         lambda: __import__("unread_main").get_unread_emails_for_web()
@@ -1294,7 +1294,12 @@ def handle_action(event: dict) -> dict:
                     key=lambda t: t.get("created_at", "") or t.get("added_at", ""),
                     reverse=True,
                 )
-                calendar_events = f_calendar.result()
+                _all_calendar_events = f_calendar.result()
+                _now_home_iso = datetime.now(timezone.utc).isoformat()[:19]
+                calendar_events = [
+                    ev for ev in _all_calendar_events
+                    if (ev.get("start") or "")[:19] >= _now_home_iso
+                ]
                 all_todoist_tasks = f_all_todoist.result()
                 # Merge event-prep tasks (from search) so prep indicator works
                 _prep_tasks = f_prep_todoist.result()
@@ -1344,6 +1349,7 @@ def handle_action(event: dict) -> dict:
                     embed=True,
                     toggl_time_totals=toggl_time_totals,
                     todoist_tasks=all_todoist_tasks,
+                    all_calendar_events=_all_calendar_events,
                 )
                 return {
                     "statusCode": 200,
@@ -1567,7 +1573,10 @@ def handle_action(event: dict) -> dict:
                     cal.sync_ffm_to_family()
                 except Exception as sync_err:
                     logger.warning(f"FFM auto-sync failed: {sync_err}")
-                events = cal.get_upcoming_events(days=90)
+                # Fetch with 60-day lookback so we can show "Last scheduled" on event cards.
+                all_events = cal.get_upcoming_events(days=90, lookback_days=60)
+                _now_iso = datetime.now(timezone.utc).isoformat()[:19]
+                events = [ev for ev in all_events if (ev.get("start") or "")[:19] >= _now_iso]
                 state = _load_calendar_state()
                 projects = _fetch_todoist_projects(todoist_token)
                 checklists = _load_checklists()
@@ -1591,6 +1600,7 @@ def handle_action(event: dict) -> dict:
                     ffm_tasks=ffm_tasks,
                     ffm_project_id=ffm_project_id,
                     todoist_tasks=all_todoist_tasks,
+                    all_events=all_events,
                 )
                 return {
                     "statusCode": 200,
