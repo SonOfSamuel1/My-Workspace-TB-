@@ -1638,9 +1638,9 @@ def build_home_html(
         # Schedule button
         ".schedule-btn{font-family:inherit;font-size:12px;font-weight:600;"
         "padding:4px 12px;border-radius:6px;"
-        "background:rgba(56,189,248,0.10);color:#38bdf8;border:1px solid rgba(56,189,248,0.25);"
+        "background:var(--border);color:var(--text-2);border:1px solid var(--border);"
         "cursor:pointer;transition:background .15s;display:inline-flex;align-items:center;gap:4px;}"
-        ".schedule-btn:hover{background:rgba(56,189,248,0.25);}"
+        ".schedule-btn:hover{background:var(--border-h);}"
         ".schedule-icon{flex-shrink:0;}"
         # Schedule modal
         "#schedule-overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;"
@@ -1674,9 +1674,9 @@ def build_home_html(
         # Schedule Prep button
         ".schedule-prep-btn{font-family:inherit;font-size:12px;font-weight:600;"
         "padding:4px 12px;border-radius:6px;"
-        "background:rgba(56,189,248,0.10);color:#38bdf8;border:1px solid rgba(56,189,248,0.25);"
+        "background:var(--border);color:var(--text-2);border:1px solid var(--border);"
         "cursor:pointer;transition:background .15s;}"
-        ".schedule-prep-btn:hover{background:rgba(56,189,248,0.25);}"
+        ".schedule-prep-btn:hover{background:var(--border-h);}"
         # Skip Inbox button
         ".skip-inbox-btn{font-family:inherit;font-size:12px;font-weight:600;"
         "padding:4px 12px;border-radius:6px;"
@@ -1729,15 +1729,15 @@ def build_home_html(
         # CC button
         ".assign-cc-btn{font-family:inherit;font-size:12px;font-weight:600;"
         "padding:5px 14px;border-radius:6px;"
-        "background:rgba(249,115,22,0.10);color:#f97316;border:1px solid rgba(249,115,22,0.25);"
+        "background:var(--border);color:var(--text-2);border:1px solid var(--border);"
         "cursor:pointer;transition:background .15s ease-out;display:inline-flex;align-items:center;gap:4px;}"
-        ".assign-cc-btn:hover{background:rgba(249,115,22,0.25);}"
+        ".assign-cc-btn:hover{background:var(--border-h);}"
         # Schedule button
         ".schedule-btn{font-family:inherit;font-size:12px;font-weight:600;"
         "padding:5px 14px;border-radius:6px;"
-        "background:rgba(56,189,248,0.10);color:#38bdf8;border:1px solid rgba(56,189,248,0.20);cursor:pointer;"
+        "background:var(--border);color:var(--text-2);border:1px solid var(--border);cursor:pointer;"
         "transition:background .15s ease-out;display:inline-flex;align-items:center;gap:4px;}"
-        ".schedule-btn:hover{background:rgba(56,189,248,0.25);}"
+        ".schedule-btn:hover{background:var(--border-h);}"
         ".schedule-icon{flex-shrink:0;}"
         # Schedule modal
         "#schedule-overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;"
