@@ -172,7 +172,7 @@ class EmailFormatter:
       font-size: 11px;
       font-family: Georgia, serif;
       text-decoration: none;
-      border-radius: 2px;
+      border-radius: 20px;
       letter-spacing: 1.2px;
       text-transform: uppercase;
     }}
@@ -253,7 +253,7 @@ class EmailFormatter:
             "background-color:#1f4020;color:#f0e8d0;"
             "border:1px solid #c8b88a;font-size:11px;"
             "font-family:Georgia,serif;text-decoration:none;"
-            "border-radius:2px;letter-spacing:1.2px;text-transform:uppercase;"
+            "border-radius:20px;letter-spacing:1.2px;text-transform:uppercase;"
         )
         return f'<a href="{url}" class="obsidian-btn" style="{btn_style}">Open in Obsidian</a>'
 
