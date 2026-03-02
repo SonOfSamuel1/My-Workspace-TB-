@@ -866,7 +866,6 @@ def build_view_html(
         ".move-pill-select{font-size:11px;}"
         ".date-pill{padding:4px 10px 4px 8px;}"
         ".date-pill-input{font-size:11px;}"
-        ".toggl-btn{font-size:11px;padding:4px 8px;}"
         ".time-tracked{font-size:11px;padding:4px 8px;}"
         ".left-pane{flex:1 1 100%!important;}"
         "#viewer-pane{display:none;position:fixed;top:0;left:0;right:0;bottom:0;z-index:200;"
