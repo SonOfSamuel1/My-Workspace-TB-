@@ -2706,6 +2706,7 @@ def handle_action(event: dict) -> dict:
             home_address = os.environ.get("HOME_ADDRESS", "")
             maps_api_key = os.environ.get("GOOGLE_MAPS_API_KEY", "")
 
+            drive_seconds = 0
             if home_address and event_location and maps_api_key:
                 try:
                     import requests as _req
@@ -2725,9 +2726,13 @@ def handle_action(event: dict) -> dict:
                     if rows:
                         elements = rows[0].get("elements", [])
                         if elements and elements[0].get("status") == "OK":
-                            duration_secs = elements[0]["duration"]["value"]
-                            travel_minutes = max(5, (duration_secs + 59) // 60)
-                            logger.info(f"Travel time to '{event_location}': {travel_minutes} min")
+                            drive_seconds = elements[0]["duration"]["value"]
+                            # Round up to nearest minute + 10 min buffer
+                            travel_minutes = max(5, (drive_seconds + 59) // 60 + 10)
+                            logger.info(
+                                f"Travel time to '{event_location}': "
+                                f"{drive_seconds // 60} min drive + 10 min buffer = {travel_minutes} min"
+                            )
                 except Exception as maps_err:
                     logger.warning(f"Google Maps API failed, using default 30 min: {maps_err}")
 
@@ -2741,6 +2746,8 @@ def handle_action(event: dict) -> dict:
                 title=event_title,
                 event_start_iso=event_start,
                 travel_minutes=travel_minutes,
+                destination=event_location,
+                drive_seconds=drive_seconds,
             )
 
             # Persist to calendar state so badge shows on next load
