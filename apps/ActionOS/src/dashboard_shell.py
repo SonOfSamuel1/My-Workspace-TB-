@@ -55,11 +55,20 @@ def build_shell_html(
     for i, (tid, label, _url, _preload) in enumerate(tabs):
         active = " active" if i == 0 else ""
         badge_text = str(starred_count) if tid == "starred" else "..."
+        if tid == "commit":
+            badge_html = (
+                f'<span style="display:flex;align-items:center;gap:4px;">'
+                f'<span class="badge badge-due-today" id="badge-{tid}-due-today" style="display:none"></span>'
+                f'<span class="badge" id="badge-{tid}">{badge_text}</span>'
+                f"</span>"
+            )
+        else:
+            badge_html = f'<span class="badge" id="badge-{tid}">{badge_text}</span>'
         sidebar_tabs_html += (
             f'<div class="sidebar-tab{active}" id="tab-{tid}" '
             f'draggable="true" data-tab-id="{tid}" onclick="switchTab(\'{tid}\')">'
             f'<span class="tab-label">{label}</span>'
-            f'<span class="badge" id="badge-{tid}">{badge_text}</span>'
+            f"{badge_html}"
             f"</div>"
         )
 
@@ -117,12 +126,21 @@ def build_shell_html(
         active_cls = " active" if i == 0 else ""
         icon_svg = _section_icons.get(tid, "")
         badge_init = str(starred_count) if tid == "starred" else "..."
+        if tid == "commit":
+            badge_group = (
+                f'<span style="display:flex;align-items:center;gap:4px;">'
+                f'<span class="badge badge-due-today section-dropdown-badge" id="dpbadge-{tid}-due-today" style="display:none"></span>'
+                f'<span class="badge section-dropdown-badge" id="dpbadge-{tid}">{badge_init}</span>'
+                f"</span>"
+            )
+        else:
+            badge_group = f'<span class="badge section-dropdown-badge" id="dpbadge-{tid}">{badge_init}</span>'
         dropdown_items_html += (
             f'<div class="section-dropdown-item{active_cls}" data-tab-id="{tid}" '
             f"onclick=\"selectSection('{tid}')\">"
             f'<span class="section-dropdown-icon">{icon_svg}</span>'
             f'<span class="section-dropdown-label">{label}</span>'
-            f'<span class="badge section-dropdown-badge" id="dpbadge-{tid}">{badge_init}</span>'
+            f"{badge_group}"
             f'<span class="section-dd-arrows">'
             f'<button class="section-dd-arrow" onclick="event.stopPropagation();moveSectionUp(\'{tid}\')">&#9650;</button>'
             f'<button class="section-dd-arrow" onclick="event.stopPropagation();moveSectionDown(\'{tid}\')">&#9660;</button>'
@@ -228,6 +246,8 @@ def build_shell_html(
         ".badge{display:inline-block;background:var(--border);color:var(--text-2);font-size:11px;"
         "font-weight:700;padding:2px 8px;border-radius:10px;}"
         ".sidebar-tab.active .badge{background:var(--accent-bg);color:var(--accent-l);}"
+        ".badge-due-today{background:var(--warn-bg);color:var(--warn);border:1px solid var(--warn-b);}"
+        ".sidebar-tab.active .badge-due-today{background:var(--warn-bg);color:var(--warn);}"
         ".sidebar-tab.dragging{opacity:0.4;}"
         ".sidebar-tab.drag-over{border-top:2px solid var(--accent);}"
         ".tab-label-input{font:inherit;font-size:14px;font-weight:600;width:80px;"
@@ -1103,6 +1123,17 @@ def build_shell_html(
         "var dtb=document.getElementById('due-today-badge');"
         "if(dtc)dtc.textContent=d.due_today;"
         "if(dtb){if(d.due_today>0){dtb.classList.remove('zero');}else{dtb.classList.add('zero');}}"
+        "}"
+        "if(d.commit_due_today!==undefined){"
+        "var cb=document.getElementById('badge-commit-due-today');"
+        "var cdb=document.getElementById('dpbadge-commit-due-today');"
+        "if(d.commit_due_today>0){"
+        "if(cb){cb.textContent=d.commit_due_today;cb.style.display='';}"
+        "if(cdb){cdb.textContent=d.commit_due_today;cdb.style.display='';}"
+        "}else{"
+        "if(cb)cb.style.display='none';"
+        "if(cdb)cdb.style.display='none';"
+        "}"
         "}"
         "}).catch(function(){});}"
         "loadAllBadges();"
