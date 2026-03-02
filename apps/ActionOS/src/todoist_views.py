@@ -31,7 +31,15 @@ _FONT = (
     "'Segoe UI',Roboto,sans-serif"
 )
 
-_CC_LABEL = "Claude"
+_CC_ICON_SVG = (
+    '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" '
+    'stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" '
+    'style="vertical-align:-1px;">'
+    '<rect x="9" y="9" width="13" height="13" rx="2"/>'
+    '<path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>'
+    '</svg>'
+)
+_CC_LABEL = _CC_ICON_SVG + " Claude"
 
 
 def _relative_age(added_at):
@@ -141,7 +149,6 @@ def _build_task_card(
     email_actions_url="",
     email_actions_token="",
     view_name="",
-    toggl_project_options_html="",
     toggl_time_totals=None,
 ):
     """Build HTML for a single task card with disposition controls."""
@@ -355,17 +362,13 @@ def _build_task_card(
     )
 
     # Toggl timer button
-    toggl_select = ""
-    if toggl_project_options_html:
-        safe_content = raw_content.replace("'", "\\'").replace('"', "&quot;")
-        toggl_select = (
-            '<select class="toggl-timer-select"'
-            ' onclick="event.stopPropagation()"'
-            ' data-subject="' + safe_content + '"'
-            ' onchange="event.stopPropagation();doTogglStart(this)">'
-            + toggl_project_options_html
-            + "</select>"
-        )
+    safe_content = raw_content.replace("'", "\\'").replace('"', "&quot;")
+    toggl_select = (
+        '<button class="toggl-btn"'
+        ' onclick="event.stopPropagation();doTogglStart(this)"'
+        ' data-subject="' + safe_content + '">'
+        'Track</button>'
+    )
 
     # Total time tracked from Toggl
     time_tracked_html = ""
@@ -457,7 +460,6 @@ def build_view_html(
     email_actions_url="",
     email_actions_token="",
     checklists=None,
-    toggl_projects=None,
     toggl_time_totals=None,
 ):
     """Build the full HTML page for a Todoist view.
@@ -485,22 +487,6 @@ def build_view_html(
             f'<option value="{html.escape(pid)}">{html.escape(pname)}</option>'
         )
 
-    # Build Toggl project options HTML for timer dropdowns
-    toggl_project_options_html = ""
-    if toggl_projects:
-        toggl_project_options_html = (
-            '<option value="" disabled selected>\u25b6 Toggl\u2026</option>'
-        )
-        for tp in sorted(toggl_projects, key=lambda p: p.get("name", "").lower()):
-            toggl_project_options_html += (
-                '<option value="' + str(tp.get("id", "")) + '"'
-                ' data-workspace-id="'
-                + str(tp.get("workspace_id", ""))
-                + '">'
-                + html.escape(tp.get("name", ""))
-                + "</option>"
-            )
-
     # Build task cards
     cards_html = ""
     if tasks:
@@ -513,7 +499,6 @@ def build_view_html(
                 email_actions_url=email_actions_url,
                 email_actions_token=email_actions_token,
                 view_name=view_name,
-                toggl_project_options_html=toggl_project_options_html,
                 toggl_time_totals=toggl_time_totals,
             )
     else:
@@ -757,7 +742,7 @@ def build_view_html(
         ".bestcase-btn.active{background:var(--ok-bg);color:var(--ok);border-color:var(--ok-b);cursor:default;}"
         ".bestcase-btn.remove{background:var(--ok-bg);color:var(--ok);border-color:var(--ok-b);}"
         ".bestcase-btn.remove:hover{background:var(--err-bg);color:var(--err);border-color:var(--err-b);}"
-        ".assign-cc-btn{display:inline-flex;align-items:center;justify-content:center;"
+        ".assign-cc-btn{display:inline-flex;align-items:center;justify-content:center;gap:3px;"
         "padding:5px 10px;border-radius:6px;"
         "background:rgba(196,120,64,0.10);border:1px solid rgba(196,120,64,0.25);"
         "cursor:pointer;transition:background .15s;color:#c47840;font-size:13px;font-weight:600;}"
@@ -769,12 +754,13 @@ def build_view_html(
         "transition:background .15s ease-out;display:inline-flex;align-items:center;gap:4px;}"
         ".schedule-btn:hover{background:rgba(56,189,248,0.25);}"
         ".schedule-icon{flex-shrink:0;}"
-        # Toggl timer select
-        ".toggl-timer-select{font-family:inherit;font-size:12px;font-weight:600;"
-        "padding:5px 8px;border-radius:6px;"
-        "background:var(--ok-bg);color:var(--ok);border:1px solid var(--ok-b);cursor:pointer;"
-        "transition:background .15s ease-out;-webkit-appearance:none;appearance:none;}"
-        ".toggl-timer-select:hover{background:var(--ok-b);}"
+        # Toggl timer button
+        ".toggl-btn{font-family:inherit;font-size:12px;font-weight:600;"
+        "padding:3px 8px;border-radius:6px;"
+        "background:var(--border);color:var(--text-2);border:1px solid var(--border);cursor:pointer;"
+        "transition:background .15s ease-out;display:inline-flex;align-items:center;gap:4px;}"
+        ".toggl-btn:hover{background:var(--border-h);}"
+        ".toggl-running{border-style:dashed;}"
         # Time tracked display
         ".time-tracked{font-size:12px;font-weight:600;color:var(--text-2);"
         "display:inline-flex;align-items:center;gap:4px;padding:5px 10px;"
@@ -880,7 +866,7 @@ def build_view_html(
         ".move-pill-select{font-size:11px;}"
         ".date-pill{padding:4px 10px 4px 8px;}"
         ".date-pill-input{font-size:11px;}"
-        ".toggl-timer-select{font-size:11px;padding:4px 6px;}"
+        ".toggl-btn{font-size:11px;padding:3px 6px;}"
         ".time-tracked{font-size:11px;padding:4px 8px;}"
         ".left-pane{flex:1 1 100%!important;}"
         "#viewer-pane{display:none;position:fixed;top:0;left:0;right:0;bottom:0;z-index:200;"
@@ -965,7 +951,7 @@ def build_view_html(
         # JavaScript
         + "<script>"
         "var _cs=getComputedStyle(document.documentElement);function cv(n){return _cs.getPropertyValue(n).trim();}"
-        "var _ccIcon='Claude';"
+        "var _ccIcon='<svg width=\"11\" height=\"11\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\" style=\"vertical-align:-1px;\"><rect x=\"9\" y=\"9\" width=\"13\" height=\"13\" rx=\"2\"/><path d=\"M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1\"/></svg> Claude';"
         f'var viewName="{view_name}";'
         "var taskCount="
         + str(count)
@@ -1192,34 +1178,64 @@ def build_view_html(
         'alert("Remove failed");});'
         "}"
         # Toggl timer
-        "function doTogglStart(sel){"
-        "var opt=sel.options[sel.selectedIndex];"
-        "var projectId=sel.value;"
-        "if(!projectId)return;"
-        "var workspaceId=opt?opt.getAttribute('data-workspace-id'):'';"
-        "var subject=sel.getAttribute('data-subject')||'';"
-        "sel.disabled=true;"
+        "function doTogglStart(btn){"
+        "var subject=btn.getAttribute('data-subject')||'';"
+        "btn.disabled=true;btn.textContent='Starting\u2026';"
         f"var url='{base_action_url}?action=toggl_start&token={action_token}';"
         "fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},"
-        "body:JSON.stringify({subject:subject,project_id:projectId,workspace_id:workspaceId})})"
+        "body:JSON.stringify({subject:subject})})"
         ".then(function(r){return r.json();})"
         ".then(function(d){"
         "if(d.ok){"
-        "var ind=document.createElement('span');"
-        "ind.className='time-tracked';"
-        "ind.style.color='var(--ok)';"
-        "var dot=document.createElementNS('http://www.w3.org/2000/svg','svg');"
-        "dot.setAttribute('width','10');dot.setAttribute('height','10');dot.setAttribute('viewBox','0 0 10 10');"
-        "dot.style.display='inline-block';dot.style.verticalAlign='middle';"
-        "var c=document.createElementNS('http://www.w3.org/2000/svg','circle');"
-        "c.setAttribute('cx','5');c.setAttribute('cy','5');c.setAttribute('r','4');c.setAttribute('fill','currentColor');"
-        "dot.appendChild(c);ind.appendChild(dot);"
-        "ind.appendChild(document.createTextNode(' Running'));"
-        "sel.parentNode.replaceChild(ind,sel);"
+        "var stop=document.createElement('button');"
+        "stop.className='toggl-btn toggl-running';"
+        "stop.setAttribute('onclick','event.stopPropagation();doTogglStop(this)');"
+        "stop.setAttribute('data-start',String(Math.floor(Date.now()/1000)));"
+        "var sq=document.createElementNS('http://www.w3.org/2000/svg','svg');"
+        "sq.setAttribute('width','8');sq.setAttribute('height','8');sq.setAttribute('viewBox','0 0 10 10');"
+        "var r2=document.createElementNS('http://www.w3.org/2000/svg','rect');"
+        "r2.setAttribute('x','1');r2.setAttribute('y','1');r2.setAttribute('width','8');r2.setAttribute('height','8');"
+        "r2.setAttribute('rx','1');r2.setAttribute('fill','currentColor');"
+        "sq.appendChild(r2);stop.appendChild(sq);"
+        "stop.appendChild(document.createTextNode(' Stop'));"
+        "btn.parentNode.replaceChild(stop,btn);"
         "}else{"
-        "sel.disabled=false;sel.selectedIndex=0;"
+        "btn.disabled=false;btn.textContent='Track';"
         "}"
-        "}).catch(function(){sel.disabled=false;sel.selectedIndex=0;});"
+        "}).catch(function(){"
+        "btn.disabled=false;btn.textContent='Track';"
+        "});"
+        "}"
+        "function _makeTimeSpan(secs){"
+        "var m=Math.floor(secs/60),h=Math.floor(m/60);m=m%60;"
+        "var lbl=h>0?(h+'h '+m+'m'):(m+'m');"
+        "var span=document.createElement('span');"
+        "span.className='time-tracked';"
+        "var icon=document.createElementNS('http://www.w3.org/2000/svg','svg');"
+        "icon.setAttribute('class','time-icon');icon.setAttribute('width','12');icon.setAttribute('height','12');"
+        "icon.setAttribute('viewBox','0 0 24 24');icon.setAttribute('fill','none');"
+        "icon.setAttribute('stroke','currentColor');icon.setAttribute('stroke-width','2');"
+        "icon.setAttribute('stroke-linecap','round');icon.setAttribute('stroke-linejoin','round');"
+        "var ci=document.createElementNS('http://www.w3.org/2000/svg','circle');"
+        "ci.setAttribute('cx','12');ci.setAttribute('cy','12');ci.setAttribute('r','10');"
+        "var pl=document.createElementNS('http://www.w3.org/2000/svg','polyline');"
+        "pl.setAttribute('points','12 6 12 12 16 14');"
+        "icon.appendChild(ci);icon.appendChild(pl);"
+        "span.appendChild(icon);span.appendChild(document.createTextNode(' '+lbl));"
+        "return span;}"
+        "function doTogglStop(btn){"
+        "btn.disabled=true;btn.textContent='Stopping\u2026';"
+        "var startTs=parseInt(btn.getAttribute('data-start')||'0');"
+        f"fetch('{base_action_url}?action=toggl_stop&token={action_token}',{{method:'POST'}})"
+        ".then(function(r){return r.json();})"
+        ".then(function(d){"
+        "if(d.ok){"
+        "var secs=d.duration||0;"
+        "if(!secs&&startTs){secs=Math.floor(Date.now()/1000)-startTs;}"
+        "var span=_makeTimeSpan(secs);"
+        "btn.parentNode.replaceChild(span,btn);"
+        "}else{btn.disabled=false;btn.textContent='Stop';}"
+        "}).catch(function(){btn.disabled=false;btn.textContent='Stop';});"
         "}"
         # Task detail pane
         "function esc(s){var d=document.createElement('div');"
@@ -1258,6 +1274,7 @@ def build_view_html(
         '\'<a href="$1" target="_blank" rel="noopener" style="color:\'+cv(\'--accent-l\')+\';text-decoration:underline;">$1</a>\');'
         "return t;}"
         "function openTaskDetail(card){"
+        "if(event&&event.target&&event.target.closest('.toggl-btn'))return;"
         "if(event&&event.target&&event.target.closest('a'))return;"
         "var cbs=card.querySelector('.select-cb');"
         "if(cbs&&document.activeElement===cbs)return;"
