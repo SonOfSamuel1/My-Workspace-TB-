@@ -612,6 +612,7 @@ def _build_calendar_card(
     todoist_task_id: str = "",
     has_prep_action: bool = False,
     prep_task_id: str = "",
+    prep_completed: bool = False,
 ) -> str:
     """Build a calendar event card with full action buttons."""
     eid = html.escape(str(event.get("id", "")))
@@ -754,10 +755,12 @@ def _build_calendar_card(
     prep_indicator = ""
     if has_prep_action:
         _prep_href = f"https://app.todoist.com/app/task/{prep_task_id}" if prep_task_id else "#"
+        _prep_class = "prep-indicator prep-done" if prep_completed else "prep-indicator"
+        _prep_label = "Prep Complete" if prep_completed else "Prep Not Completed"
         prep_indicator = (
-            f'<a class="prep-indicator" href="{_prep_href}" target="_blank"'
+            f'<a class="{_prep_class}" href="{_prep_href}" target="_blank"'
             ' onclick="event.stopPropagation()">'
-            "Prep Scheduled</a>"
+            f"{_prep_label}</a>"
         )
 
     # Prep Timer button (today/tomorrow timed events only)
@@ -1160,13 +1163,14 @@ def build_home_html(
     todoist_tasks = todoist_tasks or []
     _todoist_title_map = {}  # content_lower → task_id
     _todoist_prep_map = {}  # event_title_lower → task_id
+    _todoist_prep_completed_map = {}  # event_title_lower → bool
     for t in todoist_tasks:
         c = (t.get("content") or "").strip()
         _todoist_title_map.setdefault(c.lower(), t.get("id", ""))
         if c.lower().startswith("event prep: "):
-            _todoist_prep_map.setdefault(
-                c[len("Event Prep: "):].strip().lower(), t.get("id", "")
-            )
+            event_key = c[len("Event Prep: "):].strip().lower()
+            _todoist_prep_map.setdefault(event_key, t.get("id", ""))
+            _todoist_prep_completed_map.setdefault(event_key, bool(t.get("checked", False)))
     home_state = home_state or {}
     cal_state = cal_state or {}
     followup_state = followup_state or {}
@@ -1524,8 +1528,9 @@ def build_home_html(
         "background:var(--ok-bg,#16382a);color:var(--ok,#22c55e);"
         "padding:2px 7px;border-radius:6px;white-space:nowrap;}"
         ".prep-indicator{font-size:10px;font-weight:600;text-decoration:none;"
-        "background:var(--ok-bg,#16382a);color:var(--ok,#22c55e);"
+        "background:var(--warn-bg);color:var(--warn);"
         "padding:2px 7px;border-radius:6px;white-space:nowrap;}"
+        ".prep-indicator.prep-done{background:var(--ok-bg);color:var(--ok);}"
         ".pri-badge{font-size:10px;font-weight:700;"
         "padding:2px 6px;border-radius:5px;white-space:nowrap;flex-shrink:0;}"
         ".task-meta{font-size:12px;color:var(--text-2);margin-bottom:10px;line-height:1.5;"
@@ -2097,7 +2102,7 @@ def build_home_html(
         "var card=btn.closest('.task-card');"
         "var br=card&&card.querySelector('.badge-row');"
         "if(br){var a=document.createElement('a');a.className='prep-indicator';"
-        "a.textContent='Prep Scheduled';a.target='_blank';"
+        "a.textContent='Prep Not Completed';a.target='_blank';"
         "a.href=d.task_id?'https://app.todoist.com/app/task/'+d.task_id:'#';"
         "a.onclick=function(e){e.stopPropagation();};br.appendChild(a);}}"
         "else{btn.textContent='Schedule Prep';btn.style.pointerEvents='auto';}"
