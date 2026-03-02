@@ -1282,7 +1282,11 @@ def handle_action(event: dict) -> dict:
                 commit_tasks = _due_today_or_undated(f_commit.result())
                 bestcase_tasks = _due_today(f_bestcase.result())
                 p1_tasks = _due_today(f_p1.result())
-                inbox_tasks = f_inbox.result()
+                inbox_tasks = [
+                    t for t in f_inbox.result()
+                    if "Commit" not in t.get("labels", [])
+                    and "Best Case" not in t.get("labels", [])
+                ]
                 inbox_tasks.sort(
                     key=lambda t: t.get("created_at", "") or t.get("added_at", ""),
                     reverse=True,
@@ -1368,7 +1372,11 @@ def handle_action(event: dict) -> dict:
 
                 if view == "inbox":
                     projects = service.get_all_projects()
-                    tasks = service.get_inbox_tasks(projects=projects)
+                    tasks = [
+                        t for t in service.get_inbox_tasks(projects=projects)
+                        if "Commit" not in t.get("labels", [])
+                        and "Best Case" not in t.get("labels", [])
+                    ]
                     tasks.sort(
                         key=lambda t: t.get("created_at", "") or t.get("added_at", ""),
                         reverse=True,
