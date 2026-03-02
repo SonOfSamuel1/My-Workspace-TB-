@@ -412,7 +412,8 @@ def build_code_projects_html(
         f'Completed <span class="nav-badge" id="nbadge-completed">{len(completed_tasks)}</span></div>'
         "</div>"
         # ── In Progress ───────────────────────────────────────────────────
-        + '<div class="section-hdr" id="sec-in_progress">'
+        + '<div id="sec-in_progress" style="height:0;"></div>'
+        + '<div class="section-hdr">'
         f'<span class="section-title" style="color:var(--ok);">In Progress</span>'
         f'<span class="section-badge" id="sbadge-in_progress" style="background:var(--ok-bg);color:var(--ok);'
         f'border:1px solid var(--ok-b);">{len(in_progress_tasks)}</span>'
@@ -422,7 +423,8 @@ def build_code_projects_html(
         + "</div>"
         # ── Planned ───────────────────────────────────────────────────────
         + '<div class="section-divider"></div>'
-        + '<div class="section-hdr" id="sec-planned" style="margin-top:4px;">'
+        + '<div id="sec-planned" style="height:0;"></div>'
+        + '<div class="section-hdr" style="margin-top:4px;">'
         f'<span class="section-title" style="color:var(--warn);">Planned</span>'
         f'<span class="section-badge" id="sbadge-planned" style="background:var(--warn-bg);color:var(--warn);'
         f'border:1px solid var(--warn-b);">{len(planned_tasks)}</span>'
@@ -432,7 +434,8 @@ def build_code_projects_html(
         + "</div>"
         # ── Backlog ───────────────────────────────────────────────────────
         + '<div class="section-divider"></div>'
-        + '<div class="section-hdr" id="sec-backlog" style="margin-top:4px;">'
+        + '<div id="sec-backlog" style="height:0;"></div>'
+        + '<div class="section-hdr" style="margin-top:4px;">'
         f'<span class="section-title" style="color:var(--text-2);">Backlog</span>'
         f'<span class="section-badge" id="sbadge-backlog" style="background:var(--border);color:var(--text-2);'
         f'border:1px solid var(--border-h);">{len(backlog_tasks)}</span>'
@@ -442,7 +445,8 @@ def build_code_projects_html(
         + "</div>"
         # ── New Issues ────────────────────────────────────────────────────
         + '<div class="section-divider"></div>'
-        + '<div class="section-hdr" id="sec-issues" style="margin-top:4px;">'
+        + '<div id="sec-issues" style="height:0;"></div>'
+        + '<div class="section-hdr" style="margin-top:4px;">'
         f'<span class="section-title" style="color:var(--accent-l);">New Issues</span>'
         f'<span class="section-badge" id="sbadge-issues" style="background:var(--accent-bg);color:var(--accent-l);'
         f'border:1px solid var(--accent-b);">{len(issues_tasks)}</span>'
@@ -452,7 +456,8 @@ def build_code_projects_html(
         + "</div>"
         # ── Completed (30d) ───────────────────────────────────────────────
         + '<div class="section-divider"></div>'
-        + '<div class="section-hdr" id="sec-completed" style="margin-top:4px;">'
+        + '<div id="sec-completed" style="height:0;"></div>'
+        + '<div class="section-hdr" style="margin-top:4px;">'
         f'<span class="section-title" style="color:var(--text-3);">Completed (30d)</span>'
         f'<span class="section-badge" id="sbadge-completed" style="background:var(--border);color:var(--text-3);'
         f'border:1px solid var(--border);">{len(completed_tasks)}</span>'
