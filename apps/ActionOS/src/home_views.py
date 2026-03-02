@@ -1612,9 +1612,9 @@ def build_home_html(
         # Schedule Prep button
         ".schedule-prep-btn{font-family:inherit;font-size:12px;font-weight:600;"
         "padding:4px 12px;border-radius:6px;"
-        "background:var(--p1-bg,#1e293b);color:var(--p1,#38bdf8);border:1px solid var(--p1-b,#334155);"
+        "background:rgba(56,189,248,0.10);color:#38bdf8;border:1px solid rgba(56,189,248,0.25);"
         "cursor:pointer;transition:background .15s;}"
-        ".schedule-prep-btn:hover{background:var(--p1-b,#334155);}"
+        ".schedule-prep-btn:hover{background:rgba(56,189,248,0.25);}"
         # Skip Inbox button
         ".skip-inbox-btn{font-family:inherit;font-size:12px;font-weight:600;"
         "padding:4px 12px;border-radius:6px;"
