@@ -59,13 +59,13 @@ Scheduled (EventBridge):
 """
 
 import base64
+import hashlib
 import hmac
 import html
 import json
 import logging
 import os
 import re
-import hashlib
 import sys
 import urllib.parse
 from concurrent.futures import ThreadPoolExecutor
@@ -1042,6 +1042,7 @@ def handle_action(event: dict) -> dict:
             "ffm_outreach",
             "toggl_start",
             "toggl_stop",
+            "toggl_log_event",
             "starred_to_todoist",
             "followup_reviewed",
             "followup_resolved",
@@ -1282,7 +1283,12 @@ def handle_action(event: dict) -> dict:
                 commit_tasks = _due_today_or_undated(f_commit.result())
                 bestcase_tasks = _due_today(f_bestcase.result())
                 p1_tasks = _due_today(f_p1.result())
-                inbox_tasks = f_inbox.result()
+                inbox_tasks = [
+                    t
+                    for t in f_inbox.result()
+                    if "Commit" not in t.get("labels", [])
+                    and "Best Case" not in t.get("labels", [])
+                ]
                 inbox_tasks.sort(
                     key=lambda t: t.get("created_at", "") or t.get("added_at", ""),
                     reverse=True,
@@ -1364,11 +1370,18 @@ def handle_action(event: dict) -> dict:
                 today_str = datetime.now().strftime("%Y-%m-%d")
                 _toggl_tok = os.environ.get("TOGGL_API_TOKEN", "")
                 toggl_projects = _fetch_toggl_projects(_toggl_tok)
-                toggl_time_totals = _fetch_toggl_time_entries(_toggl_tok) if _toggl_tok else {}
+                toggl_time_totals = (
+                    _fetch_toggl_time_entries(_toggl_tok) if _toggl_tok else {}
+                )
 
                 if view == "inbox":
                     projects = service.get_all_projects()
-                    tasks = service.get_inbox_tasks(projects=projects)
+                    tasks = [
+                        t
+                        for t in service.get_inbox_tasks(projects=projects)
+                        if "Commit" not in t.get("labels", [])
+                        and "Best Case" not in t.get("labels", [])
+                    ]
                     tasks.sort(
                         key=lambda t: t.get("created_at", "") or t.get("added_at", ""),
                         reverse=True,
@@ -2323,6 +2336,59 @@ def handle_action(event: dict) -> dict:
             logger.error(f"toggl_stop failed: {e}", exc_info=True)
             return _error_json(str(e))
 
+    elif action == "toggl_log_event":
+        event_title = params.get("event_title", "Calendar Event")
+        event_start = params.get("event_start", "")
+        event_end = params.get("event_end", "")
+        if not event_start or not event_end:
+            return _error_json("Missing event_start or event_end")
+        try:
+            import base64 as _b64
+
+            import requests as _req
+
+            dt_start = datetime.fromisoformat(event_start)
+            dt_end = datetime.fromisoformat(event_end)
+            if dt_start.tzinfo is None:
+                dt_start = dt_start.replace(tzinfo=timezone.utc)
+            if dt_end.tzinfo is None:
+                dt_end = dt_end.replace(tzinfo=timezone.utc)
+            dt_start_utc = dt_start.astimezone(timezone.utc)
+            dt_end_utc = dt_end.astimezone(timezone.utc)
+            duration_secs = int((dt_end_utc - dt_start_utc).total_seconds())
+            if duration_secs <= 0:
+                return _error_json("Invalid event duration")
+
+            toggl_token = os.environ.get("TOGGL_API_TOKEN", "")
+            _auth = _b64.b64encode(f"{toggl_token}:api_token".encode()).decode()
+            _th = {
+                "Authorization": f"Basic {_auth}",
+                "Content-Type": "application/json",
+            }
+            _me_r = _req.get("https://api.track.toggl.com/api/v9/me", headers=_th)
+            _me_r.raise_for_status()
+            ws_id = _me_r.json().get("default_workspace_id")
+            if not ws_id:
+                return _error_json("No default workspace found")
+            entry_body = {
+                "description": event_title,
+                "workspace_id": int(ws_id),
+                "start": dt_start_utc.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "stop": dt_end_utc.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "duration": duration_secs,
+                "created_with": "actionos",
+            }
+            _r = _req.post(
+                f"https://api.track.toggl.com/api/v9/workspaces/{ws_id}/time_entries",
+                headers=_th,
+                json=entry_body,
+            )
+            _r.raise_for_status()
+            return _ok_json()
+        except Exception as e:
+            logger.error(f"toggl_log_event failed: {e}", exc_info=True)
+            return _error_json(str(e))
+
     elif action == "home_reviewed":
         section = params.get("section", "")
         item_id = params.get("item_id", "")
@@ -2736,7 +2802,9 @@ def handle_action(event: dict) -> dict:
             notify_at = start_dt - timedelta(minutes=5)
             event_id = hashlib.md5(
                 f"{event_title}|{event_start}".encode()
-            ).hexdigest()[:12]
+            ).hexdigest()[  # nosec B324
+                :12
+            ]
             countdowns = _load_countdowns()
             countdowns[event_id] = {
                 "title": event_title,
@@ -2754,7 +2822,7 @@ def handle_action(event: dict) -> dict:
         event_start = params.get("event_start", "").strip()
         if not event_title or not event_start:
             return _error_json("Missing event_title or event_start")
-        event_id = hashlib.md5(
+        event_id = hashlib.md5(  # nosec B324
             f"{event_title}|{event_start}".encode()
         ).hexdigest()[:12]
         countdowns = _load_countdowns()
@@ -2805,10 +2873,7 @@ def lambda_handler(event, context):
                     from push_service import send_push
 
                     func_url = os.environ.get("FUNCTION_URL", "")
-                    cal_url = (
-                        func_url.rstrip("/")
-                        + "?action=web&view=calendar&embed=1"
-                    )
+                    cal_url = func_url.rstrip("/") + "?action=web&view=calendar&embed=1"
                     ok = send_push(
                         entry["title"],
                         "Starting in 5 minutes",

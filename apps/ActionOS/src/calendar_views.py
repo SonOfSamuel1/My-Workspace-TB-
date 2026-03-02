@@ -290,6 +290,8 @@ def _build_event_card(
     title_enc = urllib.parse.quote(event.get("title", ""))
     date_enc = urllib.parse.quote(event.get("start", "")[:10])
     loc_enc = urllib.parse.quote(event.get("location", ""))
+    start_enc = urllib.parse.quote(event.get("start", ""))
+    end_enc = urllib.parse.quote(event.get("end", ""))
 
     # Review button
     if reviewed:
@@ -361,7 +363,11 @@ def _build_event_card(
     # Badge-row indicators (appear under title)
     todoist_indicator = ""
     if has_todoist_action:
-        _td_href = f"https://app.todoist.com/app/task/{todoist_task_id}" if todoist_task_id else "#"
+        _td_href = (
+            f"https://app.todoist.com/app/task/{todoist_task_id}"
+            if todoist_task_id
+            else "#"
+        )
         todoist_indicator = (
             f'<a class="todoist-indicator" href="{_td_href}" target="_blank"'
             ' onclick="event.stopPropagation()">'
@@ -370,7 +376,9 @@ def _build_event_card(
 
     prep_indicator = ""
     if has_prep_action:
-        _prep_href = f"https://app.todoist.com/app/task/{prep_task_id}" if prep_task_id else "#"
+        _prep_href = (
+            f"https://app.todoist.com/app/task/{prep_task_id}" if prep_task_id else "#"
+        )
         prep_indicator = (
             f'<a class="prep-indicator" href="{_prep_href}" target="_blank"'
             ' onclick="event.stopPropagation()">'
@@ -415,6 +423,25 @@ def _build_event_card(
             f'{_timer_svg} <span class="timer-label">Countdown</span></button>'
         )
 
+    # Toggl log button (only for timed events with a known duration)
+    toggl_log_btn = ""
+    if not event.get("is_all_day", False) and event.get("end"):
+        toggl_log_url = (
+            function_url.rstrip("/")
+            + "?action=toggl_log_event"
+            + "&event_title="
+            + title_enc
+            + "&event_start="
+            + start_enc
+            + "&event_end="
+            + end_enc
+        )
+        toggl_log_btn = (
+            f'<button class="toggl-log-btn" id="tgl-{idx}" '
+            f"onclick=\"doTogglLog(this,'{toggl_log_url}')\">"
+            "Log in Toggl</button>"
+        )
+
     # Claude button
     safe_title = title.replace("'", "\\'")
     safe_date = date_range.replace("'", "\\'")
@@ -450,6 +477,7 @@ def _build_event_card(
         f"Commit</button>"
         f"{schedule_prep_btn}"
         f"{timer_btn}"
+        f"{toggl_log_btn}"
         f"{cc_btn}"
         f"{gcal_html}"
         f"</div>"
@@ -581,12 +609,16 @@ def _build_ffm_action_cards(
             meta_html = f'<div class="task-meta">{description}</div>'
 
         buttons = ""
-        for meal, icon in [("coffee", "\u2615"), ("lunch", "\ud83c\udf7d"), ("dinner", "\ud83c\udf1f")]:
+        for meal, icon in [
+            ("coffee", "\u2615"),
+            ("lunch", "\ud83c\udf7d"),
+            ("dinner", "\ud83c\udf1f"),
+        ]:
             meal_enc = urllib.parse.quote(meal)
             buttons += (
                 f'<button class="ffm-meal-btn ffm-{meal}" '
                 f"onclick=\"doFfmOutreach(this,'{person_enc}','{meal_enc}')\">"
-                f'{icon} {meal.capitalize()}</button>'
+                f"{icon} {meal.capitalize()}</button>"
             )
 
         cards += (
@@ -625,13 +657,12 @@ def build_calendar_html(
         _todoist_title_map.setdefault(c.lower(), t.get("id", ""))
         if c.lower().startswith("event prep: "):
             _todoist_prep_map.setdefault(
-                c[len("Event Prep: "):].strip().lower(), t.get("id", "")
+                c[len("Event Prep: ") :].strip().lower(), t.get("id", "")
             )
 
     # Filter out birthday/anniversary events beyond 90 days
     filtered_events = [
-        ev for ev in events
-        if not _is_birthday_event(ev) or _is_within_days(ev, 90)
+        ev for ev in events if not _is_birthday_event(ev) or _is_within_days(ev, 90)
     ]
 
     # Split events: unreviewed vs reviewed
@@ -732,8 +763,7 @@ def build_calendar_html(
                 f'<span class="section-badge" style="background:var(--teal-bg);'
                 f'color:var(--teal);border:1px solid var(--teal-b);">'
                 f"{ffm_count}</span>"
-                f"</div>"
-                + ffm_action_html
+                f"</div>" + ffm_action_html
             )
         reviewed_sections_html += (
             f'<div class="section-hdr" style="margin-top:24px;">'
@@ -876,6 +906,11 @@ def build_calendar_html(
         "display:inline-flex;align-items:center;gap:5px;}"
         ".timer-btn:hover{background:var(--purple-b);}"
         ".timer-btn.expired{opacity:0.4;cursor:default;pointer-events:none;}"
+        ".toggl-log-btn{font-family:inherit;font-size:12px;font-weight:600;"
+        "padding:5px 14px;border-radius:6px;"
+        "background:var(--err-bg);color:var(--err);border:1px solid var(--err-b);"
+        "cursor:pointer;transition:background .15s;}"
+        ".toggl-log-btn:hover{background:var(--err-b);}"
         ".timer-icon{flex-shrink:0;vertical-align:middle;}"
         ".gcal-link{color:var(--accent-l);font-size:12px;font-weight:500;"
         "text-decoration:none;white-space:nowrap;}"
@@ -888,7 +923,7 @@ def build_calendar_html(
         ".empty-state{text-align:center;color:var(--text-2);padding:24px 20px;font-size:14px;}"
         "@media(max-width:768px){"
         ".task-actions{gap:6px;}"
-        ".action-select,.review-btn,.todoist-btn,.commit-btn,.timer-btn,.assign-cc-btn,.ffm-meal-btn{font-size:11px;padding:4px 6px;}"
+        ".action-select,.review-btn,.todoist-btn,.commit-btn,.timer-btn,.toggl-log-btn,.assign-cc-btn,.ffm-meal-btn{font-size:11px;padding:4px 6px;}"
         "}"
         "::-webkit-scrollbar{width:6px;}"
         "::-webkit-scrollbar-track{background:transparent;}"
@@ -1089,6 +1124,21 @@ def build_calendar_html(
         "btn.textContent='Schedule Prep';btn.style.pointerEvents='auto';}"
         "}).catch(function(){"
         "btn.textContent='Schedule Prep';btn.style.pointerEvents='auto';});}"
+        "function doTogglLog(btn,url){"
+        "btn.style.pointerEvents='none';btn.textContent='Logging\u2026';"
+        "fetch(url).then(function(r){return r.json();}).then(function(d){"
+        "if(d.ok){"
+        "btn.style.background=cv('--ok-bg');btn.style.color=cv('--ok');"
+        "btn.style.borderColor=cv('--ok-b');btn.textContent='\u2713 Logged';"
+        "btn.style.cursor='default';"
+        "}else{"
+        "btn.textContent='Failed';btn.style.background=cv('--err-bg');btn.style.color=cv('--err');"
+        "btn.style.pointerEvents='auto';"
+        "setTimeout(function(){btn.textContent='Log in Toggl';btn.style.background='';btn.style.color='';btn.style.borderColor='';},2000);}}"
+        "}).catch(function(){"
+        "btn.textContent='Failed';btn.style.background=cv('--err-bg');btn.style.color=cv('--err');"
+        "btn.style.pointerEvents='auto';"
+        "setTimeout(function(){btn.textContent='Log in Toggl';btn.style.background='';btn.style.color='';btn.style.borderColor='';},2000);});}"
         "function toggleChecklist(section){"
         "var body=document.getElementById('cl-body-'+section);"
         "var btn=document.getElementById('cl-btn-'+section);"
