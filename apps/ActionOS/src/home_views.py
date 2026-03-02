@@ -452,8 +452,10 @@ def _build_task_card(
     if data_open_url:
         data_attrs += f' data-open-url="{html.escape(data_open_url)}"'
 
-    card_class = "task-card reviewed-card" if reviewed else "task-card"
-    opacity = ' style="opacity:0.65;"' if reviewed else ""
+    # Commit cards are never greyed out, even after review
+    show_reviewed_style = reviewed and section != "commit"
+    card_class = "task-card reviewed-card" if show_reviewed_style else "task-card"
+    opacity = ' style="opacity:0.65;"' if show_reviewed_style else ""
 
     return (
         f'<div class="{card_class}" id="hcard-{idx}"{opacity}{data_attrs}'
@@ -1242,7 +1244,7 @@ def build_home_html(
         cards,
         needs_review,
         total,
-        collapsed=(needs_review == 0),
+        collapsed=False,  # commit section never collapses
         border_color=border_color,
     )
 
