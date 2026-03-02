@@ -758,13 +758,15 @@ def build_web_html(
         "document.getElementById('viewer-placeholder').style.display='none';"
         "frame.style.display='block';"
         # Set up viewer header buttons from card data
+        # Hide header buttons if the card already has inline action buttons below the title
         "var vmr=document.getElementById('viewer-markread-btn');"
         "var vsk=document.getElementById('viewer-skip-btn');"
+        "var hasInline=!!card.querySelector('.card-actions-inline');"
         "var msgId=card.getAttribute('data-msg-id')||'';"
         "var markBtn=card.querySelector('button[onclick*=\"doMarkRead\"]');"
-        "if(markBtn&&msgId){vmr.style.display='';vmr.disabled=false;vmr.textContent='Mark Read';}else{vmr.style.display='none';}"
+        "if(!hasInline&&markBtn&&msgId){vmr.style.display='';vmr.disabled=false;vmr.textContent='Mark Read';}else{vmr.style.display='none';}"
         "var skipBtn=card.querySelector('button[onclick*=\"doSkipInbox\"]');"
-        "if(skipBtn){vsk.style.display='';vsk.disabled=false;vsk.textContent='Skip Inbox';}else{vsk.style.display='none';}"
+        "if(!hasInline&&skipBtn){vsk.style.display='';vsk.disabled=false;vsk.textContent='Skip Inbox';}else{vsk.style.display='none';}"
         # Wire up viewer CC buttons with card data
         "var vccs=document.querySelectorAll('.viewer-cc-btn');"
         "var vccSubj=card.getAttribute('data-subject')||'';"
@@ -1295,9 +1297,7 @@ def build_web_html(
         "position:sticky;top:0;z-index:10;background:var(--bg-base);}"
         ".section-badge{background:var(--border);color:var(--text-2);font-size:11px;"
         "font-weight:700;padding:2px 7px;border-radius:8px;}"
-        ".split-wrap{display:flex;height:"
-        + split_height
-        + ";overflow:hidden;}"
+        ".split-wrap{display:flex;height:" + split_height + ";overflow:hidden;}"
         ".left-pane{flex:0 0 45%;min-width:0;overflow-y:auto;}"
         "#viewer-pane{display:flex;flex-direction:column;flex:1 1 55%;"
         "border-left:1px solid var(--border);background:var(--bg-base);position:relative;overflow:hidden;}"
@@ -1407,7 +1407,7 @@ def build_web_html(
         '<div style="max-width:700px;margin:0 auto;min-height:100%;">'
         '<div style="padding:0 16px;">'
         '<div class="section-hdr" style="color:var(--text-2);">'
-        '<span>' + today.upper() + "</span>"
+        "<span>" + today.upper() + "</span>"
         '<span class="section-badge" id="item-count">' + str(count) + "</span>"
         "</div>"
         "</div>"
