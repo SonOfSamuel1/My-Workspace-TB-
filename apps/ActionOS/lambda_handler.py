@@ -1993,6 +1993,14 @@ def handle_action(event: dict) -> dict:
                     if not t.get("due") or t["due"].get("date", "")[:10] <= today
                 )
 
+            def _count_strictly_today(tasks):
+                """Count tasks with a due date of exactly today."""
+                return sum(
+                    1
+                    for t in tasks
+                    if (t.get("due") or {}).get("date", "")[:10] == today
+                )
+
             with ThreadPoolExecutor(max_workers=6) as ex:
                 f_inbox = ex.submit(service.get_inbox_tasks)
                 f_commit = ex.submit(service.get_tasks_by_label, "Commit")
@@ -2009,9 +2017,11 @@ def handle_action(event: dict) -> dict:
                 for t in code_tasks
                 if not _status_labels.intersection(t.get("labels", []))
             ]
+            _commit_tasks = f_commit.result()
             counts = {
                 "inbox": len(f_inbox.result()),
-                "commit": _count_today_overdue_or_undated(f_commit.result()),
+                "commit": _count_today_overdue_or_undated(_commit_tasks),
+                "commit_due_today": _count_strictly_today(_commit_tasks),
                 "p1": _count_today_or_overdue(f_p1.result()),
                 "bestcase": _count_today_or_overdue(f_bc.result()),
                 "code": len(code_new_issues),
