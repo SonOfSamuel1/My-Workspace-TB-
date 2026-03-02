@@ -153,24 +153,27 @@ class EmailFormatter:
       margin: 0 0 12px;
     }}
     .verse-citation {{
-      text-align: right;
-      font-size: 13px;
-      color: #7a6a4a;
-      letter-spacing: 0.5px;
+      font-size: 11px;
+      color: #8a6a2a;
+      letter-spacing: 1px;
       font-style: normal;
       font-weight: bold;
+      text-transform: uppercase;
+      margin-bottom: 10px;
     }}
     .obsidian-btn {{
       display: inline-block;
-      margin-top: 8px;
-      padding: 5px 14px;
-      background-color: #7c3aed;
-      color: #ffffff !important;
-      font-size: 12px;
+      margin-top: 16px;
+      padding: 8px 20px;
+      background-color: #2d1a4a;
+      color: #e0d4f7 !important;
+      border: 1px solid #c8b88a;
+      font-size: 11px;
       font-family: Georgia, serif;
       text-decoration: none;
-      border-radius: 4px;
-      letter-spacing: 0.3px;
+      border-radius: 3px;
+      letter-spacing: 1.2px;
+      text-transform: uppercase;
     }}
     .footer {{
       background-color: #f4f0e8;
@@ -234,7 +237,7 @@ class EmailFormatter:
             return ""
         filename = s3_key.replace(".md", "")
         file_path = f"{self.vault_subfolder}/{filename}" if self.vault_subfolder else filename
-        url = f"obsidian://open?vault={quote(self.vault_name)}&file={quote(file_path)}"
+        url = f"obsidian://open?vault={quote(self.vault_name)}&amp;file={quote(file_path)}"
         return f'<a href="{url}" class="obsidian-btn">Open in Obsidian</a>'
 
     def _parse_verse_parts(self, verse_text: str) -> Tuple[str, str]:
@@ -275,15 +278,15 @@ class EmailFormatter:
 
         citation_html = ""
         if reference:
-            citation_html = f'\n        <div class="verse-citation">\u2014 {self._escape_html(reference)}</div>'
+            citation_html = f'<div class="verse-citation">{self._escape_html(reference)}</div>\n          '
 
         escaped_body = self._escape_html(body).replace("\n", "<br>")
 
         return (
             f'<div class="verse-container">\n'
-            f'          <div class="verse-open-quote">\u275d</div>\n'
-            f'          <div class="verse-body">{escaped_body}</div>'
-            f"{citation_html}\n"
+            f'          {citation_html}'
+            f'<div class="verse-open-quote">\u275d</div>\n'
+            f'          <div class="verse-body">{escaped_body}</div>\n'
             f"        </div>"
         )
 
