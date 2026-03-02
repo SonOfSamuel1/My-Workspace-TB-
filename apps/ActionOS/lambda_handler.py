@@ -1391,6 +1391,7 @@ def handle_action(event: dict) -> dict:
             "calendar_save_checklist",
             "calendar_create_todoist",
             "calendar_commit",
+            "calendar_create_sms_reminder",
             "ffm_outreach",
             "toggl_start",
             "toggl_stop",
@@ -3030,6 +3031,89 @@ def handle_action(event: dict) -> dict:
             return _ok_json({"task_id": _task_data.get("id", "")})
         except Exception as e:
             logger.error(f"{action} failed: {e}", exc_info=True)
+            return _error_json(str(e))
+
+    elif action == "calendar_create_sms_reminder":
+        try:
+            import re
+            import requests as _req
+
+            event_title = params.get("event_title", "")
+            event_date = params.get("event_date", "")
+
+            # Parse the full name from the event title
+            # Handles patterns like "John Doe's Birthday", "John Doe Birthday",
+            # "John and Jane's Anniversary", "John Doe Anniversary"
+            raw_title = event_title.strip()
+            title_lower = raw_title.lower()
+            is_anniversary = "anniversary" in title_lower
+
+            # Strip common suffixes to extract the person's name
+            name = re.sub(
+                r"[\u2019']?s?\s+(birthday|anniversary)\s*$",
+                "",
+                raw_title,
+                flags=re.IGNORECASE,
+            ).strip()
+            if not name:
+                name = raw_title
+
+            wish = "Happy Anniversary" if is_anniversary else "Happy Birthday"
+            task_content = f"Text {name} to wish them a {wish}"
+
+            # Determine due_string for annual recurrence
+            due_string = ""
+            if event_date:
+                try:
+                    ev_dt = datetime.strptime(event_date[:10], "%Y-%m-%d")
+                    due_string = f"every year on {ev_dt.strftime('%B %-d')}"
+                except Exception:
+                    pass
+
+            # Find or create the "Scheduled SMS" project
+            _headers = {
+                "Authorization": f"Bearer {todoist_token}",
+                "Content-Type": "application/json",
+            }
+            _proj_resp = _req.get(
+                "https://api.todoist.com/api/v1/projects",
+                headers=_headers,
+            )
+            _proj_resp.raise_for_status()
+            _projects = _proj_resp.json()
+            sms_project_id = ""
+            for _p in _projects:
+                if (_p.get("name") or "").lower() == "scheduled sms":
+                    sms_project_id = _p.get("id", "")
+                    break
+            if not sms_project_id:
+                _create_resp = _req.post(
+                    "https://api.todoist.com/api/v1/projects",
+                    headers=_headers,
+                    json={"name": "Scheduled SMS"},
+                )
+                _create_resp.raise_for_status()
+                sms_project_id = _create_resp.json().get("id", "")
+
+            task_json: dict = {
+                "content": task_content,
+                "labels": ["Best Case"],
+            }
+            if sms_project_id:
+                task_json["project_id"] = sms_project_id
+            if due_string:
+                task_json["due_string"] = due_string
+
+            _r = _req.post(
+                "https://api.todoist.com/api/v1/tasks",
+                headers=_headers,
+                json=task_json,
+            )
+            _r.raise_for_status()
+            _task_data = _r.json()
+            return _ok_json({"task_id": _task_data.get("id", "")})
+        except Exception as e:
+            logger.error(f"calendar_create_sms_reminder failed: {e}", exc_info=True)
             return _error_json(str(e))
 
     elif action == "calendar_schedule_prep":

@@ -291,6 +291,7 @@ def _build_event_card(
     next_date: str = "",
     has_travel_time: bool = False,
     travel_event_link: str = "",
+    is_birthday: bool = False,
 ) -> str:
     eid = event.get("id", "")
     eid_safe = html.escape(eid)
@@ -329,18 +330,32 @@ def _build_event_card(
             "Review</button>"
         )
 
-    todoist_url_base = (
-        function_url.rstrip("/")
-        + "?action=calendar_create_todoist"
-        + "&event_id="
-        + eid_enc
-        + "&event_title="
-        + title_enc
-        + "&event_date="
-        + date_enc
-        + "&event_location="
-        + loc_enc
-    )
+    if is_birthday:
+        todoist_url_base = (
+            function_url.rstrip("/")
+            + "?action=calendar_create_sms_reminder"
+            + "&event_id="
+            + eid_enc
+            + "&event_title="
+            + title_enc
+            + "&event_date="
+            + date_enc
+            + "&event_location="
+            + loc_enc
+        )
+    else:
+        todoist_url_base = (
+            function_url.rstrip("/")
+            + "?action=calendar_create_todoist"
+            + "&event_id="
+            + eid_enc
+            + "&event_title="
+            + title_enc
+            + "&event_date="
+            + date_enc
+            + "&event_location="
+            + loc_enc
+        )
 
     commit_url_base = (
         function_url.rstrip("/")
@@ -415,6 +430,7 @@ def _build_event_card(
         travel_time_btn = ""
 
     # Badge-row indicators (appear under title)
+    _indicator_label = "Reminder to Text Scheduled" if is_birthday else "Event Action"
     todoist_indicator = ""
     if has_todoist_action:
         _td_href = (
@@ -425,7 +441,7 @@ def _build_event_card(
         todoist_indicator = (
             f'<a class="todoist-indicator" href="{_td_href}" target="_blank"'
             ' onclick="event.stopPropagation()">'
-            "Event Action</a>"
+            f"{_indicator_label}</a>"
         )
 
     prep_indicator = ""
@@ -551,6 +567,26 @@ def _build_event_card(
 
     card_extra = " reviewed-card" if reviewed else " unreviewed-card"
 
+    # Build action buttons — birthday/anniversary cards omit Commit and use SMS reminder
+    if is_birthday:
+        _todoist_btn_label = "Reminder to Text"
+        _action_buttons = (
+            f'<button class="todoist-btn" id="tod-{idx}" '
+            f'data-indicator-label="Reminder to Text Scheduled" '
+            f"onclick=\"doTodoist(this,{idx},'{todoist_url_base}')\">"
+            f"{_todoist_btn_label}</button>"
+        )
+    else:
+        _action_buttons = (
+            f'<button class="todoist-btn" id="tod-{idx}" '
+            f'data-indicator-label="Event Action" '
+            f"onclick=\"doTodoist(this,{idx},'{todoist_url_base}')\">"
+            f"Add to Todoist</button>"
+            f'<button class="commit-btn" id="cmt-{idx}" '
+            f"onclick=\"doCommit(this,{idx},'{commit_url_base}')\">"
+            f"Commit</button>"
+        )
+
     # Always show all buttons regardless of review status
     return (
         f'<div class="task-card{card_extra}" id="card-{idx}">'
@@ -567,12 +603,7 @@ def _build_event_card(
         f'<div class="task-meta">{meta_line}</div>'
         f'<div class="task-actions">'
         f"{review_btn}"
-        f'<button class="todoist-btn" id="tod-{idx}" '
-        f"onclick=\"doTodoist(this,{idx},'{todoist_url_base}')\">"
-        f"Add to Todoist</button>"
-        f'<button class="commit-btn" id="cmt-{idx}" '
-        f"onclick=\"doCommit(this,{idx},'{commit_url_base}')\">"
-        f"Commit</button>"
+        f"{_action_buttons}"
         f"{schedule_prep_btn}"
         f"{travel_time_btn}"
         f"{timer_btn}"
@@ -849,6 +880,7 @@ def build_calendar_html(
                 next_date=next_date,
                 has_travel_time=bool(_travel_data),
                 travel_event_link=_travel_data.get("travel_event_link", ""),
+                is_birthday=_is_birthday_event(event),
             )
         return out
 
@@ -1226,19 +1258,22 @@ def build_calendar_html(
         "var card=btn.closest('.task-card');"
         "var br=card&&card.querySelector('.badge-row');"
         "if(br){var a=document.createElement('a');a.className='todoist-indicator';"
-        "a.textContent='Event Action';a.target='_blank';"
+        "var lbl=btn.getAttribute('data-indicator-label')||'Event Action';"
+        "a.textContent=lbl;a.target='_blank';"
         "a.href=d.task_id?'https://app.todoist.com/app/task/'+d.task_id:'#';"
         "a.onclick=function(e){e.stopPropagation();};"
         "var cb=br.querySelector('.cal-type-badge');"
         "if(cb&&cb.nextSibling){br.insertBefore(a,cb.nextSibling);}else{br.appendChild(a);}}}"
         "else{"
+        "var origLbl=btn.getAttribute('data-indicator-label')==='Reminder to Text Scheduled'?'Reminder to Text':'Add to Todoist';"
         "btn.textContent='Failed';btn.style.background=cv('--err-bg');btn.style.color=cv('--err');"
         "btn.style.pointerEvents='auto';"
-        "setTimeout(function(){btn.textContent='Add to Todoist';btn.style.background='';btn.style.color='';},2000);}"
+        "setTimeout(function(){btn.textContent=origLbl;btn.style.background='';btn.style.color='';},2000);}"
         "}).catch(function(){"
+        "var origLbl2=btn.getAttribute('data-indicator-label')==='Reminder to Text Scheduled'?'Reminder to Text':'Add to Todoist';"
         "btn.textContent='Failed';btn.style.background=cv('--err-bg');btn.style.color=cv('--err');"
         "btn.style.pointerEvents='auto';"
-        "setTimeout(function(){btn.textContent='Add to Todoist';btn.style.background='';btn.style.color='';},2000);});}"
+        "setTimeout(function(){btn.textContent=origLbl2;btn.style.background='';btn.style.color='';},2000);});}"
         "function doCommit(btn,idx,baseUrl){"
         "btn.style.pointerEvents='none';btn.textContent='Committing\u2026';"
         "fetch(baseUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'})"
