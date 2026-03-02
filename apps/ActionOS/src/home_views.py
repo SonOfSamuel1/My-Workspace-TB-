@@ -601,6 +601,7 @@ def _build_calendar_card(
     function_url: str,
     idx: int,
     has_todoist_action: bool = False,
+    todoist_task_id: str = "",
     has_prep_action: bool = False,
     prep_task_id: str = "",
 ) -> str:
@@ -741,11 +742,13 @@ def _build_calendar_card(
     # Todoist action indicator badge
     todoist_indicator = ""
     if has_todoist_action:
+        _td_href = f"https://app.todoist.com/app/task/{todoist_task_id}" if todoist_task_id else "#"
         todoist_indicator = (
-            '<span class="todoist-indicator"'
+            f'<a class="todoist-indicator" href="{_td_href}" target="_blank"'
             ' style="font-size:10px;background:var(--ok-bg,#16382a);color:var(--ok,#22c55e);'
-            'padding:1px 6px;border-radius:8px;margin-left:6px;white-space:nowrap;">'
-            "Todoist</span>"
+            'padding:1px 6px;border-radius:8px;margin-left:6px;white-space:nowrap;'
+            'text-decoration:none;" onclick="event.stopPropagation()">'
+            "Event Action</a>"
         )
 
     # Prep Timer button (today/tomorrow timed events only)
@@ -1137,11 +1140,11 @@ def build_home_html(
 
     # Build lookup sets for calendar-todoist matching
     todoist_tasks = todoist_tasks or []
-    _todoist_titles = set()
+    _todoist_title_map = {}  # content_lower → task_id
     _todoist_prep_map = {}  # event_title_lower → task_id
     for t in todoist_tasks:
         c = (t.get("content") or "").strip()
-        _todoist_titles.add(c.lower())
+        _todoist_title_map.setdefault(c.lower(), t.get("id", ""))
         if c.lower().startswith("event prep: "):
             _todoist_prep_map.setdefault(
                 c[len("Event Prep: "):].strip().lower(), t.get("id", "")
@@ -1261,11 +1264,12 @@ def build_home_html(
                 pass
         idx = next_idx()
         ev_title_lower = (event.get("title") or "").strip().lower()
-        _has_todoist = ev_title_lower in _todoist_titles
+        _todoist_tid = _todoist_title_map.get(ev_title_lower, "")
         _prep_tid = _todoist_prep_map.get(ev_title_lower, "")
         card = _build_calendar_card(
             event, rev, days_rem, function_url, idx,
-            has_todoist_action=_has_todoist,
+            has_todoist_action=bool(_todoist_tid),
+            todoist_task_id=_todoist_tid,
             has_prep_action=bool(_prep_tid),
             prep_task_id=_prep_tid,
         )

@@ -148,16 +148,16 @@ class TodoistService:
         return tasks
 
     def get_event_prep_tasks(self):
-        """Return all 'Event Prep:' tasks using the filter/search endpoint."""
+        """Return all 'Event Prep:' tasks by scanning all tasks (extended pagination)."""
         try:
-            tasks = self._get_all_pages(
-                "tasks/filter", params={"query": "search:Event Prep"}, max_pages=3
-            )
+            tasks = self._get_all_pages("tasks", max_pages=15)
             prep_tasks = [
                 t for t in tasks
                 if (t.get("content") or "").strip().lower().startswith("event prep:")
             ]
-            logger.info(f"Fetched {len(prep_tasks)} event-prep tasks (from {len(tasks)} search results)")
+            logger.info(
+                f"Fetched {len(prep_tasks)} event-prep tasks (from {len(tasks)} total)"
+            )
             return prep_tasks
         except Exception as e:
             logger.error(f"Failed to fetch event prep tasks: {e}")

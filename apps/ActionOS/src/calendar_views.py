@@ -271,6 +271,7 @@ def _build_event_card(
     project_options_html: str,
     idx: int,
     has_todoist_action: bool = False,
+    todoist_task_id: str = "",
     has_prep_action: bool = False,
     prep_task_id: str = "",
 ) -> str:
@@ -366,11 +367,13 @@ def _build_event_card(
     # Todoist action indicator badge
     todoist_indicator = ""
     if has_todoist_action:
+        _td_href = f"https://app.todoist.com/app/task/{todoist_task_id}" if todoist_task_id else "#"
         todoist_indicator = (
-            '<span class="todoist-indicator"'
+            f'<a class="todoist-indicator" href="{_td_href}" target="_blank"'
             ' style="font-size:10px;background:var(--ok-bg,#16382a);color:var(--ok,#22c55e);'
-            'padding:1px 6px;border-radius:8px;margin-left:6px;white-space:nowrap;">'
-            "Todoist</span>"
+            'padding:1px 6px;border-radius:8px;margin-left:6px;white-space:nowrap;'
+            'text-decoration:none;" onclick="event.stopPropagation()">'
+            "Event Action</a>"
         )
 
     # Meta line: date · location
@@ -613,11 +616,11 @@ def build_calendar_html(
     todoist_tasks = todoist_tasks or []
 
     # Build lookup sets for calendar-todoist matching
-    _todoist_titles = set()
+    _todoist_title_map = {}  # content_lower → task_id
     _todoist_prep_map = {}  # event_title_lower → task_id
     for t in todoist_tasks:
         c = (t.get("content") or "").strip()
-        _todoist_titles.add(c.lower())
+        _todoist_title_map.setdefault(c.lower(), t.get("id", ""))
         if c.lower().startswith("event prep: "):
             _todoist_prep_map.setdefault(
                 c[len("Event Prep: "):].strip().lower(), t.get("id", "")
@@ -668,7 +671,8 @@ def build_calendar_html(
                 action_token,
                 project_options_html,
                 idx,
-                has_todoist_action=ev_title_lower in _todoist_titles,
+                has_todoist_action=bool(_todoist_title_map.get(ev_title_lower)),
+                todoist_task_id=_todoist_title_map.get(ev_title_lower, ""),
                 has_prep_action=bool(_todoist_prep_map.get(ev_title_lower)),
                 prep_task_id=_todoist_prep_map.get(ev_title_lower, ""),
             )
