@@ -274,6 +274,8 @@ def _build_event_card(
     todoist_task_id: str = "",
     has_prep_action: bool = False,
     prep_task_id: str = "",
+    has_travel_time: bool = False,
+    travel_event_link: str = "",
 ) -> str:
     eid = event.get("id", "")
     eid_safe = html.escape(eid)
@@ -290,6 +292,7 @@ def _build_event_card(
     title_enc = urllib.parse.quote(event.get("title", ""))
     date_enc = urllib.parse.quote(event.get("start", "")[:10])
     loc_enc = urllib.parse.quote(event.get("location", ""))
+    start_enc = urllib.parse.quote(event.get("start", ""))
 
     # Review button
     if reviewed:
@@ -377,6 +380,39 @@ def _build_event_card(
             "Prep Scheduled</a>"
         )
 
+    # Travel time button and badge
+    travel_url_base = (
+        function_url.rstrip("/")
+        + "?action=calendar_travel_time"
+        + "&event_id="
+        + eid_enc
+        + "&event_title="
+        + title_enc
+        + "&event_date="
+        + date_enc
+        + "&event_location="
+        + loc_enc
+        + "&event_start="
+        + start_enc
+    )
+    is_timed_with_location = (not event.get("is_all_day", False)) and bool(location)
+    travel_indicator = ""
+    if has_travel_time:
+        _travel_href = html.escape(travel_event_link) if travel_event_link else "#"
+        travel_indicator = (
+            f'<a class="travel-indicator" href="{_travel_href}" target="_blank"'
+            ' onclick="event.stopPropagation()">'
+            "Travel Time Scheduled</a>"
+        )
+    if has_travel_time or not is_timed_with_location:
+        travel_time_btn = ""
+    else:
+        travel_time_btn = (
+            f'<button class="travel-time-btn" id="trv-{idx}" '
+            f"onclick=\"doTravelTime(this,{idx},'{travel_url_base}')\">"
+            "Add travel time</button>"
+        )
+
     # Meta line: date · location
     meta_parts = [date_range]
     if location:
@@ -438,6 +474,7 @@ def _build_event_card(
         f'<span class="cal-type-badge" style="background:{cal_color}">{cal_label}</span>'
         f"{todoist_indicator}"
         f"{prep_indicator}"
+        f"{travel_indicator}"
         f"</div>"
         f'<div class="task-meta">{meta_line}</div>'
         f'<div class="task-actions">'
@@ -449,6 +486,7 @@ def _build_event_card(
         f"onclick=\"doCommit(this,{idx},'{commit_url_base}')\">"
         f"Commit</button>"
         f"{schedule_prep_btn}"
+        f"{travel_time_btn}"
         f"{timer_btn}"
         f"{cc_btn}"
         f"{gcal_html}"
@@ -628,6 +666,9 @@ def build_calendar_html(
                 c[len("Event Prep: "):].strip().lower(), t.get("id", "")
             )
 
+    # Travel time state: event_id → {travel_event_link, ...}
+    _travel_time_state = reviewed_state.get("travel_time", {})
+
     # Filter out birthday/anniversary events beyond 90 days
     filtered_events = [
         ev for ev in events
@@ -665,6 +706,7 @@ def build_calendar_html(
             r = _is_event_reviewed(eid, reviewed_state)
             days_rem = _days_until_reviewed_reset(eid, reviewed_state)
             ev_title_lower = (event.get("title") or "").strip().lower()
+            _travel_data = _travel_time_state.get(eid, {})
             out += _build_event_card(
                 event,
                 r,
@@ -677,6 +719,8 @@ def build_calendar_html(
                 todoist_task_id=_todoist_title_map.get(ev_title_lower, ""),
                 has_prep_action=bool(_todoist_prep_map.get(ev_title_lower)),
                 prep_task_id=_todoist_prep_map.get(ev_title_lower, ""),
+                has_travel_time=bool(_travel_data),
+                travel_event_link=_travel_data.get("travel_event_link", "") if _travel_data else "",
             )
         return out
 
@@ -869,6 +913,14 @@ def build_calendar_html(
         "background:var(--p1-bg,#1e293b);color:var(--p1,#38bdf8);border:1px solid var(--p1-b,#334155);"
         "cursor:pointer;transition:background .15s;}"
         ".schedule-prep-btn:hover{background:var(--p1-b,#334155);}"
+        ".travel-time-btn{font-family:inherit;font-size:12px;font-weight:600;"
+        "padding:5px 14px;border-radius:6px;"
+        "background:var(--ok-bg);color:var(--ok);border:1px solid var(--ok-b);"
+        "cursor:pointer;transition:background .15s;}"
+        ".travel-time-btn:hover{background:var(--ok-b);}"
+        ".travel-indicator{font-size:10px;font-weight:600;text-decoration:none;"
+        "background:var(--ok-bg,#16382a);color:var(--ok,#22c55e);"
+        "padding:2px 7px;border-radius:6px;white-space:nowrap;}"
         ".timer-btn{font-family:inherit;font-size:12px;font-weight:600;"
         "padding:5px 14px;border-radius:6px;"
         "background:var(--purple-bg);color:var(--purple);border:1px solid var(--purple-b);"
@@ -888,7 +940,7 @@ def build_calendar_html(
         ".empty-state{text-align:center;color:var(--text-2);padding:24px 20px;font-size:14px;}"
         "@media(max-width:768px){"
         ".task-actions{gap:6px;}"
-        ".action-select,.review-btn,.todoist-btn,.commit-btn,.timer-btn,.assign-cc-btn,.ffm-meal-btn{font-size:11px;padding:4px 6px;}"
+        ".action-select,.review-btn,.todoist-btn,.commit-btn,.schedule-prep-btn,.travel-time-btn,.timer-btn,.assign-cc-btn,.ffm-meal-btn{font-size:11px;padding:4px 6px;}"
         "}"
         "::-webkit-scrollbar{width:6px;}"
         "::-webkit-scrollbar-track{background:transparent;}"
@@ -1089,6 +1141,25 @@ def build_calendar_html(
         "btn.textContent='Schedule Prep';btn.style.pointerEvents='auto';}"
         "}).catch(function(){"
         "btn.textContent='Schedule Prep';btn.style.pointerEvents='auto';});}"
+        "function doTravelTime(btn,idx,baseUrl){"
+        "btn.style.pointerEvents='none';btn.textContent='Calculating\u2026';"
+        "fetch(baseUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'})"
+        ".then(function(r){return r.json();})"
+        ".then(function(d){"
+        "if(d.ok){"
+        "btn.style.display='none';"
+        "var card=btn.closest('.task-card');"
+        "var br=card&&card.querySelector('.badge-row');"
+        "if(br){var a=document.createElement('a');a.className='travel-indicator';"
+        "a.textContent='Travel Time Scheduled';a.target='_blank';"
+        "a.href=d.travel_event_link||'#';"
+        "a.onclick=function(e){e.stopPropagation();};br.appendChild(a);}}"
+        "else{"
+        "btn.textContent='Add travel time';btn.style.background=cv('--err-bg');"
+        "btn.style.color=cv('--err');btn.style.pointerEvents='auto';"
+        "setTimeout(function(){btn.textContent='Add travel time';btn.style.background='';btn.style.color='';},3000);}"
+        "}).catch(function(){"
+        "btn.textContent='Add travel time';btn.style.pointerEvents='auto';});}"
         "function toggleChecklist(section){"
         "var body=document.getElementById('cl-body-'+section);"
         "var btn=document.getElementById('cl-btn-'+section);"

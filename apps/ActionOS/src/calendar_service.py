@@ -316,6 +316,53 @@ class CalendarService:
 
         return created
 
+    def create_travel_time_event(
+        self,
+        title: str,
+        event_start_iso: str,
+        travel_minutes: int = 30,
+        calendar_id: str = "primary",
+    ) -> str:
+        """Create a travel time event that ends when the main event starts.
+
+        Returns the html_link of the created Google Calendar event.
+        """
+        import zoneinfo as _zi
+
+        try:
+            event_start = datetime.fromisoformat(event_start_iso)
+        except Exception:
+            raise ValueError(f"Invalid event_start_iso: {event_start_iso!r}")
+
+        travel_end = event_start
+        travel_start = event_start - timedelta(minutes=travel_minutes)
+
+        # Determine timezone name from calendar settings
+        try:
+            settings = self.service.settings().get(setting="timezone").execute()
+            tz_name = settings.get("value", "America/New_York")
+        except Exception:
+            tz_name = "America/New_York"
+
+        body = {
+            "summary": f"Travel Time: {title}",
+            "start": {
+                "dateTime": travel_start.isoformat(),
+                "timeZone": tz_name,
+            },
+            "end": {
+                "dateTime": travel_end.isoformat(),
+                "timeZone": tz_name,
+            },
+        }
+        result = self.service.events().insert(calendarId=calendar_id, body=body).execute()
+        logger.info(
+            f"Created travel time event for '{title}': "
+            f"{travel_start.strftime('%H:%M')} – {travel_end.strftime('%H:%M')}"
+            f" ({travel_minutes} min)"
+        )
+        return result.get("htmlLink", "")
+
     def get_upcoming_events_cached(self, days: int = 90) -> List[Dict[str, Any]]:
         """TTL-cached wrapper around get_upcoming_events (60s cache)."""
         now_ts = time.time()

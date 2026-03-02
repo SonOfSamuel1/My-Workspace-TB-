@@ -1092,6 +1092,8 @@ def handle_action(event: dict) -> dict:
             "calendar_save_checklist",
             "calendar_create_todoist",
             "calendar_commit",
+            "calendar_schedule_prep",
+            "calendar_travel_time",
             "ffm_outreach",
             "toggl_start",
             "toggl_stop",
@@ -2687,6 +2689,72 @@ def handle_action(event: dict) -> dict:
             return _ok_json({"task_id": _task_data.get("id", "")})
         except Exception as e:
             logger.error(f"calendar_schedule_prep failed: {e}", exc_info=True)
+            return _error_json(str(e))
+
+    elif action == "calendar_travel_time":
+        try:
+            event_id = params.get("event_id", "")
+            event_title = params.get("event_title", "Event")
+            event_start = params.get("event_start", "")
+            event_location = params.get("event_location", "")
+
+            if not event_start:
+                return _error_json("Missing event_start")
+
+            # Calculate travel time via Google Maps Distance Matrix API
+            travel_minutes = 30  # default
+            home_address = os.environ.get("HOME_ADDRESS", "")
+            maps_api_key = os.environ.get("GOOGLE_MAPS_API_KEY", "")
+
+            if home_address and event_location and maps_api_key:
+                try:
+                    import requests as _req
+                    resp = _req.get(
+                        "https://maps.googleapis.com/maps/api/distancematrix/json",
+                        params={
+                            "origins": home_address,
+                            "destinations": event_location,
+                            "mode": "driving",
+                            "key": maps_api_key,
+                        },
+                        timeout=5,
+                    )
+                    resp.raise_for_status()
+                    data = resp.json()
+                    rows = data.get("rows", [])
+                    if rows:
+                        elements = rows[0].get("elements", [])
+                        if elements and elements[0].get("status") == "OK":
+                            duration_secs = elements[0]["duration"]["value"]
+                            travel_minutes = max(5, (duration_secs + 59) // 60)
+                            logger.info(f"Travel time to '{event_location}': {travel_minutes} min")
+                except Exception as maps_err:
+                    logger.warning(f"Google Maps API failed, using default 30 min: {maps_err}")
+
+            from calendar_service import CalendarService
+
+            cal = CalendarService(
+                os.environ["CALENDAR_CREDENTIALS_JSON"],
+                os.environ["CALENDAR_TOKEN_JSON"],
+            )
+            gcal_link = cal.create_travel_time_event(
+                title=event_title,
+                event_start_iso=event_start,
+                travel_minutes=travel_minutes,
+            )
+
+            # Persist to calendar state so badge shows on next load
+            if event_id:
+                state = _load_calendar_state()
+                state.setdefault("travel_time", {})[event_id] = {
+                    "travel_event_link": gcal_link,
+                    "travel_minutes": travel_minutes,
+                }
+                _save_calendar_state(state)
+
+            return _ok_json({"gcal_link": gcal_link})
+        except Exception as e:
+            logger.error(f"calendar_travel_time failed: {e}", exc_info=True)
             return _error_json(str(e))
 
     # -----------------------------------------------------------------------
