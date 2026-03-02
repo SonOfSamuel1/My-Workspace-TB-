@@ -164,14 +164,14 @@ class EmailFormatter:
     .obsidian-btn {{
       display: inline-block;
       margin-top: 16px;
-      padding: 8px 20px;
-      background-color: #2d1a4a;
-      color: #e0d4f7 !important;
+      padding: 9px 22px;
+      background-color: #1f4020;
+      color: #f0e8d0 !important;
       border: 1px solid #c8b88a;
       font-size: 11px;
       font-family: Georgia, serif;
       text-decoration: none;
-      border-radius: 3px;
+      border-radius: 2px;
       letter-spacing: 1.2px;
       text-transform: uppercase;
     }}
@@ -237,8 +237,16 @@ class EmailFormatter:
             return ""
         filename = s3_key.replace(".md", "")
         file_path = f"{self.vault_subfolder}/{filename}" if self.vault_subfolder else filename
-        url = f"obsidian://open?vault={quote(self.vault_name)}&amp;file={quote(file_path)}"
-        return f'<a href="{url}" class="obsidian-btn">Open in Obsidian</a>'
+        url = f"obsidian://open?vault={quote(self.vault_name, safe='')}&amp;file={quote(file_path, safe='')}"
+        logger.info(f"Obsidian URL: {url.replace('&amp;', '&')}")
+        btn_style = (
+            "display:inline-block;margin-top:16px;padding:9px 22px;"
+            "background-color:#1f4020;color:#f0e8d0;"
+            "border:1px solid #c8b88a;font-size:11px;"
+            "font-family:Georgia,serif;text-decoration:none;"
+            "border-radius:2px;letter-spacing:1.2px;text-transform:uppercase;"
+        )
+        return f'<a href="{url}" class="obsidian-btn" style="{btn_style}">Open in Obsidian</a>'
 
     def _parse_verse_parts(self, verse_text: str) -> Tuple[str, str]:
         """
@@ -278,7 +286,12 @@ class EmailFormatter:
 
         citation_html = ""
         if reference:
-            citation_html = f'<div class="verse-citation">{self._escape_html(reference)}</div>\n          '
+            citation_html = (
+                f'<div class="verse-citation" style="display:block;font-weight:bold;'
+                f'text-transform:uppercase;font-size:11px;color:#8a6a2a;'
+                f'letter-spacing:1px;margin-bottom:10px;">'
+                f'{self._escape_html(reference)}</div>\n          '
+            )
 
         escaped_body = self._escape_html(body).replace("\n", "<br>")
 
