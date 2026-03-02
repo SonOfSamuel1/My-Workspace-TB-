@@ -180,7 +180,12 @@ def generate_email(config: dict, send_email: bool = True):
         p = Path(vault_path)
         vault_subfolder = p.name
         vault_name = p.parent.name
-    formatter = EmailFormatter(vault_name=vault_name, vault_subfolder=vault_subfolder)
+    obsidian_redirect_base = os.getenv("ACTIONOS_URL", "")
+    formatter = EmailFormatter(
+        vault_name=vault_name,
+        vault_subfolder=vault_subfolder,
+        obsidian_redirect_base=obsidian_redirect_base,
+    )
     email_content = formatter.format_email(
         teachings=[teaching1, teaching2],
         date=datetime.now(),

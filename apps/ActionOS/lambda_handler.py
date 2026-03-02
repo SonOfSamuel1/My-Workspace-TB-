@@ -56,6 +56,11 @@ Misc (GET, token required):
 Scheduled (EventBridge):
   mode=sync        → Poll Gmail unread, update S3 state
   mode=daily_digest → Send daily email digest
+
+Public (no auth required):
+  ?action=sw                           → Service worker JS
+  ?action=gmail_open&thread_id=X       → Open Gmail thread in app
+  ?action=obsidian_open&vault=V&file=F → HTTPS → obsidian:// redirect
 """
 
 import base64
@@ -942,6 +947,43 @@ def handle_action(event: dict) -> dict:
                 f"var webUrl='{_web_url}';"
                 "var t=setTimeout(function(){window.location.href=webUrl},1500);"
                 "window.location.href=appUrl;"
+                "</script>"
+                "</body></html>"
+            )
+            return {
+                "statusCode": 200,
+                "headers": {
+                    "Content-Type": "text/html; charset=utf-8",
+                    "Cache-Control": "no-store",
+                },
+                "body": _html,
+            }
+
+    # -----------------------------------------------------------------------
+    # Obsidian open — no auth required
+    # Opens a local Obsidian note via the obsidian:// deep link.
+    # Used as an HTTPS redirect so Gmail (which blocks custom protocols) works.
+    # -----------------------------------------------------------------------
+    if params.get("action") == "obsidian_open":
+        _vault = params.get("vault", "")
+        _file = params.get("file", "")
+        if _vault and _file:
+            _obs_url = (
+                f"obsidian://open"
+                f"?vault={urllib.parse.quote(_vault, safe='')}"
+                f"&file={urllib.parse.quote(_file, safe='')}"
+            )
+            _html = (
+                "<!DOCTYPE html><html><head>"
+                "<meta charset=utf-8>"
+                "<meta name=viewport content='width=device-width,initial-scale=1'>"
+                "<style>body{background:#152912;color:#f0e8d0;font-family:Georgia,serif;"
+                "display:flex;align-items:center;justify-content:center;height:100vh;"
+                "margin:0}p{text-align:center;font-size:18px}</style>"
+                "</head><body>"
+                "<p>Opening in Obsidian&hellip;</p>"
+                "<script>"
+                f"window.location.href='{_obs_url}';"
                 "</script>"
                 "</body></html>"
             )
