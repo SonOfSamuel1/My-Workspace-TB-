@@ -233,9 +233,9 @@ def _build_task_card(
     due_date = (due_obj.get("date", "") or "")[:10] if due_obj else ""
     due_text, due_color = _due_date_display(due_date)
 
-    # Priority badge
+    # Priority badge — only shown for P2/P3; P1 badge is omitted (redundant/noisy)
     priority_badge = ""
-    if priority > 1:
+    if 1 < priority < 4:
         priority_badge = (
             f'<span class="pri-badge" style="background:{p_color}22;'
             f'color:{p_color};border:1px solid {p_color}44;">{p_label}</span>'
