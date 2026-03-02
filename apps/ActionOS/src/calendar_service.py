@@ -7,9 +7,12 @@ Fetches upcoming events from the three Brandon family calendars.
 import json
 import logging
 import time
+import zoneinfo
 
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List
+
+_EASTERN_TZ = zoneinfo.ZoneInfo("America/New_York")
 
 logger = logging.getLogger(__name__)
 
@@ -66,7 +69,11 @@ class CalendarService:
           {id, title, start, end, is_all_day, location, description, html_link, calendar_type}
         """
         now = datetime.now(timezone.utc)
-        time_min = now.isoformat()
+        # Use start of today (Eastern) so timed events that already started
+        # earlier today are still returned by the Google Calendar API.
+        local_now = now.astimezone(_EASTERN_TZ)
+        today_start = local_now.replace(hour=0, minute=0, second=0, microsecond=0)
+        time_min = today_start.isoformat()
 
         def _fetch_one(cal_type, cal_id):
             cal_days = _CALENDAR_DAY_OVERRIDES.get(cal_type, days)
