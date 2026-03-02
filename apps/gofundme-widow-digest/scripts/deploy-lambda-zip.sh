@@ -69,7 +69,7 @@ echo -e "   Package size: ${PACKAGE_SIZE}"
 
 # Step 5: Deploy
 echo -e "\n${YELLOW}[5/6] Deploying to AWS Lambda...${NC}"
-FUNCTION_EXISTS=$(aws lambda get-function --function-name $FUNCTION_NAME --region $REGION 2>/dev/null && echo "true" || echo "false")
+FUNCTION_EXISTS=$(aws lambda get-function --function-name $FUNCTION_NAME --region $REGION >/dev/null 2>&1 && echo "true" || echo "false")
 
 if [[ "$FUNCTION_EXISTS" == "true" ]]; then
     echo -e "   Updating existing function..."

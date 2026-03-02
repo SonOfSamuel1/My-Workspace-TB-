@@ -13,6 +13,7 @@ import yaml
 
 from gofundme_search import search_campaigns
 from todoist_task_creator import create_digest_task
+from email_digest import send_digest_email
 
 
 def load_credentials():
@@ -22,6 +23,7 @@ def load_credentials():
 
     params = {
         "TODOIST_API_TOKEN": f"{prefix}/todoist-api-token",
+        "DIGEST_RECIPIENT_EMAIL": f"{prefix}/recipient-email",
     }
     for env_key, param_name in params.items():
         resp = ssm.get_parameter(Name=param_name, WithDecryption=True)
@@ -79,11 +81,17 @@ def lambda_handler(event, context):
     )
 
     print(f"Created Todoist task: {task.get('id')} - {task.get('content')}")
+
+    print("Sending digest email...")
+    email_sent = send_digest_email(campaigns, week_label)
+    print(f"Email sent: {email_sent}")
+
     return {
         "statusCode": 200,
         "body": json.dumps({
             "message": "Digest created",
             "count": len(campaigns),
             "task_id": task.get("id"),
+            "email_sent": email_sent,
         }),
     }
