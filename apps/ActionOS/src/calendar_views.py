@@ -274,6 +274,7 @@ def _build_event_card(
     todoist_task_id: str = "",
     has_prep_action: bool = False,
     prep_task_id: str = "",
+    prep_completed: bool = False,
 ) -> str:
     eid = event.get("id", "")
     eid_safe = html.escape(eid)
@@ -379,10 +380,12 @@ def _build_event_card(
         _prep_href = (
             f"https://app.todoist.com/app/task/{prep_task_id}" if prep_task_id else "#"
         )
+        _prep_class = "prep-indicator prep-done" if prep_completed else "prep-indicator"
+        _prep_label = "Prep Complete" if prep_completed else "Prep Not Completed"
         prep_indicator = (
-            f'<a class="prep-indicator" href="{_prep_href}" target="_blank"'
+            f'<a class="{_prep_class}" href="{_prep_href}" target="_blank"'
             ' onclick="event.stopPropagation()">'
-            "Prep Scheduled</a>"
+            f"{_prep_label}</a>"
         )
 
     # Meta line: date · location
@@ -652,12 +655,15 @@ def build_calendar_html(
     # Build lookup sets for calendar-todoist matching
     _todoist_title_map = {}  # content_lower → task_id
     _todoist_prep_map = {}  # event_title_lower → task_id
+    _todoist_prep_completed_map = {}  # event_title_lower → bool
     for t in todoist_tasks:
         c = (t.get("content") or "").strip()
         _todoist_title_map.setdefault(c.lower(), t.get("id", ""))
         if c.lower().startswith("event prep: "):
-            _todoist_prep_map.setdefault(
-                c[len("Event Prep: ") :].strip().lower(), t.get("id", "")
+            event_key = c[len("Event Prep: ") :].strip().lower()
+            _todoist_prep_map.setdefault(event_key, t.get("id", ""))
+            _todoist_prep_completed_map.setdefault(
+                event_key, bool(t.get("checked", False))
             )
 
     # Filter out birthday/anniversary events beyond 90 days
@@ -708,6 +714,7 @@ def build_calendar_html(
                 todoist_task_id=_todoist_title_map.get(ev_title_lower, ""),
                 has_prep_action=bool(_todoist_prep_map.get(ev_title_lower)),
                 prep_task_id=_todoist_prep_map.get(ev_title_lower, ""),
+                prep_completed=_todoist_prep_completed_map.get(ev_title_lower, False),
             )
         return out
 
@@ -869,8 +876,9 @@ def build_calendar_html(
         "background:var(--ok-bg,#16382a);color:var(--ok,#22c55e);"
         "padding:2px 7px;border-radius:6px;white-space:nowrap;}"
         ".prep-indicator{font-size:10px;font-weight:600;text-decoration:none;"
-        "background:var(--ok-bg,#16382a);color:var(--ok,#22c55e);"
+        "background:var(--warn-bg);color:var(--warn);"
         "padding:2px 7px;border-radius:6px;white-space:nowrap;}"
+        ".prep-indicator.prep-done{background:var(--ok-bg);color:var(--ok);}"
         ".task-meta{font-size:12px;color:var(--text-2);margin-bottom:10px;line-height:1.5;"
         "word-break:break-word;overflow-wrap:break-word;}"
         ".task-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}"
@@ -896,9 +904,9 @@ def build_calendar_html(
         ".commit-btn:hover{background:var(--border-h);color:var(--text-1);}"
         ".schedule-prep-btn{font-family:inherit;font-size:12px;font-weight:600;"
         "padding:5px 14px;border-radius:6px;"
-        "background:var(--p1-bg,#1e293b);color:var(--p1,#38bdf8);border:1px solid var(--p1-b,#334155);"
+        "background:rgba(56,189,248,0.10);color:#38bdf8;border:1px solid rgba(56,189,248,0.25);"
         "cursor:pointer;transition:background .15s;}"
-        ".schedule-prep-btn:hover{background:var(--p1-b,#334155);}"
+        ".schedule-prep-btn:hover{background:rgba(56,189,248,0.25);}"
         ".timer-btn{font-family:inherit;font-size:12px;font-weight:600;"
         "padding:5px 14px;border-radius:6px;"
         "background:var(--purple-bg);color:var(--purple);border:1px solid var(--purple-b);"
@@ -1117,7 +1125,7 @@ def build_calendar_html(
         "var card=btn.closest('.task-card');"
         "var br=card&&card.querySelector('.badge-row');"
         "if(br){var a=document.createElement('a');a.className='prep-indicator';"
-        "a.textContent='Prep Scheduled';a.target='_blank';"
+        "a.textContent='Prep Not Completed';a.target='_blank';"
         "a.href=d.task_id?'https://app.todoist.com/app/task/'+d.task_id:'#';"
         "a.onclick=function(e){e.stopPropagation();};br.appendChild(a);}}"
         "else{"
@@ -1134,7 +1142,7 @@ def build_calendar_html(
         "}else{"
         "btn.textContent='Failed';btn.style.background=cv('--err-bg');btn.style.color=cv('--err');"
         "btn.style.pointerEvents='auto';"
-        "setTimeout(function(){btn.textContent='Log in Toggl';btn.style.background='';btn.style.color='';btn.style.borderColor='';},2000);}}"
+        "setTimeout(function(){btn.textContent='Log in Toggl';btn.style.background='';btn.style.color='';btn.style.borderColor='';},2000);}"
         "}).catch(function(){"
         "btn.textContent='Failed';btn.style.background=cv('--err-bg');btn.style.color=cv('--err');"
         "btn.style.pointerEvents='auto';"
