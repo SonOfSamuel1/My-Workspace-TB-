@@ -1246,13 +1246,14 @@ def handle_action(event: dict) -> dict:
                 gmail = GmailService()
                 today_str = datetime.now().strftime("%Y-%m-%d")
 
-                with ThreadPoolExecutor(max_workers=9) as ex:
+                with ThreadPoolExecutor(max_workers=10) as ex:
                     f_projects = ex.submit(service.get_all_projects)
                     f_commit = ex.submit(service.get_tasks_by_label, "Commit")
                     f_bestcase = ex.submit(service.get_tasks_by_label, "Best Case")
                     f_p1 = ex.submit(service.get_tasks_by_priority, 4)
                     f_inbox = ex.submit(service.get_inbox_tasks)
                     f_all_todoist = ex.submit(service.get_all_tasks)
+                    f_prep_todoist = ex.submit(service.get_event_prep_tasks)
                     f_calendar = ex.submit(cal.get_upcoming_events, 90)
                     f_starred = ex.submit(gmail.get_starred_emails)
                     f_unread = ex.submit(
@@ -1288,6 +1289,12 @@ def handle_action(event: dict) -> dict:
                 )
                 calendar_events = f_calendar.result()
                 all_todoist_tasks = f_all_todoist.result()
+                # Merge event-prep tasks (from search) so prep indicator works
+                _prep_tasks = f_prep_todoist.result()
+                _seen_ids = {t["id"] for t in all_todoist_tasks}
+                all_todoist_tasks = all_todoist_tasks + [
+                    t for t in _prep_tasks if t["id"] not in _seen_ids
+                ]
                 starred_emails = f_starred.result()
                 try:
                     unread_emails = f_unread.result()
@@ -1545,6 +1552,12 @@ def handle_action(event: dict) -> dict:
                 # Fetch Fishing for Men Todoist project tasks + all tasks for matching
                 ffm_tasks, ffm_project_id = svc.get_ffm_tasks()
                 all_todoist_tasks = svc.get_all_tasks()
+                # Merge event-prep tasks (from search) so prep indicator works
+                _prep_cal = svc.get_event_prep_tasks()
+                _seen_cal = {t["id"] for t in all_todoist_tasks}
+                all_todoist_tasks = all_todoist_tasks + [
+                    t for t in _prep_cal if t["id"] not in _seen_cal
+                ]
                 body = build_calendar_html(
                     events,
                     state,

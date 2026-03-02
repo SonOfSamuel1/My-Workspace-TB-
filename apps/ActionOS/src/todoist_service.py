@@ -147,6 +147,22 @@ class TodoistService:
         logger.info(f"Fetched {len(tasks)} all-tasks (cached for {_ALL_TASKS_TTL}s)")
         return tasks
 
+    def get_event_prep_tasks(self):
+        """Return all 'Event Prep:' tasks using the filter/search endpoint."""
+        try:
+            tasks = self._get_all_pages(
+                "tasks/filter", params={"query": "search:Event Prep"}, max_pages=3
+            )
+            prep_tasks = [
+                t for t in tasks
+                if (t.get("content") or "").strip().lower().startswith("event prep:")
+            ]
+            logger.info(f"Fetched {len(prep_tasks)} event-prep tasks (from {len(tasks)} search results)")
+            return prep_tasks
+        except Exception as e:
+            logger.error(f"Failed to fetch event prep tasks: {e}")
+            return []
+
     # ------------------------------------------------------------------
     # Tasks
     # ------------------------------------------------------------------
