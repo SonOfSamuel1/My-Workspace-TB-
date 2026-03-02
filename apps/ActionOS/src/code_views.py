@@ -196,7 +196,7 @@ def build_code_projects_html(
         ".section-nav::-webkit-scrollbar{display:none;}"
         ".section-nav{-ms-overflow-style:none;scrollbar-width:none;}"
         ".nav-pill{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;"
-        "border-radius:100px;font-size:12px;font-weight:600;cursor:pointer;"
+        "border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;"
         "white-space:nowrap;border:1px solid transparent;transition:opacity .15s;flex-shrink:0;}"
         ".nav-pill:hover{opacity:0.85;}"
         ".nav-badge{font-size:11px;font-weight:700;padding:1px 6px;border-radius:8px;"
