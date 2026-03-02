@@ -488,6 +488,16 @@ def build_cards_html(
             "</label>"
         )
         action_parts.append(date_input)
+        # Schedule button (all view types)
+        _safe_subj_sched = subject.replace("'", "\\'").replace('"', "&quot;")
+        _sched_btn = (
+            '<button class="action-pill" '
+            'style="color:#38bdf8;background:rgba(56,189,248,0.1);border:1px solid rgba(56,189,248,0.25);"'
+            " onclick=\"event.stopPropagation();openScheduleModal('" + msg_id + "','" + _safe_subj_sched + "')\">"
+            '<svg style="display:inline-block;vertical-align:middle;margin-right:4px" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01M16 18h.01"/></svg>'
+            "Schedule</button>"
+        )
+        action_parts.append(_sched_btn)
         if view_type == "starred":
             # Starred view: Inbox, Best Case, Commit buttons
             safe_subject = subject.replace("'", "\\'").replace('"', "&quot;")
@@ -1204,6 +1214,51 @@ def build_web_html(
         "if(body)body.innerHTML='';"
         "_sheetCard=null;"
         "}"
+        # Schedule modal JS
+        "var _schedTaskId=null,_schedMins=0,_schedTitle='';"
+        "function openScheduleModal(taskId,title){"
+        "_schedTaskId=taskId;_schedMins=0;_schedTitle=title||'';"
+        "document.querySelectorAll('.duration-opt').forEach(function(b){b.classList.remove('selected');});"
+        "var btn=document.getElementById('schedule-confirm');"
+        "btn.disabled=true;btn.textContent='Schedule';"
+        "document.getElementById('schedule-overlay').classList.add('open');"
+        "}"
+        "function closeScheduleModal(){"
+        "document.getElementById('schedule-overlay').classList.remove('open');"
+        "_schedTaskId=null;_schedMins=0;_schedTitle='';"
+        "}"
+        "document.querySelectorAll('.duration-opt').forEach(function(b){"
+        "b.addEventListener('click',function(){"
+        "document.querySelectorAll('.duration-opt').forEach(function(x){x.classList.remove('selected');});"
+        "this.classList.add('selected');"
+        "_schedMins=parseInt(this.getAttribute('data-mins'));"
+        "var n=_schedMins/30;"
+        "document.getElementById('schedule-confirm').disabled=false;"
+        "document.getElementById('schedule-confirm').textContent='Schedule '+n+' event'+(n>1?'s':'');"
+        "});});"
+        "document.getElementById('schedule-confirm').addEventListener('click',function(){"
+        "if(!_schedTaskId||!_schedMins)return;"
+        "var btn=this;btn.disabled=true;btn.textContent='Scheduling...';"
+        "var url=BASE_URL+'?action=schedule_action&task_id='+_schedTaskId+'&duration='+_schedMins+('&token='+TOKEN);"
+        "if(_schedTitle)url+='&task_title='+encodeURIComponent(_schedTitle);"
+        "fetch(url)"
+        ".then(function(r){return r.json();})"
+        ".then(function(d){"
+        "if(d.ok){"
+        "btn.textContent='\\u2713 '+d.events_created+' events created!';"
+        "btn.style.background='#22c55e';"
+        "setTimeout(function(){closeScheduleModal();btn.style.background='';},1500);"
+        "}else{"
+        "btn.textContent='Failed: '+(d.error||'Unknown error');"
+        "btn.disabled=false;btn.style.background='#ef4444';"
+        "setTimeout(function(){btn.style.background='';btn.textContent='Schedule';},2000);"
+        "}"
+        "})"
+        ".catch(function(e){"
+        "btn.textContent='Error';btn.disabled=false;"
+        "setTimeout(function(){btn.textContent='Schedule';},2000);"
+        "});"
+        "});"
         "</script>"
     )
 
@@ -1373,6 +1428,27 @@ def build_web_html(
         "::-webkit-scrollbar{width:6px;}"
         "::-webkit-scrollbar-track{background:transparent;}"
         "::-webkit-scrollbar-thumb{background:var(--scrollbar);border-radius:3px;}"
+        "#schedule-overlay{display:none;position:fixed;inset:0;z-index:700;"
+        "background:rgba(0,0,0,0.6);align-items:center;justify-content:center;}"
+        "#schedule-overlay.open{display:flex;}"
+        "#schedule-modal{background:var(--bg-s1);border:1px solid var(--border);border-radius:14px;"
+        "padding:24px;width:320px;max-width:90vw;}"
+        "#schedule-modal h3{font-size:16px;font-weight:700;color:var(--text-1);margin:0 0 4px;}"
+        "#schedule-modal p{font-size:13px;color:var(--text-2);margin:0 0 16px;}"
+        ".duration-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:16px;}"
+        ".duration-opt{font-family:inherit;font-size:13px;font-weight:600;"
+        "padding:10px;border-radius:8px;border:1px solid var(--border-h);"
+        "background:var(--bg-s2);color:var(--text-2);cursor:pointer;text-align:center;}"
+        ".duration-opt:hover{border-color:#38bdf8;color:#38bdf8;}"
+        ".duration-opt.selected{background:rgba(56,189,248,0.15);border-color:#38bdf8;color:#38bdf8;}"
+        "#schedule-confirm{width:100%;font-family:inherit;font-size:14px;font-weight:700;"
+        "padding:12px;border-radius:8px;border:none;cursor:pointer;margin-bottom:8px;"
+        "background:#38bdf8;color:#0c1a2e;}"
+        "#schedule-confirm:disabled{opacity:0.4;cursor:default;}"
+        "#schedule-cancel{width:100%;font-family:inherit;font-size:13px;font-weight:600;"
+        "padding:10px;border-radius:8px;border:none;cursor:pointer;"
+        "background:none;color:var(--text-2);}"
+        "#schedule-cancel:hover{color:var(--text-1);}"
         "</style>"
     )
 
@@ -1464,7 +1540,25 @@ def build_web_html(
         '<div class="sheet-handle"></div>'
         '<div class="sheet-title">Actions</div>'
         '<div id="action-sheet-body"></div>'
-        "</div></div>" + js + "</body></html>"
+        "</div></div>"
+        '<div id="schedule-overlay" onclick="if(event.target===this)closeScheduleModal()">'
+        '<div id="schedule-modal">'
+        "<h3>Schedule Email</h3>"
+        "<p>How long will this take?</p>"
+        '<div class="duration-grid">'
+        '<button class="duration-opt" data-mins="30">30 min</button>'
+        '<button class="duration-opt" data-mins="60">1 hr</button>'
+        '<button class="duration-opt" data-mins="90">1.5 hrs</button>'
+        '<button class="duration-opt" data-mins="120">2 hrs</button>'
+        '<button class="duration-opt" data-mins="150">2.5 hrs</button>'
+        '<button class="duration-opt" data-mins="180">3 hrs</button>'
+        '<button class="duration-opt" data-mins="210">3.5 hrs</button>'
+        '<button class="duration-opt" data-mins="240">4 hrs</button>'
+        "</div>"
+        '<button id="schedule-confirm" disabled>Schedule</button>'
+        '<button id="schedule-cancel" onclick="closeScheduleModal()">Cancel</button>'
+        "</div></div>"
+        + js + "</body></html>"
     )
 
 
