@@ -269,14 +269,15 @@ class EmailFormatter:
 
         lines = verse_text.strip().splitlines()
         ref_pattern = re.compile(
-            r"^(?:\d\s+)?[A-Z]\w+(\s\w+)?\s+\d+:\d+[\d\u2013\-,\s]*(\s*\([^)]+\))?$"
+            r"^(?:\d\s+)?[A-Z]\w+(\s\w+)?\s+\d+:\d+[\d\u2013\-,\s]*(\s*\([^)]+\))*$"
         )
 
         reference = ""
         body_lines = lines
 
         if lines and ref_pattern.match(lines[0].strip()):
-            reference = re.sub(r"\s*\([^)]+\)\s*$", "", lines[0].strip()).strip()
+            # Strip ALL parentheticals: (ESV), (Hate and despise money as a master), etc.
+            reference = re.sub(r"\s*\([^)]+\)", "", lines[0].strip()).strip()
             body_lines = lines[1:]
 
         body = "\n".join(body_lines).strip()
