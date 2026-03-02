@@ -344,7 +344,7 @@ class GmailService:
         """Fetch subject, sender, date for a given message ID.
 
         Returns:
-            Dict with: id, threadId, subject, from, date, gmail_link
+            Dict with: id, threadId, subject, from, date, gmail_link, is_calendar_invite
         """
         if not self.service:
             self.connect()
@@ -362,6 +362,15 @@ class GmailService:
                 .execute()
             )
             headers = self._get_message_headers(message)
+            subject_lower = headers["subject"].lower()
+            from_lower = headers["from"].lower()
+            is_calendar_invite = (
+                "calendar-notification@google.com" in from_lower
+                or subject_lower.startswith("invitation:")
+                or subject_lower.startswith("updated invitation:")
+                or subject_lower.startswith("accepted:")
+                or subject_lower.startswith("declined:")
+            )
             return {
                 "id": message_id,
                 "threadId": message.get("threadId", ""),
@@ -371,10 +380,49 @@ class GmailService:
                 "gmail_link": GMAIL_DEEP_LINK.format(
                     thread_id=message.get("threadId", message_id)
                 ),
+                "is_calendar_invite": is_calendar_invite,
             }
         except HttpError as e:
             logger.error(f"Gmail API error fetching message {message_id}: {e}")
             raise
+
+    def get_calendar_rsvp_urls(self, message_id: str) -> Dict[str, str]:
+        """Extract Accept/Decline/Maybe RSVP URLs from a Google Calendar invite email.
+
+        Returns:
+            Dict with 'accept', 'decline', 'maybe' keys; values are URLs or empty strings.
+        """
+        import html as _html
+        import re as _re
+
+        if not self.service:
+            self.connect()
+
+        try:
+            message = (
+                self.service.users()
+                .messages()
+                .get(userId="me", id=message_id, format="full")
+                .execute()
+            )
+            body_html, body_text = self._extract_body(message.get("payload", {}))
+            body = _html.unescape(body_html or body_text)
+
+            rsvp: Dict[str, str] = {"accept": "", "decline": "", "maybe": ""}
+            for action in ("ACCEPT", "DECLINE", "MAYBE"):
+                m = _re.search(
+                    r"https://[^\s\"'<>]*google\.com/calendar/event\?[^\s\"'<>]*\baction="
+                    + action
+                    + r"[^\s\"'<>]*",
+                    body,
+                    _re.IGNORECASE,
+                )
+                if m:
+                    rsvp[action.lower()] = m.group(0).rstrip("&;")
+            return rsvp
+        except Exception as e:
+            logger.error(f"get_calendar_rsvp_urls failed for {message_id}: {e}")
+            return {"accept": "", "decline": "", "maybe": ""}
 
     def create_skip_inbox_filter(self, from_email: str) -> dict:
         """Create a Gmail filter to skip the inbox for emails from this sender."""

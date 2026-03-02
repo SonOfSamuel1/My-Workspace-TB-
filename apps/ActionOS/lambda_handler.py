@@ -18,6 +18,7 @@ Email actions (GET, token required):
   ?action=markread&msg_id=X            → Mark unread email as read
   ?action=unstar&msg_id=X              → Unstar starred email
   ?action=create_filter&from_email=X   → Gmail skip-inbox filter
+  ?action=accept_invite&msg_id=X&response=accept/decline/maybe → RSVP to calendar invite
 
 Todoist actions (GET, token required):
   ?action=move&task_id=X&project_id=Y
@@ -1705,6 +1706,41 @@ def handle_action(event: dict) -> dict:
                 return _ok_json()
             logger.error(f"create_filter failed: {e}", exc_info=True)
             return _error_json(str(e))
+
+    elif action == "accept_invite":
+        msg_id = params.get("msg_id", "")
+        response = params.get("response", "accept").lower()
+        if response not in ("accept", "decline", "maybe"):
+            response = "accept"
+        if not msg_id:
+            return {"statusCode": 400, "body": "Missing msg_id"}
+        try:
+            from gmail_service import GmailService
+
+            gmail = GmailService()
+            rsvp_urls = gmail.get_calendar_rsvp_urls(msg_id)
+            rsvp_url = rsvp_urls.get(response, "")
+            if not rsvp_url:
+                return {
+                    "statusCode": 200,
+                    "headers": {"Content-Type": "text/html"},
+                    "body": _error_page(
+                        f"Could not find {response} RSVP link in this email. "
+                        "Try opening the email directly."
+                    ),
+                }
+            return {
+                "statusCode": 302,
+                "headers": {"Location": rsvp_url},
+                "body": "",
+            }
+        except Exception as e:
+            logger.error(f"accept_invite failed: {e}", exc_info=True)
+            return {
+                "statusCode": 200,
+                "headers": {"Content-Type": "text/html"},
+                "body": _error_page(f"Error: {e}"),
+            }
 
     # -----------------------------------------------------------------------
     # Todoist task actions

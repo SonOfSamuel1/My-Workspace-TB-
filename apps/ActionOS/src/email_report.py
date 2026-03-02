@@ -54,6 +54,14 @@ _SVG_RECORD = (
     '<svg style="display:inline-block;vertical-align:middle" width="10" height="10" '
     'viewBox="0 0 10 10"><circle cx="5" cy="5" r="4" fill="currentColor"/></svg>'
 )
+_SVG_CALENDAR_ACCEPT = (
+    '<svg style="display:inline-block;vertical-align:middle" width="14" height="14" '
+    'viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" '
+    'stroke-linecap="round" stroke-linejoin="round">'
+    '<rect x="2" y="3.5" width="12" height="10.5" rx="1.5"/>'
+    '<path d="M2 7h12"/><path d="M5.5 1.5v3"/><path d="M10.5 1.5v3"/>'
+    '<path d="M5 10.5l1.5 1.5 3.5-3"/></svg>'
+)
 _CC_LABEL = "Claude"
 
 
@@ -377,6 +385,7 @@ def build_cards_html(
         open_url = ""
         markread_btn = ""
         skip_inbox_btn = ""
+        rsvp_btns: list = []
 
         if gmail_link:
             if not msg_id:
@@ -437,6 +446,36 @@ def build_cards_html(
                     + " Skip Inbox</button>"
                 )
 
+        # Calendar invite RSVP buttons
+        if email_item.get("is_calendar_invite") and msg_id and function_url and action_token:
+            rsvp_btns = [
+                (
+                    "<button onclick=\"event.stopPropagation();doAcceptInvite(this,'"
+                    + msg_id
+                    + "','accept')\" "
+                    'class="action-pill rsvp-accept-btn" data-label="Accept" '
+                    'style="color:var(--ok);background:var(--ok-bg);border:1px solid var(--ok-b);">'
+                    + _SVG_CALENDAR_ACCEPT
+                    + " Accept</button>"
+                ),
+                (
+                    "<button onclick=\"event.stopPropagation();doAcceptInvite(this,'"
+                    + msg_id
+                    + "','decline')\" "
+                    'class="action-pill rsvp-decline-btn" data-label="Decline" '
+                    'style="color:var(--err);background:var(--err-bg);border:1px solid var(--err-b);">'
+                    "Decline</button>"
+                ),
+                (
+                    "<button onclick=\"event.stopPropagation();doAcceptInvite(this,'"
+                    + msg_id
+                    + "','maybe')\" "
+                    'class="action-pill rsvp-maybe-btn" data-label="Maybe" '
+                    'style="color:var(--warn);background:var(--warn-bg);border:1px solid var(--warn-b);">'
+                    "Maybe</button>"
+                ),
+            ]
+
         age_css = _age_style(days_int)
 
         meta_parts = []
@@ -465,7 +504,7 @@ def build_cards_html(
         )
 
         # Action row: mark read + skip inbox + assign cc + date picker + priority + move to todoist dropdown
-        action_parts = []
+        action_parts = list(rsvp_btns)
         if markread_btn:
             action_parts.append(markread_btn)
         if skip_inbox_btn:
@@ -857,6 +896,15 @@ def build_web_html(
         "btn.innerHTML='Failed \\u2013 Retry';"
         "});"
         "}"
+        # doAcceptInvite: open Google Calendar RSVP URL in a new tab
+        "function doAcceptInvite(btn,msgId,response){"
+        "btn.disabled=true;"
+        "var origLabel=btn.getAttribute('data-label')||btn.textContent.trim();"
+        "btn.textContent='Opening\\u2026';"
+        "var url=BASE_URL+'?action=accept_invite&msg_id='+msgId+'&response='+response+'&token='+TOKEN;"
+        "window.open(url,'_blank');"
+        "setTimeout(function(){btn.disabled=false;btn.textContent=origLabel;},1500);"
+        "}"
         # doSkipInbox: create Gmail filter to skip inbox, then mark email as read
         "function doSkipInbox(btn,filterUrl,msgId){"
         "btn.disabled=true;"
@@ -1111,6 +1159,24 @@ def build_web_html(
         "};"
         "body.appendChild(skipRow);"
         "}}"
+        # RSVP rows for calendar invite emails
+        "var rsvpBtns=[card.querySelector('.rsvp-accept-btn'),"
+        "card.querySelector('.rsvp-decline-btn'),"
+        "card.querySelector('.rsvp-maybe-btn')];"
+        "var rsvpLabels=['Accept','Decline','Maybe'];"
+        "var rsvpResponses=['accept','decline','maybe'];"
+        "var rsvpColors=['var(--ok)','var(--err)','var(--warn)'];"
+        "for(var ri=0;ri<rsvpBtns.length;ri++){(function(rb,rl,rr,rc){"
+        "if(!rb)return;"
+        "var rsvpRow=document.createElement('button');"
+        "rsvpRow.className='sheet-action';"
+        "rsvpRow.textContent=rl;"
+        "rsvpRow.style.color=rc;"
+        "rsvpRow.setAttribute('touch-action','manipulation');"
+        "var msgId=card.getAttribute('data-msg-id')||'';"
+        "rsvpRow.onclick=function(){closeActionSheet();doAcceptInvite(rb,msgId,rr);};"
+        "body.appendChild(rsvpRow);"
+        "})(rsvpBtns[ri],rsvpLabels[ri],rsvpResponses[ri],rsvpColors[ri]);}"
         # Date picker row
         "var dateInput=card.querySelector('.due-date-picker');"
         "if(dateInput){"
