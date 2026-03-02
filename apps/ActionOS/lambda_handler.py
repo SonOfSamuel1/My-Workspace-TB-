@@ -60,7 +60,7 @@ Scheduled (EventBridge):
 Public (no auth required):
   ?action=sw                           → Service worker JS
   ?action=gmail_open&thread_id=X       → Open Gmail thread in app
-  ?action=obsidian_open&vault=V&file=F → HTTPS → obsidian:// redirect
+  ?action=obsidian_open&vault=V&file=F → HTTPS → obsidian://new append reflection
 """
 
 import base64
@@ -968,9 +968,8 @@ def handle_action(event: dict) -> dict:
         _vault = params.get("vault", "")
         _file = params.get("file", "")  # path without .md extension
         if _vault and _file:
-            # Append reflection prompts to the note via the Advanced URI plugin.
-            # Requires: https://obsidian.md/plugins?id=obsidian-advanced-uri
-            _filepath = _file + ".md"
+            # Append reflection prompts using Obsidian's built-in obsidian://new
+            # with append=true — no plugin required.
             _reflection_content = (
                 "\n\n---\n\n"
                 "## My Reflections\n\n"
@@ -979,11 +978,11 @@ def handle_action(event: dict) -> dict:
                 "**What's something practical that I can do to obey this teaching right away?**\n\n"
             )
             _obs_url = (
-                "obsidian://advanced-uri"
+                "obsidian://new"
                 f"?vault={urllib.parse.quote(_vault, safe='')}"
-                f"&filepath={urllib.parse.quote(_filepath, safe='')}"
-                f"&mode=append"
-                f"&data={urllib.parse.quote(_reflection_content, safe='')}"
+                f"&file={urllib.parse.quote(_file, safe='')}"
+                f"&content={urllib.parse.quote(_reflection_content, safe='')}"
+                f"&append=true"
             )
             _html = (
                 "<!DOCTYPE html><html><head>"
