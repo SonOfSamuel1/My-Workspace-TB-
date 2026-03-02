@@ -649,6 +649,19 @@ def load_credentials():
     except Exception as e:
         logger.warning(f"Could not load state-bucket: {e}")
 
+    # Google Maps (travel time feature)
+    try:
+        os.environ["HOME_ADDRESS"] = get_parameter("/action-dashboard/home-address")
+    except Exception as e:
+        logger.warning(f"Could not load home-address: {e}")
+
+    try:
+        os.environ["GOOGLE_MAPS_API_KEY"] = get_parameter(
+            "/action-dashboard/google-maps-api-key"
+        )
+    except Exception as e:
+        logger.warning(f"Could not load google-maps-api-key: {e}")
+
     logger.info("Credentials loaded successfully")
 
 
@@ -2693,43 +2706,53 @@ def handle_action(event: dict) -> dict:
 
     elif action == "calendar_travel_time":
         try:
+            import requests as _req
+
             event_id = params.get("event_id", "")
             event_title = params.get("event_title", "Event")
             event_start = params.get("event_start", "")
             event_location = params.get("event_location", "")
 
+            if not event_location:
+                return _error_json("Event has no location — cannot calculate travel time")
             if not event_start:
-                return _error_json("Missing event_start")
+                return _error_json("Event has no start time — cannot add travel time to all-day event")
 
             # Calculate travel time via Google Maps Distance Matrix API
-            travel_minutes = 30  # default
+            travel_seconds = 0
             home_address = os.environ.get("HOME_ADDRESS", "")
             maps_api_key = os.environ.get("GOOGLE_MAPS_API_KEY", "")
 
-            if home_address and event_location and maps_api_key:
-                try:
-                    import requests as _req
-                    resp = _req.get(
-                        "https://maps.googleapis.com/maps/api/distancematrix/json",
-                        params={
-                            "origins": home_address,
-                            "destinations": event_location,
-                            "mode": "driving",
-                            "key": maps_api_key,
-                        },
-                        timeout=5,
+            if not home_address or not maps_api_key:
+                return _error_json("Home address or Maps API key not configured")
+
+            resp = _req.get(
+                "https://maps.googleapis.com/maps/api/distancematrix/json",
+                params={
+                    "origins": home_address,
+                    "destinations": event_location,
+                    "mode": "driving",
+                    "key": maps_api_key,
+                },
+                timeout=10,
+            )
+            resp.raise_for_status()
+            maps_data = resp.json()
+
+            try:
+                element = maps_data["rows"][0]["elements"][0]
+                if element.get("status") == "OK":
+                    travel_seconds = element["duration"]["value"]
+                else:
+                    return _error_json(
+                        f"Maps API could not find route: {element.get('status', 'UNKNOWN')}"
                     )
-                    resp.raise_for_status()
-                    data = resp.json()
-                    rows = data.get("rows", [])
-                    if rows:
-                        elements = rows[0].get("elements", [])
-                        if elements and elements[0].get("status") == "OK":
-                            duration_secs = elements[0]["duration"]["value"]
-                            travel_minutes = max(5, (duration_secs + 59) // 60)
-                            logger.info(f"Travel time to '{event_location}': {travel_minutes} min")
-                except Exception as maps_err:
-                    logger.warning(f"Google Maps API failed, using default 30 min: {maps_err}")
+            except (KeyError, IndexError) as e:
+                return _error_json(f"Failed to parse Maps response: {e}")
+
+            # Round up to nearest 5 minutes, add 10-min departure buffer
+            travel_minutes = (travel_seconds // 60) + 10
+            travel_minutes = ((travel_minutes + 4) // 5) * 5
 
             from calendar_service import CalendarService
 
@@ -2737,22 +2760,33 @@ def handle_action(event: dict) -> dict:
                 os.environ["CALENDAR_CREDENTIALS_JSON"],
                 os.environ["CALENDAR_TOKEN_JSON"],
             )
-            gcal_link = cal.create_travel_time_event(
+            travel_event_link = cal.create_travel_time_event(
                 title=event_title,
                 event_start_iso=event_start,
                 travel_minutes=travel_minutes,
+                destination=event_location,
+                drive_seconds=travel_seconds,
             )
 
             # Persist to calendar state so badge shows on next load
             if event_id:
                 state = _load_calendar_state()
                 state.setdefault("travel_time", {})[event_id] = {
-                    "travel_event_link": gcal_link,
+                    "travel_event_link": travel_event_link,
                     "travel_minutes": travel_minutes,
                 }
                 _save_calendar_state(state)
 
-            return _ok_json({"gcal_link": gcal_link})
+            logger.info(
+                f"Travel time event created for '{event_title}': "
+                f"{travel_minutes} min, link={travel_event_link}"
+            )
+            return _ok_json(
+                {
+                    "travel_event_link": travel_event_link,
+                    "travel_minutes": travel_minutes,
+                }
+            )
         except Exception as e:
             logger.error(f"calendar_travel_time failed: {e}", exc_info=True)
             return _error_json(str(e))
