@@ -2606,7 +2606,8 @@ def handle_action(event: dict) -> dict:
                 json=task_json,
             )
             _r.raise_for_status()
-            return _ok_json()
+            _task_data = _r.json()
+            return _ok_json({"task_id": _task_data.get("id", "")})
         except Exception as e:
             logger.error(f"calendar_schedule_prep failed: {e}", exc_info=True)
             return _error_json(str(e))

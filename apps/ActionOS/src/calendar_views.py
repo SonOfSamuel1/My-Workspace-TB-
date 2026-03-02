@@ -336,7 +336,7 @@ def _build_event_card(
         + loc_enc
     )
 
-    # Schedule Prep URL + button/indicator
+    # Schedule Prep URL + button (only shown when no prep task exists)
     prep_url_base = (
         function_url.rstrip("/")
         + "?action=calendar_schedule_prep"
@@ -350,13 +350,7 @@ def _build_event_card(
         + loc_enc
     )
     if has_prep_action:
-        _prep_href = f"https://app.todoist.com/app/task/{prep_task_id}" if prep_task_id else "#"
-        schedule_prep_btn = (
-            f'<a class="prep-indicator" id="prep-{idx}" href="{_prep_href}" target="_blank"'
-            ' style="font-size:11px;color:var(--ok,#22c55e);text-decoration:none;"'
-            ' onclick="event.stopPropagation()">'
-            "Prep Scheduled</a>"
-        )
+        schedule_prep_btn = ""
     else:
         schedule_prep_btn = (
             f'<button class="schedule-prep-btn" id="prep-{idx}" '
@@ -364,16 +358,23 @@ def _build_event_card(
             "Schedule Prep</button>"
         )
 
-    # Todoist action indicator badge
+    # Badge-row indicators (appear under title)
     todoist_indicator = ""
     if has_todoist_action:
         _td_href = f"https://app.todoist.com/app/task/{todoist_task_id}" if todoist_task_id else "#"
         todoist_indicator = (
             f'<a class="todoist-indicator" href="{_td_href}" target="_blank"'
-            ' style="font-size:10px;background:var(--ok-bg,#16382a);color:var(--ok,#22c55e);'
-            'padding:1px 6px;border-radius:8px;margin-left:6px;white-space:nowrap;'
-            'text-decoration:none;" onclick="event.stopPropagation()">'
+            ' onclick="event.stopPropagation()">'
             "Event Action</a>"
+        )
+
+    prep_indicator = ""
+    if has_prep_action:
+        _prep_href = f"https://app.todoist.com/app/task/{prep_task_id}" if prep_task_id else "#"
+        prep_indicator = (
+            f'<a class="prep-indicator" href="{_prep_href}" target="_blank"'
+            ' onclick="event.stopPropagation()">'
+            "Prep Scheduled</a>"
         )
 
     # Meta line: date · location
@@ -432,10 +433,11 @@ def _build_event_card(
         f'<div class="task-card{card_extra}" id="card-{idx}">'
         f'<div class="card-row">'
         f'<div class="card-content">'
-        f'<div class="task-title">'
-        f"{title}"
+        f'<div class="task-title">{title}</div>'
+        f'<div class="badge-row">'
         f'<span class="cal-type-badge" style="background:{cal_color}">{cal_label}</span>'
         f"{todoist_indicator}"
+        f"{prep_indicator}"
         f"</div>"
         f'<div class="task-meta">{meta_line}</div>'
         f'<div class="task-actions">'
@@ -448,8 +450,8 @@ def _build_event_card(
         f"Commit</button>"
         f"{schedule_prep_btn}"
         f"{timer_btn}"
-        f"{gcal_html}"
         f"{cc_btn}"
+        f"{gcal_html}"
         f"</div>"
         f"</div></div>"
         f"</div>"
@@ -829,10 +831,16 @@ def build_calendar_html(
         ".card-row{display:flex;align-items:flex-start;gap:10px;}"
         ".card-content{flex:1;min-width:0;overflow:hidden;}"
         ".task-title{font-size:15px;font-weight:600;color:var(--text-1);"
-        "line-height:1.4;margin-bottom:4px;word-break:break-word;"
-        "display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;}"
+        "line-height:1.4;margin-bottom:2px;word-break:break-word;}"
+        ".badge-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:4px;}"
         ".cal-type-badge{font-size:10px;font-weight:700;color:#fff;"
         "padding:2px 7px;border-radius:6px;white-space:nowrap;flex-shrink:0;}"
+        ".todoist-indicator{font-size:10px;font-weight:600;text-decoration:none;"
+        "background:var(--ok-bg,#16382a);color:var(--ok,#22c55e);"
+        "padding:2px 7px;border-radius:6px;white-space:nowrap;}"
+        ".prep-indicator{font-size:10px;font-weight:600;text-decoration:none;"
+        "background:var(--ok-bg,#16382a);color:var(--ok,#22c55e);"
+        "padding:2px 7px;border-radius:6px;white-space:nowrap;}"
         ".task-meta{font-size:12px;color:var(--text-2);margin-bottom:10px;line-height:1.5;"
         "word-break:break-word;overflow-wrap:break-word;}"
         ".task-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}"
@@ -861,9 +869,6 @@ def build_calendar_html(
         "background:var(--p1-bg,#1e293b);color:var(--p1,#38bdf8);border:1px solid var(--p1-b,#334155);"
         "cursor:pointer;transition:background .15s;}"
         ".schedule-prep-btn:hover{background:var(--p1-b,#334155);}"
-        ".prep-indicator{font-family:inherit;font-size:11px;font-weight:600;"
-        "padding:5px 10px;border-radius:6px;"
-        "color:var(--ok,#22c55e);}"
         ".timer-btn{font-family:inherit;font-size:12px;font-weight:600;"
         "padding:5px 14px;border-radius:6px;"
         "background:var(--purple-bg);color:var(--purple);border:1px solid var(--purple-b);"
@@ -1067,8 +1072,13 @@ def build_calendar_html(
         ".then(function(r){return r.json();})"
         ".then(function(d){"
         "if(d.ok){"
-        "btn.textContent='Prep Scheduled';btn.style.background=cv('--ok-bg');btn.style.color=cv('--ok');"
-        "btn.style.cursor='default';btn.classList.remove('schedule-prep-btn');btn.classList.add('prep-indicator');}"
+        "btn.style.display='none';"
+        "var card=btn.closest('.task-card');"
+        "var br=card&&card.querySelector('.badge-row');"
+        "if(br){var a=document.createElement('a');a.className='prep-indicator';"
+        "a.textContent='Prep Scheduled';a.target='_blank';"
+        "a.href=d.task_id?'https://app.todoist.com/app/task/'+d.task_id:'#';"
+        "a.onclick=function(e){e.stopPropagation();};br.appendChild(a);}}"
         "else{"
         "btn.textContent='Schedule Prep';btn.style.pointerEvents='auto';}"
         "}).catch(function(){"
