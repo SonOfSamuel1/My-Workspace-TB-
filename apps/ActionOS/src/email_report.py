@@ -1452,7 +1452,7 @@ def build_web_html(
         "#bulk-toolbar{left:10px!important;right:10px;transform:none!important;"
         "flex-wrap:wrap;justify-content:center;}"
         ".card-actions-inline{display:flex!important;gap:6px!important;margin-top:10px!important;max-width:100%;}"
-        ".card-actions-inline .action-pill{font-size:13px!important;padding:8px 12px!important;min-height:44px!important;touch-action:manipulation;min-width:0;max-width:100%;}"
+        ".card-actions-inline .action-pill{font-size:14px!important;padding:8px 12px!important;min-height:44px!important;touch-action:manipulation;min-width:0;max-width:100%;}"
         ".card-actions-inline select.action-pill{overflow:hidden;text-overflow:ellipsis;}"
         ".card-action-menu-btn{display:none!important;}"
         ".top-bar-unread button{display:none!important;}"
