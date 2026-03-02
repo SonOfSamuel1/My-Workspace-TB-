@@ -1682,7 +1682,7 @@ def build_home_html(
         "#schedule-cancel:hover{color:var(--text-1);}"
         # Toggl timer button
         ".toggl-btn{font-family:inherit;font-size:12px;font-weight:600;"
-        "padding:3px 8px;border-radius:6px;"
+        "padding:5px 14px;border-radius:6px;"
         "background:var(--border);color:var(--text-2);border:1px solid var(--border);cursor:pointer;"
         "transition:background .15s ease-out;display:inline-flex;align-items:center;gap:4px;}"
         ".toggl-btn:hover{background:var(--border-h);}"
@@ -1735,7 +1735,7 @@ def build_home_html(
         ".review-btn,.markread-btn,.complete-btn,.commit-btn,.bestcase-btn,.todoist-btn,"
         ".skip-inbox-btn,.resolve-btn,.timer-btn{font-size:11px;padding:3px 8px;}"
         ".schedule-btn,.assign-cc-btn{font-size:11px;padding:4px 6px;}"
-        ".toggl-btn{font-size:11px;padding:3px 6px;}"
+        ".toggl-btn{font-size:11px;padding:4px 8px;}"
         ".time-tracked{font-size:11px;padding:4px 8px;}"
         ".move-pill-select{font-size:10px;max-width:70px;}"
         ".action-select{font-size:10px;padding:3px 4px;}"
