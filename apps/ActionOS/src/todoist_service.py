@@ -575,6 +575,29 @@ class TodoistService:
             logger.error(f"Failed to create task '{content}': {e}")
             return None
 
+    def get_or_create_event_prep_project(self):
+        """Return the project ID for 'Event Prep', creating it if it doesn't exist."""
+        project = self._find_project_by_name("Event Prep")
+        if project:
+            logger.info(f"Found existing 'Event Prep' project: {project['id']}")
+            return project["id"]
+        try:
+            response = requests.post(
+                f"{API_BASE}/projects",
+                headers=self.headers,
+                json={"name": "Event Prep"},
+            )
+            response.raise_for_status()
+            new_project = response.json()
+            # Invalidate the projects cache so subsequent calls see the new project
+            _projects_cache["data"] = None
+            project_id = new_project["id"]
+            logger.info(f"Created new 'Event Prep' project: {project_id}")
+            return project_id
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Failed to create 'Event Prep' project: {e}")
+            return None
+
     def get_ffm_tasks(self):
         """Fetch tasks from the 'Fishing for Men' Todoist project.
 

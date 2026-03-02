@@ -2689,7 +2689,7 @@ def handle_action(event: dict) -> dict:
 
     elif action == "calendar_schedule_prep":
         try:
-            import requests as _req
+            from todoist_service import TodoistService
 
             event_title = params.get("event_title", "Calendar Event")
             event_date = params.get("event_date", "")
@@ -2706,31 +2706,25 @@ def handle_action(event: dict) -> dict:
                 except Exception:
                     prep_due = event_date[:10]
 
-            _headers = {
-                "Authorization": f"Bearer {todoist_token}",
-                "Content-Type": "application/json",
-            }
+            svc = TodoistService(todoist_token)
+            project_id = svc.get_or_create_event_prep_project()
+
             desc_parts = []
             if event_date:
                 desc_parts.append(f"**Event Date:** {event_date}")
             if event_location:
                 desc_parts.append(f"**Location:** {event_location}")
-            task_json = {
-                "content": f"Event Prep: {event_title}",
-                "description": "\n".join(desc_parts),
-                "labels": ["Best Case"],
-            }
-            if prep_due:
-                task_json["due_date"] = prep_due
 
-            _r = _req.post(
-                "https://api.todoist.com/api/v1/tasks",
-                headers=_headers,
-                json=task_json,
+            task = svc.create_task(
+                content=f"Event Prep: {event_title}",
+                project_id=project_id,
+                due_date=prep_due or None,
+                description="\n".join(desc_parts) or None,
+                labels=["Best Case"],
             )
-            _r.raise_for_status()
-            _task_data = _r.json()
-            return _ok_json({"task_id": _task_data.get("id", "")})
+            if not task:
+                return _error_json("Failed to create event prep task")
+            return _ok_json({"task_id": task.get("id", "")})
         except Exception as e:
             logger.error(f"calendar_schedule_prep failed: {e}", exc_info=True)
             return _error_json(str(e))
