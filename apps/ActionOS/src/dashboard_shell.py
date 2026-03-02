@@ -641,15 +641,15 @@ def build_shell_html(
         "var activeTab='" + tabs[0][0] + "';"
         "var tabIds=" + tab_ids_json + ";"
         "var tabUrls=" + tab_urls_json + ";"
-        # Dismiss splash screen once first iframe loads (or after 4s fallback)
+        # Dismiss splash 400ms after DOM is ready — shell is visible, iframes load in-place
         "(function(){"
         "var splash=document.getElementById('splash');"
         "if(!splash)return;"
         "function dismiss(){splash.classList.add('hide');"
-        "setTimeout(function(){splash.remove();},500);}"
-        "var first=document.getElementById('frame-" + tabs[0][0] + "');"
-        "if(first){first.addEventListener('load',dismiss,{once:true});}"
-        "setTimeout(dismiss,4000);"  # fallback: dismiss after 4 seconds max
+        "setTimeout(function(){splash.remove();},400);}"
+        "if(document.readyState==='loading'){"
+        "document.addEventListener('DOMContentLoaded',function(){setTimeout(dismiss,400);},{once:true});"
+        "}else{setTimeout(dismiss,400);}"
         "})();"
         # srcdoc already provides dark background for lazy iframes
         # goHome: on mobile open section picker, on desktop reload
