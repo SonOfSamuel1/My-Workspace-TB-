@@ -441,6 +441,39 @@ def _build_event_card(
             f"{_prep_label}</a>"
         )
 
+    # Travel time button and badge
+    travel_url_base = (
+        function_url.rstrip("/")
+        + "?action=calendar_travel_time"
+        + "&event_id="
+        + eid_enc
+        + "&event_title="
+        + title_enc
+        + "&event_date="
+        + date_enc
+        + "&event_location="
+        + loc_enc
+        + "&event_start="
+        + start_enc
+    )
+    is_timed_with_location = (not event.get("is_all_day", False)) and bool(location)
+    travel_indicator = ""
+    if has_travel_time:
+        _travel_href = html.escape(travel_event_link) if travel_event_link else "#"
+        travel_indicator = (
+            f'<a class="travel-indicator" href="{_travel_href}" target="_blank"'
+            ' onclick="event.stopPropagation()">'
+            "Travel Time Scheduled</a>"
+        )
+    if has_travel_time or not is_timed_with_location:
+        travel_time_btn = ""
+    else:
+        travel_time_btn = (
+            f'<button class="travel-time-btn" id="trv-{idx}" '
+            f"onclick=\"doTravelTime(this,{idx},'{travel_url_base}')\">"
+            "Add travel time</button>"
+        )
+
     # Schedule badges (last / next occurrence, shown with green event badge style)
     schedule_badges = ""
     if last_date:
@@ -779,6 +812,9 @@ def build_calendar_html(
     for ev in reviewed_events:
         cat = _categorize_event(ev)
         reviewed_buckets[cat].append(ev)
+
+    # Travel time state: event_id → {travel_event_link, ...}
+    _travel_time_state = reviewed_state.get("travel_time", {})
 
     # Card index counter (continuous across all sections)
     _card_idx = [0]
