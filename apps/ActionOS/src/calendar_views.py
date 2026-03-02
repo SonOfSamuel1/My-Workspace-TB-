@@ -272,6 +272,7 @@ def _build_event_card(
     idx: int,
     has_todoist_action: bool = False,
     has_prep_action: bool = False,
+    prep_task_id: str = "",
 ) -> str:
     eid = event.get("id", "")
     eid_safe = html.escape(eid)
@@ -348,10 +349,12 @@ def _build_event_card(
         + loc_enc
     )
     if has_prep_action:
+        _prep_href = f"https://app.todoist.com/app/task/{prep_task_id}" if prep_task_id else "#"
         schedule_prep_btn = (
-            '<span class="prep-indicator" id="prep-' + str(idx) + '"'
-            ' style="font-size:11px;color:var(--ok,#22c55e);">'
-            "Prep Scheduled</span>"
+            f'<a class="prep-indicator" id="prep-{idx}" href="{_prep_href}" target="_blank"'
+            ' style="font-size:11px;color:var(--ok,#22c55e);text-decoration:none;"'
+            ' onclick="event.stopPropagation()">'
+            "Prep Scheduled</a>"
         )
     else:
         schedule_prep_btn = (
@@ -611,12 +614,14 @@ def build_calendar_html(
 
     # Build lookup sets for calendar-todoist matching
     _todoist_titles = set()
-    _todoist_prep_titles = set()
+    _todoist_prep_map = {}  # event_title_lower → task_id
     for t in todoist_tasks:
         c = (t.get("content") or "").strip()
         _todoist_titles.add(c.lower())
         if c.lower().startswith("event prep: "):
-            _todoist_prep_titles.add(c[len("Event Prep: "):].strip().lower())
+            _todoist_prep_map.setdefault(
+                c[len("Event Prep: "):].strip().lower(), t.get("id", "")
+            )
 
     # Filter out birthday/anniversary events beyond 90 days
     filtered_events = [
@@ -664,7 +669,8 @@ def build_calendar_html(
                 project_options_html,
                 idx,
                 has_todoist_action=ev_title_lower in _todoist_titles,
-                has_prep_action=ev_title_lower in _todoist_prep_titles,
+                has_prep_action=bool(_todoist_prep_map.get(ev_title_lower)),
+                prep_task_id=_todoist_prep_map.get(ev_title_lower, ""),
             )
         return out
 

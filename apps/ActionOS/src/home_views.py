@@ -602,6 +602,7 @@ def _build_calendar_card(
     idx: int,
     has_todoist_action: bool = False,
     has_prep_action: bool = False,
+    prep_task_id: str = "",
 ) -> str:
     """Build a calendar event card with full action buttons."""
     eid = html.escape(str(event.get("id", "")))
@@ -721,10 +722,12 @@ def _build_calendar_card(
         + loc_enc
     )
     if has_prep_action:
+        _prep_href = f"https://app.todoist.com/app/task/{prep_task_id}" if prep_task_id else "#"
         schedule_prep_btn = (
-            '<span class="prep-indicator" style="font-size:11px;color:var(--ok,#22c55e);"'
+            f'<a class="prep-indicator" href="{_prep_href}" target="_blank"'
+            ' style="font-size:11px;color:var(--ok,#22c55e);text-decoration:none;"'
             ' onclick="event.stopPropagation()">'
-            "Prep Scheduled</span>"
+            "Prep Scheduled</a>"
         )
     elif reviewed:
         schedule_prep_btn = ""
@@ -1135,12 +1138,14 @@ def build_home_html(
     # Build lookup sets for calendar-todoist matching
     todoist_tasks = todoist_tasks or []
     _todoist_titles = set()
-    _todoist_prep_titles = set()
+    _todoist_prep_map = {}  # event_title_lower → task_id
     for t in todoist_tasks:
         c = (t.get("content") or "").strip()
         _todoist_titles.add(c.lower())
         if c.lower().startswith("event prep: "):
-            _todoist_prep_titles.add(c[len("Event Prep: "):].strip().lower())
+            _todoist_prep_map.setdefault(
+                c[len("Event Prep: "):].strip().lower(), t.get("id", "")
+            )
     home_state = home_state or {}
     cal_state = cal_state or {}
     followup_state = followup_state or {}
@@ -1257,11 +1262,12 @@ def build_home_html(
         idx = next_idx()
         ev_title_lower = (event.get("title") or "").strip().lower()
         _has_todoist = ev_title_lower in _todoist_titles
-        _has_prep = ev_title_lower in _todoist_prep_titles
+        _prep_tid = _todoist_prep_map.get(ev_title_lower, "")
         card = _build_calendar_card(
             event, rev, days_rem, function_url, idx,
             has_todoist_action=_has_todoist,
-            has_prep_action=_has_prep,
+            has_prep_action=bool(_prep_tid),
+            prep_task_id=_prep_tid,
         )
         if rev:
             pass  # Hide reviewed calendar events
