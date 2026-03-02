@@ -56,21 +56,16 @@ Misc (GET, token required):
 Scheduled (EventBridge):
   mode=sync        → Poll Gmail unread, update S3 state
   mode=daily_digest → Send daily email digest
-
-Public (no auth required):
-  ?action=sw                           → Service worker JS
-  ?action=gmail_open&thread_id=X       → Open Gmail thread in app
-  ?action=obsidian_open&vault=V&file=F → HTTPS → obsidian://new append reflection
 """
 
 import base64
+import hashlib
 import hmac
 import html
 import json
 import logging
 import os
 import re
-import hashlib
 import sys
 import urllib.parse
 from concurrent.futures import ThreadPoolExecutor
@@ -649,19 +644,6 @@ def load_credentials():
     except Exception as e:
         logger.warning(f"Could not load state-bucket: {e}")
 
-    # Google Maps (travel time feature)
-    try:
-        os.environ["HOME_ADDRESS"] = get_parameter("/action-dashboard/home-address")
-    except Exception as e:
-        logger.warning(f"Could not load home-address: {e}")
-
-    try:
-        os.environ["GOOGLE_MAPS_API_KEY"] = get_parameter(
-            "/action-dashboard/google-maps-api-key"
-        )
-    except Exception as e:
-        logger.warning(f"Could not load google-maps-api-key: {e}")
-
     logger.info("Credentials loaded successfully")
 
 
@@ -807,177 +789,6 @@ def _save_home_reviewed_state(state: dict) -> None:
         Body=json.dumps(state),
         ContentType="application/json",
     )
-
-
-# ---------------------------------------------------------------------------
-# Shell data cache — avoids blocking on Todoist+Gmail on every page load.
-# Railway runs always-on, so this stays warm between requests.
-_shell_data_cache: dict = {}
-_home_html_cache: dict = {}
-_view_html_cache: dict = {}  # key: view name → {ts, html}
-_SHELL_CACHE_TTL = 300  # seconds (5 minutes)
-
-
-def _get_view_cache(view: str):
-    """Return cached HTML string for a view, or None if expired/missing."""
-    import time
-    cached = _view_html_cache.get(view)
-    if cached and (time.time() - cached["ts"]) < _SHELL_CACHE_TTL:
-        return cached["html"]
-    return None
-
-
-def _set_view_cache(view: str, html: str) -> None:
-    import time
-    _view_html_cache[view] = {"ts": time.time(), "html": html}
-
-
-def _get_shell_data(todoist_token: str) -> tuple:
-    """Return (projects, starred_count, vapid_public_key) from cache or by fetching in parallel."""
-    import time
-
-    cached = _shell_data_cache.get("data")
-    if cached and (time.time() - cached["ts"]) < _SHELL_CACHE_TTL:
-        return cached["projects"], cached["starred_count"], cached["vapid_public_key"]
-
-    def _fetch_starred_count_inner() -> int:
-        try:
-            from gmail_service import GmailService
-
-            return len(GmailService().get_starred_emails())
-        except Exception as _e:
-            logger.warning(f"Could not fetch starred count: {_e}")
-            return 0
-
-    def _fetch_vapid_key() -> str:
-        try:
-            from push_service import get_vapid_public_key
-
-            return get_vapid_public_key() or ""
-        except Exception as _e:
-            logger.warning(f"Could not load VAPID key: {_e}")
-            return ""
-
-    with ThreadPoolExecutor(max_workers=3) as _ex:
-        _proj_fut = _ex.submit(_fetch_todoist_projects, todoist_token)
-        _star_fut = _ex.submit(_fetch_starred_count_inner)
-        _vapid_fut = _ex.submit(_fetch_vapid_key)
-        projects = _proj_fut.result()
-        starred_count = _star_fut.result()
-        vapid_public_key = _vapid_fut.result()
-
-    _shell_data_cache["data"] = {
-        "ts": time.time(),
-        "projects": projects,
-        "starred_count": starred_count,
-        "vapid_public_key": vapid_public_key,
-    }
-    return projects, starred_count, vapid_public_key
-
-
-def _build_home_html_uncached(function_url: str, action_token: str, todoist_token: str) -> str:
-    """Fetch all home view data and render the HTML. Called by the cache wrapper."""
-    import os as _os
-
-    from calendar_service import CalendarService
-    from gmail_service import GmailService
-    from home_views import build_home_html
-    from todoist_service import TodoistService
-
-    service = TodoistService(todoist_token)
-    cal = CalendarService(
-        _os.environ["CALENDAR_CREDENTIALS_JSON"],
-        _os.environ["CALENDAR_TOKEN_JSON"],
-    )
-    gmail = GmailService()
-    today_str = datetime.now().strftime("%Y-%m-%d")
-
-    with ThreadPoolExecutor(max_workers=10) as ex:
-        f_projects = ex.submit(service.get_all_projects)
-        f_commit = ex.submit(service.get_tasks_by_label, "Commit")
-        f_bestcase = ex.submit(service.get_tasks_by_label, "Best Case")
-        f_p1 = ex.submit(service.get_tasks_by_priority, 4)
-        f_inbox = ex.submit(service.get_inbox_tasks)
-        f_all_todoist = ex.submit(service.get_all_tasks)
-        f_prep_todoist = ex.submit(service.get_event_prep_tasks)
-        f_calendar = ex.submit(cal.get_upcoming_events, 90)
-        f_starred = ex.submit(gmail.get_starred_emails)
-        f_unread = ex.submit(
-            lambda: __import__("unread_main").get_unread_emails_for_web()
-        )
-
-        projects = f_projects.result()
-
-        def _due_today(tasks):
-            return [t for t in tasks if t.get("due") and t["due"].get("date", "")[:10] <= today_str]
-
-        def _due_today_or_undated(tasks):
-            return [t for t in tasks if not t.get("due") or t["due"].get("date", "")[:10] <= today_str]
-
-        commit_tasks = _due_today_or_undated(f_commit.result())
-        bestcase_tasks = _due_today(f_bestcase.result())
-        p1_tasks = _due_today(f_p1.result())
-        inbox_tasks = [
-            t for t in f_inbox.result()
-            if "Commit" not in t.get("labels", [])
-            and "Best Case" not in t.get("labels", [])
-        ]
-        inbox_tasks.sort(key=lambda t: t.get("created_at", "") or t.get("added_at", ""), reverse=True)
-        calendar_events = f_calendar.result()
-        all_todoist_tasks = f_all_todoist.result()
-        _prep_tasks = f_prep_todoist.result()
-        _seen_ids = {t["id"] for t in all_todoist_tasks}
-        all_todoist_tasks = all_todoist_tasks + [t for t in _prep_tasks if t["id"] not in _seen_ids]
-        starred_emails = f_starred.result()
-        try:
-            unread_emails = f_unread.result()
-        except Exception:
-            unread_emails = []
-
-    fu_state = _load_followup_state()
-    followup_emails = []
-    for tid, edata in fu_state.get("emails", {}).items():
-        edata.setdefault("threadId", tid)
-        followup_emails.append(edata)
-
-    home_state = _load_home_reviewed_state()
-    cal_state = _load_calendar_state()
-
-    _toggl_tok = _os.environ.get("TOGGL_API_TOKEN", "")
-    toggl_time_totals = _fetch_toggl_time_entries(_toggl_tok) if _toggl_tok else {}
-
-    return build_home_html(
-        commit_tasks=commit_tasks,
-        bestcase_tasks=bestcase_tasks,
-        calendar_events=calendar_events,
-        p1_tasks=p1_tasks,
-        starred_emails=starred_emails,
-        unread_emails=unread_emails,
-        followup_emails=followup_emails,
-        inbox_tasks=inbox_tasks,
-        projects=projects,
-        home_state=home_state,
-        cal_state=cal_state,
-        followup_state=fu_state,
-        function_url=function_url,
-        action_token=action_token,
-        embed=True,
-        toggl_time_totals=toggl_time_totals,
-        todoist_tasks=all_todoist_tasks,
-    )
-
-
-def _get_home_html(function_url: str, action_token: str, todoist_token: str) -> str:
-    """Return cached home HTML, rebuilding when TTL expires."""
-    import time
-
-    cached = _home_html_cache.get("data")
-    if cached and (time.time() - cached["ts"]) < _SHELL_CACHE_TTL:
-        return cached["html"]
-
-    html = _build_home_html_uncached(function_url, action_token, todoist_token)
-    _home_html_cache["data"] = {"ts": time.time(), "html": html}
-    return html
 
 
 # ---------------------------------------------------------------------------
@@ -1144,54 +955,6 @@ def handle_action(event: dict) -> dict:
             }
 
     # -----------------------------------------------------------------------
-    # Obsidian open — no auth required
-    # Opens a local Obsidian note via the obsidian:// deep link.
-    # Used as an HTTPS redirect so Gmail (which blocks custom protocols) works.
-    # -----------------------------------------------------------------------
-    if params.get("action") == "obsidian_open":
-        _vault = params.get("vault", "")
-        _file = params.get("file", "")  # path without .md extension
-        if _vault and _file:
-            # Append reflection prompts using Obsidian's built-in obsidian://new
-            # with append=true — no plugin required.
-            _reflection_content = (
-                "\n\n---\n\n"
-                "## My Reflections\n\n"
-                "**What does this teaching mean?**\n\n\n\n"
-                "**Am I obeying this teaching today?**\n\n\n\n"
-                "**What's something practical that I can do to obey this teaching right away?**\n\n"
-            )
-            _obs_url = (
-                "obsidian://new"
-                f"?vault={urllib.parse.quote(_vault, safe='')}"
-                f"&file={urllib.parse.quote(_file, safe='')}"
-                f"&content={urllib.parse.quote(_reflection_content, safe='')}"
-                f"&append=true"
-            )
-            _html = (
-                "<!DOCTYPE html><html><head>"
-                "<meta charset=utf-8>"
-                "<meta name=viewport content='width=device-width,initial-scale=1'>"
-                "<style>body{background:#152912;color:#f0e8d0;font-family:Georgia,serif;"
-                "display:flex;align-items:center;justify-content:center;height:100vh;"
-                "margin:0}p{text-align:center;font-size:18px}</style>"
-                "</head><body>"
-                "<p>Opening in Obsidian&hellip;</p>"
-                "<script>"
-                f"window.location.href='{_obs_url}';"
-                "</script>"
-                "</body></html>"
-            )
-            return {
-                "statusCode": 200,
-                "headers": {
-                    "Content-Type": "text/html; charset=utf-8",
-                    "Cache-Control": "no-store",
-                },
-                "body": _html,
-            }
-
-    # -----------------------------------------------------------------------
     # Login route — no auth required
     # -----------------------------------------------------------------------
     if params.get("action") == "login":
@@ -1276,11 +1039,10 @@ def handle_action(event: dict) -> dict:
             "calendar_save_checklist",
             "calendar_create_todoist",
             "calendar_commit",
-            "calendar_schedule_prep",
-            "calendar_travel_time",
             "ffm_outreach",
             "toggl_start",
             "toggl_stop",
+            "toggl_log_event",
             "starred_to_todoist",
             "followup_reviewed",
             "followup_resolved",
@@ -1347,8 +1109,24 @@ def handle_action(event: dict) -> dict:
             # Top-level shell page
             try:
                 from dashboard_shell import build_shell_html
+                from gmail_service import GmailService
 
-                projects, starred_count, vapid_public_key = _get_shell_data(todoist_token)
+                projects = _fetch_todoist_projects(todoist_token)
+                try:
+                    gmail = GmailService()
+                    starred = gmail.get_starred_emails()
+                    starred_count = len(starred)
+                except Exception as _e:
+                    logger.warning(f"Could not fetch starred count: {_e}")
+                    starred_count = 0
+
+                try:
+                    from push_service import get_vapid_public_key
+
+                    vapid_public_key = get_vapid_public_key() or ""
+                except Exception as _pe:
+                    logger.warning(f"Could not load VAPID key: {_pe}")
+                    vapid_public_key = ""
 
                 body = build_shell_html(
                     function_url=function_url,
@@ -1382,13 +1160,8 @@ def handle_action(event: dict) -> dict:
     if action == "web" and params.get("embed") == "1":
         view = params.get("view", "unread")
 
-        _html_headers = {"Content-Type": "text/html", "Cache-Control": "private, max-age=30"}
-
         # -- Starred email cards --
         if view == "starred":
-            _cached = _get_view_cache("starred")
-            if _cached:
-                return {"statusCode": 200, "headers": _html_headers, "body": _cached}
             try:
                 from email_report import build_web_html
                 from gmail_service import GmailService
@@ -1408,8 +1181,14 @@ def handle_action(event: dict) -> dict:
                     toggl_projects=toggl_projects,
                     view_type="starred",
                 )
-                _set_view_cache("starred", body)
-                return {"statusCode": 200, "headers": _html_headers, "body": body}
+                return {
+                    "statusCode": 200,
+                    "headers": {
+                        "Content-Type": "text/html",
+                        "Cache-Control": "private, max-age=30",
+                    },
+                    "body": body,
+                }
             except Exception as e:
                 logger.error(f"Starred view failed: {e}", exc_info=True)
                 return {
@@ -1420,9 +1199,6 @@ def handle_action(event: dict) -> dict:
 
         # -- Unread email cards --
         elif view == "unread":
-            _cached = _get_view_cache("unread")
-            if _cached:
-                return {"statusCode": 200, "headers": _html_headers, "body": _cached}
             try:
                 from email_report import build_web_html
                 from unread_main import get_unread_emails_for_web
@@ -1440,8 +1216,14 @@ def handle_action(event: dict) -> dict:
                     projects=projects,
                     toggl_projects=toggl_projects,
                 )
-                _set_view_cache("unread", body)
-                return {"statusCode": 200, "headers": _html_headers, "body": body}
+                return {
+                    "statusCode": 200,
+                    "headers": {
+                        "Content-Type": "text/html",
+                        "Cache-Control": "private, max-age=30",
+                    },
+                    "body": body,
+                }
             except Exception as e:
                 logger.error(f"Unread view failed: {e}", exc_info=True)
                 return {
@@ -1452,7 +1234,116 @@ def handle_action(event: dict) -> dict:
 
         elif view == "home":
             try:
-                body = _get_home_html(function_url, expected, todoist_token)
+                from calendar_service import CalendarService
+                from gmail_service import GmailService
+                from home_views import build_home_html
+                from todoist_service import TodoistService
+
+                service = TodoistService(todoist_token)
+                cal = CalendarService(
+                    os.environ["CALENDAR_CREDENTIALS_JSON"],
+                    os.environ["CALENDAR_TOKEN_JSON"],
+                )
+                gmail = GmailService()
+                today_str = datetime.now().strftime("%Y-%m-%d")
+
+                with ThreadPoolExecutor(max_workers=10) as ex:
+                    f_projects = ex.submit(service.get_all_projects)
+                    f_commit = ex.submit(service.get_tasks_by_label, "Commit")
+                    f_bestcase = ex.submit(service.get_tasks_by_label, "Best Case")
+                    f_p1 = ex.submit(service.get_tasks_by_priority, 4)
+                    f_inbox = ex.submit(service.get_inbox_tasks)
+                    f_all_todoist = ex.submit(service.get_all_tasks)
+                    f_prep_todoist = ex.submit(service.get_event_prep_tasks)
+                    f_calendar = ex.submit(cal.get_upcoming_events, 90)
+                    f_starred = ex.submit(gmail.get_starred_emails)
+                    f_unread = ex.submit(
+                        lambda: __import__("unread_main").get_unread_emails_for_web()
+                    )
+
+                projects = f_projects.result()
+
+                # Filter Todoist tasks to due <= today
+                def _due_today(tasks):
+                    return [
+                        t
+                        for t in tasks
+                        if t.get("due") and t["due"].get("date", "")[:10] <= today_str
+                    ]
+
+                def _due_today_or_undated(tasks):
+                    """Include tasks due today/overdue AND tasks with no date."""
+                    return [
+                        t
+                        for t in tasks
+                        if not t.get("due")
+                        or t["due"].get("date", "")[:10] <= today_str
+                    ]
+
+                commit_tasks = _due_today_or_undated(f_commit.result())
+                bestcase_tasks = _due_today(f_bestcase.result())
+                p1_tasks = _due_today(f_p1.result())
+                inbox_tasks = [
+                    t
+                    for t in f_inbox.result()
+                    if "Commit" not in t.get("labels", [])
+                    and "Best Case" not in t.get("labels", [])
+                ]
+                inbox_tasks.sort(
+                    key=lambda t: t.get("created_at", "") or t.get("added_at", ""),
+                    reverse=True,
+                )
+                calendar_events = f_calendar.result()
+                all_todoist_tasks = f_all_todoist.result()
+                # Merge event-prep tasks (from search) so prep indicator works
+                _prep_tasks = f_prep_todoist.result()
+                _seen_ids = {t["id"] for t in all_todoist_tasks}
+                all_todoist_tasks = all_todoist_tasks + [
+                    t for t in _prep_tasks if t["id"] not in _seen_ids
+                ]
+                starred_emails = f_starred.result()
+                try:
+                    unread_emails = f_unread.result()
+                except Exception:
+                    unread_emails = []
+
+                # Follow-up emails from S3 state
+                fu_state = _load_followup_state()
+                # Inject threadId from dict key for backwards compat
+                followup_emails = []
+                for tid, edata in fu_state.get("emails", {}).items():
+                    edata.setdefault("threadId", tid)
+                    followup_emails.append(edata)
+
+                home_state = _load_home_reviewed_state()
+                cal_state = _load_calendar_state()
+
+                _toggl_tok_home = os.environ.get("TOGGL_API_TOKEN", "")
+                toggl_time_totals = (
+                    _fetch_toggl_time_entries(_toggl_tok_home)
+                    if _toggl_tok_home
+                    else {}
+                )
+
+                body = build_home_html(
+                    commit_tasks=commit_tasks,
+                    bestcase_tasks=bestcase_tasks,
+                    calendar_events=calendar_events,
+                    p1_tasks=p1_tasks,
+                    starred_emails=starred_emails,
+                    unread_emails=unread_emails,
+                    followup_emails=followup_emails,
+                    inbox_tasks=inbox_tasks,
+                    projects=projects,
+                    home_state=home_state,
+                    cal_state=cal_state,
+                    followup_state=fu_state,
+                    function_url=function_url,
+                    action_token=expected,
+                    embed=True,
+                    toggl_time_totals=toggl_time_totals,
+                    todoist_tasks=all_todoist_tasks,
+                )
                 return {
                     "statusCode": 200,
                     "headers": {
@@ -1471,9 +1362,6 @@ def handle_action(event: dict) -> dict:
 
         # -- Todoist views (inbox / commit / p1 / bestcase) --
         elif view in ("inbox", "commit", "p1", "p1nodate", "bestcase", "sabbath"):
-            _cached = _get_view_cache(view)
-            if _cached:
-                return {"statusCode": 200, "headers": _html_headers, "body": _cached}
             try:
                 from todoist_service import TodoistService
                 from todoist_views import build_view_html
@@ -1482,12 +1370,15 @@ def handle_action(event: dict) -> dict:
                 today_str = datetime.now().strftime("%Y-%m-%d")
                 _toggl_tok = os.environ.get("TOGGL_API_TOKEN", "")
                 toggl_projects = _fetch_toggl_projects(_toggl_tok)
-                toggl_time_totals = _fetch_toggl_time_entries(_toggl_tok) if _toggl_tok else {}
+                toggl_time_totals = (
+                    _fetch_toggl_time_entries(_toggl_tok) if _toggl_tok else {}
+                )
 
                 if view == "inbox":
                     projects = service.get_all_projects()
                     tasks = [
-                        t for t in service.get_inbox_tasks(projects=projects)
+                        t
+                        for t in service.get_inbox_tasks(projects=projects)
                         if "Commit" not in t.get("labels", [])
                         and "Best Case" not in t.get("labels", [])
                     ]
@@ -1566,8 +1457,14 @@ def handle_action(event: dict) -> dict:
                     checklists=checklists,
                     toggl_time_totals=toggl_time_totals,
                 )
-                _set_view_cache(view, body)
-                return {"statusCode": 200, "headers": _html_headers, "body": body}
+                return {
+                    "statusCode": 200,
+                    "headers": {
+                        "Content-Type": "text/html",
+                        "Cache-Control": "private, max-age=30",
+                    },
+                    "body": body,
+                }
             except Exception as e:
                 logger.error(f"Todoist view={view} failed: {e}", exc_info=True)
                 return {
@@ -1578,9 +1475,6 @@ def handle_action(event: dict) -> dict:
 
         # -- Code Projects view --
         elif view == "code":
-            _cached = _get_view_cache("code")
-            if _cached:
-                return {"statusCode": 200, "headers": _html_headers, "body": _cached}
             try:
                 from code_views import build_code_projects_html
                 from todoist_service import TodoistService
@@ -1639,8 +1533,14 @@ def handle_action(event: dict) -> dict:
                     embed=True,
                     completed_tasks=completed_tasks,
                 )
-                _set_view_cache("code", body)
-                return {"statusCode": 200, "headers": _html_headers, "body": body}
+                return {
+                    "statusCode": 200,
+                    "headers": {
+                        "Content-Type": "text/html",
+                        "Cache-Control": "private, max-age=30",
+                    },
+                    "body": body,
+                }
             except Exception as e:
                 logger.error(f"Code projects view failed: {e}", exc_info=True)
                 return {
@@ -1651,9 +1551,6 @@ def handle_action(event: dict) -> dict:
 
         # -- Calendar view --
         elif view == "calendar":
-            _cached = _get_view_cache("calendar")
-            if _cached:
-                return {"statusCode": 200, "headers": _html_headers, "body": _cached}
             try:
                 from calendar_service import CalendarService
                 from calendar_views import build_calendar_html
@@ -1694,8 +1591,14 @@ def handle_action(event: dict) -> dict:
                     ffm_project_id=ffm_project_id,
                     todoist_tasks=all_todoist_tasks,
                 )
-                _set_view_cache("calendar", body)
-                return {"statusCode": 200, "headers": _html_headers, "body": body}
+                return {
+                    "statusCode": 200,
+                    "headers": {
+                        "Content-Type": "text/html",
+                        "Cache-Control": "private, max-age=30",
+                    },
+                    "body": body,
+                }
             except Exception as e:
                 logger.error(f"Calendar view failed: {e}", exc_info=True)
                 return {
@@ -1706,9 +1609,6 @@ def handle_action(event: dict) -> dict:
 
         # -- Follow-up view --
         elif view == "followup":
-            _cached = _get_view_cache("followup")
-            if _cached:
-                return {"statusCode": 200, "headers": _html_headers, "body": _cached}
             try:
                 from followup_views import build_followup_html
 
@@ -1720,8 +1620,14 @@ def handle_action(event: dict) -> dict:
                     expected,
                     embed=True,
                 )
-                _set_view_cache("followup", body)
-                return {"statusCode": 200, "headers": _html_headers, "body": body}
+                return {
+                    "statusCode": 200,
+                    "headers": {
+                        "Content-Type": "text/html",
+                        "Cache-Control": "private, max-age=30",
+                    },
+                    "body": body,
+                }
             except Exception as e:
                 logger.error(f"Follow-up view failed: {e}", exc_info=True)
                 return {
@@ -1894,17 +1800,12 @@ def handle_action(event: dict) -> dict:
 
         try:
             from calendar_service import CalendarService
+            from todoist_service import TodoistService
 
-            # Use provided title (for emails) or look up from Todoist (for tasks)
-            task_title_param = params.get("task_title", "")
-            if task_title_param:
-                task_title = task_title_param
-            else:
-                from todoist_service import TodoistService
-
-                service = TodoistService(todoist_token)
-                task = service.get_task(task_id)
-                task_title = task.get("content", "Action") if task else "Action"
+            # Get the task title
+            service = TodoistService(todoist_token)
+            task = service.get_task(task_id)
+            task_title = task.get("content", "Action") if task else "Action"
 
             # Create calendar events
             cal = CalendarService(
@@ -2105,14 +2006,13 @@ def handle_action(event: dict) -> dict:
                     if not t.get("due") or t["due"].get("date", "")[:10] <= today
                 )
 
-            with ThreadPoolExecutor(max_workers=7) as ex:
+            with ThreadPoolExecutor(max_workers=6) as ex:
                 f_inbox = ex.submit(service.get_inbox_tasks)
                 f_commit = ex.submit(service.get_tasks_by_label, "Commit")
                 f_p1 = ex.submit(service.get_tasks_by_priority, 4)
                 f_bc = ex.submit(service.get_tasks_by_label, "Best Case")
                 f_code = ex.submit(service.get_code_project_tasks)
                 f_all = ex.submit(service.get_all_tasks)
-                f_home_state = ex.submit(_load_home_reviewed_state)
 
             code_tasks, _cp, _cc = f_code.result()
             # Only count untagged new issues for the badge
@@ -2122,17 +2022,9 @@ def handle_action(event: dict) -> dict:
                 for t in code_tasks
                 if not _status_labels.intersection(t.get("labels", []))
             ]
-            _commit_tasks = f_commit.result()
-            _commit_total = _count_today_overdue_or_undated(_commit_tasks)
-            # Unreviewed: commit tasks not yet reviewed in the home view
-            _commit_reviewed_ids = f_home_state.result().get("commit", {})
-            _commit_unreviewed = sum(
-                1 for t in _commit_tasks if t["id"] not in _commit_reviewed_ids
-            )
             counts = {
                 "inbox": len(f_inbox.result()),
-                "commit": _commit_total,
-                "commit_unreviewed": _commit_unreviewed,
+                "commit": _count_today_overdue_or_undated(f_commit.result()),
                 "p1": _count_today_or_overdue(f_p1.result()),
                 "bestcase": _count_today_or_overdue(f_bc.result()),
                 "code": len(code_new_issues),
@@ -2444,6 +2336,59 @@ def handle_action(event: dict) -> dict:
             logger.error(f"toggl_stop failed: {e}", exc_info=True)
             return _error_json(str(e))
 
+    elif action == "toggl_log_event":
+        event_title = params.get("event_title", "Calendar Event")
+        event_start = params.get("event_start", "")
+        event_end = params.get("event_end", "")
+        if not event_start or not event_end:
+            return _error_json("Missing event_start or event_end")
+        try:
+            import base64 as _b64
+
+            import requests as _req
+
+            dt_start = datetime.fromisoformat(event_start)
+            dt_end = datetime.fromisoformat(event_end)
+            if dt_start.tzinfo is None:
+                dt_start = dt_start.replace(tzinfo=timezone.utc)
+            if dt_end.tzinfo is None:
+                dt_end = dt_end.replace(tzinfo=timezone.utc)
+            dt_start_utc = dt_start.astimezone(timezone.utc)
+            dt_end_utc = dt_end.astimezone(timezone.utc)
+            duration_secs = int((dt_end_utc - dt_start_utc).total_seconds())
+            if duration_secs <= 0:
+                return _error_json("Invalid event duration")
+
+            toggl_token = os.environ.get("TOGGL_API_TOKEN", "")
+            _auth = _b64.b64encode(f"{toggl_token}:api_token".encode()).decode()
+            _th = {
+                "Authorization": f"Basic {_auth}",
+                "Content-Type": "application/json",
+            }
+            _me_r = _req.get("https://api.track.toggl.com/api/v9/me", headers=_th)
+            _me_r.raise_for_status()
+            ws_id = _me_r.json().get("default_workspace_id")
+            if not ws_id:
+                return _error_json("No default workspace found")
+            entry_body = {
+                "description": event_title,
+                "workspace_id": int(ws_id),
+                "start": dt_start_utc.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "stop": dt_end_utc.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "duration": duration_secs,
+                "created_with": "actionos",
+            }
+            _r = _req.post(
+                f"https://api.track.toggl.com/api/v9/workspaces/{ws_id}/time_entries",
+                headers=_th,
+                json=entry_body,
+            )
+            _r.raise_for_status()
+            return _ok_json()
+        except Exception as e:
+            logger.error(f"toggl_log_event failed: {e}", exc_info=True)
+            return _error_json(str(e))
+
     elif action == "home_reviewed":
         section = params.get("section", "")
         item_id = params.get("item_id", "")
@@ -2689,7 +2634,7 @@ def handle_action(event: dict) -> dict:
 
     elif action == "calendar_schedule_prep":
         try:
-            from todoist_service import TodoistService
+            import requests as _req
 
             event_title = params.get("event_title", "Calendar Event")
             event_date = params.get("event_date", "")
@@ -2706,114 +2651,33 @@ def handle_action(event: dict) -> dict:
                 except Exception:
                     prep_due = event_date[:10]
 
-            svc = TodoistService(todoist_token)
-            project_id = svc.get_or_create_event_prep_project()
-
+            _headers = {
+                "Authorization": f"Bearer {todoist_token}",
+                "Content-Type": "application/json",
+            }
             desc_parts = []
             if event_date:
                 desc_parts.append(f"**Event Date:** {event_date}")
             if event_location:
                 desc_parts.append(f"**Location:** {event_location}")
+            task_json = {
+                "content": f"Event Prep: {event_title}",
+                "description": "\n".join(desc_parts),
+                "labels": ["Best Case"],
+            }
+            if prep_due:
+                task_json["due_date"] = prep_due
 
-            task = svc.create_task(
-                content=f"Event Prep: {event_title}",
-                project_id=project_id,
-                due_date=prep_due or None,
-                description="\n".join(desc_parts) or None,
-                labels=["Best Case"],
+            _r = _req.post(
+                "https://api.todoist.com/api/v1/tasks",
+                headers=_headers,
+                json=task_json,
             )
-            if not task:
-                return _error_json("Failed to create event prep task")
-            return _ok_json({"task_id": task.get("id", "")})
+            _r.raise_for_status()
+            _task_data = _r.json()
+            return _ok_json({"task_id": _task_data.get("id", "")})
         except Exception as e:
             logger.error(f"calendar_schedule_prep failed: {e}", exc_info=True)
-            return _error_json(str(e))
-
-    elif action == "calendar_travel_time":
-        try:
-            import requests as _req
-
-            event_id = params.get("event_id", "")
-            event_title = params.get("event_title", "Event")
-            event_start = params.get("event_start", "")
-            event_location = params.get("event_location", "")
-
-            if not event_location:
-                return _error_json("Event has no location — cannot calculate travel time")
-            if not event_start:
-                return _error_json("Event has no start time — cannot add travel time to all-day event")
-
-            # Calculate travel time via Google Maps Distance Matrix API
-            travel_seconds = 0
-            home_address = os.environ.get("HOME_ADDRESS", "")
-            maps_api_key = os.environ.get("GOOGLE_MAPS_API_KEY", "")
-
-            if not home_address or not maps_api_key:
-                return _error_json("Home address or Maps API key not configured")
-
-            resp = _req.get(
-                "https://maps.googleapis.com/maps/api/distancematrix/json",
-                params={
-                    "origins": home_address,
-                    "destinations": event_location,
-                    "mode": "driving",
-                    "key": maps_api_key,
-                },
-                timeout=10,
-            )
-            resp.raise_for_status()
-            maps_data = resp.json()
-
-            try:
-                element = maps_data["rows"][0]["elements"][0]
-                if element.get("status") == "OK":
-                    travel_seconds = element["duration"]["value"]
-                else:
-                    return _error_json(
-                        f"Maps API could not find route: {element.get('status', 'UNKNOWN')}"
-                    )
-            except (KeyError, IndexError) as e:
-                return _error_json(f"Failed to parse Maps response: {e}")
-
-            # Round up to nearest 5 minutes, add 10-min departure buffer
-            travel_minutes = (travel_seconds // 60) + 10
-            travel_minutes = ((travel_minutes + 4) // 5) * 5
-
-            from calendar_service import CalendarService
-
-            cal = CalendarService(
-                os.environ["CALENDAR_CREDENTIALS_JSON"],
-                os.environ["CALENDAR_TOKEN_JSON"],
-            )
-            travel_event_link = cal.create_travel_time_event(
-                title=event_title,
-                event_start_iso=event_start,
-                travel_minutes=travel_minutes,
-                destination=event_location,
-                drive_seconds=travel_seconds,
-            )
-
-            # Persist to calendar state so badge shows on next load
-            if event_id:
-                state = _load_calendar_state()
-                state.setdefault("travel_time", {})[event_id] = {
-                    "travel_event_link": travel_event_link,
-                    "travel_minutes": travel_minutes,
-                }
-                _save_calendar_state(state)
-
-            logger.info(
-                f"Travel time event created for '{event_title}': "
-                f"{travel_minutes} min, link={travel_event_link}"
-            )
-            return _ok_json(
-                {
-                    "travel_event_link": travel_event_link,
-                    "travel_minutes": travel_minutes,
-                }
-            )
-        except Exception as e:
-            logger.error(f"calendar_travel_time failed: {e}", exc_info=True)
             return _error_json(str(e))
 
     # -----------------------------------------------------------------------
@@ -2938,7 +2802,9 @@ def handle_action(event: dict) -> dict:
             notify_at = start_dt - timedelta(minutes=5)
             event_id = hashlib.md5(
                 f"{event_title}|{event_start}".encode()
-            ).hexdigest()[:12]
+            ).hexdigest()[  # nosec B324
+                :12
+            ]
             countdowns = _load_countdowns()
             countdowns[event_id] = {
                 "title": event_title,
@@ -2956,7 +2822,7 @@ def handle_action(event: dict) -> dict:
         event_start = params.get("event_start", "").strip()
         if not event_title or not event_start:
             return _error_json("Missing event_title or event_start")
-        event_id = hashlib.md5(
+        event_id = hashlib.md5(  # nosec B324
             f"{event_title}|{event_start}".encode()
         ).hexdigest()[:12]
         countdowns = _load_countdowns()
@@ -3007,10 +2873,7 @@ def lambda_handler(event, context):
                     from push_service import send_push
 
                     func_url = os.environ.get("FUNCTION_URL", "")
-                    cal_url = (
-                        func_url.rstrip("/")
-                        + "?action=web&view=calendar&embed=1"
-                    )
+                    cal_url = func_url.rstrip("/") + "?action=web&view=calendar&embed=1"
                     ok = send_push(
                         entry["title"],
                         "Starting in 5 minutes",

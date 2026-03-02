@@ -400,48 +400,25 @@ def build_code_projects_html(
         + '<div class="left-pane">'
         # ── Section Navigation Bar ────────────────────────────────────────
         + '<div class="section-nav">'
-        f'<div class="nav-pill" style="background:var(--ok-bg);color:var(--ok);border-color:var(--ok-b);" onclick="scrollToSection(\'sec-in_progress\')">'
-        f'In Progress <span class="nav-badge" id="nbadge-in_progress">{len(in_progress_tasks)}</span></div>'
         f'<div class="nav-pill" style="background:var(--warn-bg);color:var(--warn);border-color:var(--warn-b);" onclick="scrollToSection(\'sec-planned\')">'
         f'Planned <span class="nav-badge" id="nbadge-planned">{len(planned_tasks)}</span></div>'
-        f'<div class="nav-pill" style="background:var(--border);color:var(--text-2);border-color:var(--border-h);" onclick="scrollToSection(\'sec-backlog\')">'
-        f'Backlog <span class="nav-badge" id="nbadge-backlog">{len(backlog_tasks)}</span></div>'
         f'<div class="nav-pill" style="background:var(--accent-bg);color:var(--accent-l);border-color:var(--accent-b);" onclick="scrollToSection(\'sec-issues\')">'
         f'New Issues <span class="nav-badge" id="nbadge-issues">{len(issues_tasks)}</span></div>'
+        f'<div class="nav-pill" style="background:var(--ok-bg);color:var(--ok);border-color:var(--ok-b);" onclick="scrollToSection(\'sec-in_progress\')">'
+        f'In Progress <span class="nav-badge" id="nbadge-in_progress">{len(in_progress_tasks)}</span></div>'
+        f'<div class="nav-pill" style="background:var(--border);color:var(--text-2);border-color:var(--border-h);" onclick="scrollToSection(\'sec-backlog\')">'
+        f'Backlog <span class="nav-badge" id="nbadge-backlog">{len(backlog_tasks)}</span></div>'
         f'<div class="nav-pill" style="background:rgba(255,255,255,0.04);color:var(--text-3);border-color:var(--border);" onclick="scrollToSection(\'sec-completed\')">'
         f'Completed <span class="nav-badge" id="nbadge-completed">{len(completed_tasks)}</span></div>'
         "</div>"
-        # ── In Progress ───────────────────────────────────────────────────
-        + '<div id="sec-in_progress" style="height:0;"></div>'
-        + '<div class="section-hdr">'
-        f'<span class="section-title" style="color:var(--ok);">In Progress</span>'
-        f'<span class="section-badge" id="sbadge-in_progress" style="background:var(--ok-bg);color:var(--ok);'
-        f'border:1px solid var(--ok-b);">{len(in_progress_tasks)}</span>'
-        "</div>"
-        + '<div class="task-list" data-section="in_progress">'
-        + in_progress_cards
-        + "</div>"
         # ── Planned ───────────────────────────────────────────────────────
-        + '<div class="section-divider"></div>'
-        + '<div id="sec-planned" style="height:0;"></div>'
-        + '<div class="section-hdr" style="margin-top:4px;">'
+        + '<div id="sec-planned" style="height:0;"></div>' + '<div class="section-hdr">'
         f'<span class="section-title" style="color:var(--warn);">Planned</span>'
         f'<span class="section-badge" id="sbadge-planned" style="background:var(--warn-bg);color:var(--warn);'
         f'border:1px solid var(--warn-b);">{len(planned_tasks)}</span>'
         "</div>"
         + '<div class="task-list" data-section="planned">'
         + planned_cards
-        + "</div>"
-        # ── Backlog ───────────────────────────────────────────────────────
-        + '<div class="section-divider"></div>'
-        + '<div id="sec-backlog" style="height:0;"></div>'
-        + '<div class="section-hdr" style="margin-top:4px;">'
-        f'<span class="section-title" style="color:var(--text-2);">Backlog</span>'
-        f'<span class="section-badge" id="sbadge-backlog" style="background:var(--border);color:var(--text-2);'
-        f'border:1px solid var(--border-h);">{len(backlog_tasks)}</span>'
-        "</div>"
-        + '<div class="task-list" data-section="backlog">'
-        + backlog_cards
         + "</div>"
         # ── New Issues ────────────────────────────────────────────────────
         + '<div class="section-divider"></div>'
@@ -453,6 +430,28 @@ def build_code_projects_html(
         "</div>"
         + '<div class="task-list" data-section="issues">'
         + issues_cards
+        + "</div>"
+        # ── In Progress ───────────────────────────────────────────────────
+        + '<div class="section-divider"></div>'
+        + '<div id="sec-in_progress" style="height:0;"></div>'
+        + '<div class="section-hdr" style="margin-top:4px;">'
+        f'<span class="section-title" style="color:var(--ok);">In Progress</span>'
+        f'<span class="section-badge" id="sbadge-in_progress" style="background:var(--ok-bg);color:var(--ok);'
+        f'border:1px solid var(--ok-b);">{len(in_progress_tasks)}</span>'
+        "</div>"
+        + '<div class="task-list" data-section="in_progress">'
+        + in_progress_cards
+        + "</div>"
+        # ── Backlog ───────────────────────────────────────────────────────
+        + '<div class="section-divider"></div>'
+        + '<div id="sec-backlog" style="height:0;"></div>'
+        + '<div class="section-hdr" style="margin-top:4px;">'
+        f'<span class="section-title" style="color:var(--text-2);">Backlog</span>'
+        f'<span class="section-badge" id="sbadge-backlog" style="background:var(--border);color:var(--text-2);'
+        f'border:1px solid var(--border-h);">{len(backlog_tasks)}</span>'
+        "</div>"
+        + '<div class="task-list" data-section="backlog">'
+        + backlog_cards
         + "</div>"
         # ── Completed (30d) ───────────────────────────────────────────────
         + '<div class="section-divider"></div>'
@@ -523,6 +522,7 @@ def build_code_projects_html(
         "var _cs=getComputedStyle(document.documentElement);"
         "function cv(n){return _cs.getPropertyValue(n).trim();}"
         "var viewName='code';"
+        'var _ccIcon=\'<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Claude\';'
         f"var taskCount={total_count};"
         + post_message_js
         + "function updateCount(){taskCount--;if(taskCount<0)taskCount=0;"
@@ -775,6 +775,8 @@ def build_code_projects_html(
         'else{h+=\'<button class="detail-action-btn detail-status-btn backlog" '
         "style=\"background:'+cv('--border')+';color:'+cv('--text-2')+';border:1px solid '+cv('--border-h')+';\">Backlog</button>';}"
         "if(openUrl)h+='<button class=\"detail-action-btn view-email-btn\">View Email</button>';"
+        'h+=\'<button class="detail-action-btn assign-cc-btn" title="Assign CC" '
+        "onclick=\"doCopyForClaude(\\x27'+esc(taskId)+'\\x27,\\x27'+esc(title).replace(/'/g,'\\\\\\x27')+'\\x27,this)\">'+_ccIcon+'</button>';"
         "h+='</div>';"
         "var dc=document.getElementById('detail-content');dc.innerHTML=h;"
         "var ps=dc.querySelector('.detail-priority-sel');"
