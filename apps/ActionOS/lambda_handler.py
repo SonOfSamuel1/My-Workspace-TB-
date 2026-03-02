@@ -2538,12 +2538,13 @@ def handle_action(event: dict) -> dict:
             )
             _r.raise_for_status()
 
+            _task_data = _r.json()
+
             if action == "calendar_commit":
                 from todoist_service import TodoistService
 
                 svc = TodoistService(todoist_token)
-                created = _r.json()
-                svc.commit_task(created.get("id", ""))
+                svc.commit_task(_task_data.get("id", ""))
 
                 # Also mark event as reviewed
                 if event_id:
@@ -2553,7 +2554,7 @@ def handle_action(event: dict) -> dict:
                     ).isoformat()
                     _save_calendar_state(state)
 
-            return _ok_json()
+            return _ok_json({"task_id": _task_data.get("id", "")})
         except Exception as e:
             logger.error(f"{action} failed: {e}", exc_info=True)
             return _error_json(str(e))
