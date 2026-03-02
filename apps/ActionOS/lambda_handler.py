@@ -2590,6 +2590,7 @@ def handle_action(event: dict) -> dict:
             task_json = {
                 "content": f"Event Prep: {event_title}",
                 "description": "\n".join(desc_parts),
+                "labels": ["Best Case"],
             }
             if prep_due:
                 task_json["due_date"] = prep_due
