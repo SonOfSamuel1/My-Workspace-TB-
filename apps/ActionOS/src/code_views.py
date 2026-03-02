@@ -96,7 +96,7 @@ def build_code_projects_html(
         return (
             '<div class="task-card completed-card">'
             '<div class="card-row"><div class="card-content">'
-            f'<div class="task-title" style="text-decoration:line-through;color:var(--text-2);">{title}</div>'
+            f'<div class="task-title" style="color:var(--text-2);">{title}</div>'
             f'<div class="task-meta">'
             f'<span style="color:var(--ok);">Completed {html.escape(date_display)}</span>'
             + (f" &middot; {html.escape(project_name)}" if project_name else "")
