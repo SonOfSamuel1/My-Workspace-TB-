@@ -2006,21 +2006,14 @@ def handle_action(event: dict) -> dict:
                     if not t.get("due") or t["due"].get("date", "")[:10] <= today
                 )
 
-            def _count_strictly_today(tasks):
-                """Count tasks with a due date of exactly today."""
-                return sum(
-                    1
-                    for t in tasks
-                    if (t.get("due") or {}).get("date", "")[:10] == today
-                )
-
-            with ThreadPoolExecutor(max_workers=6) as ex:
+            with ThreadPoolExecutor(max_workers=7) as ex:
                 f_inbox = ex.submit(service.get_inbox_tasks)
                 f_commit = ex.submit(service.get_tasks_by_label, "Commit")
                 f_p1 = ex.submit(service.get_tasks_by_priority, 4)
                 f_bc = ex.submit(service.get_tasks_by_label, "Best Case")
                 f_code = ex.submit(service.get_code_project_tasks)
                 f_all = ex.submit(service.get_all_tasks)
+                f_home_state = ex.submit(_load_home_reviewed_state)
 
             code_tasks, _cp, _cc = f_code.result()
             # Only count untagged new issues for the badge
@@ -2031,10 +2024,16 @@ def handle_action(event: dict) -> dict:
                 if not _status_labels.intersection(t.get("labels", []))
             ]
             _commit_tasks = f_commit.result()
+            _commit_total = _count_today_overdue_or_undated(_commit_tasks)
+            # Unreviewed: commit tasks not yet reviewed in the home view
+            _commit_reviewed_ids = f_home_state.result().get("commit", {})
+            _commit_unreviewed = sum(
+                1 for t in _commit_tasks if t["id"] not in _commit_reviewed_ids
+            )
             counts = {
                 "inbox": len(f_inbox.result()),
-                "commit": _count_today_overdue_or_undated(_commit_tasks),
-                "commit_due_today": _count_strictly_today(_commit_tasks),
+                "commit": _commit_total,
+                "commit_unreviewed": _commit_unreviewed,
                 "p1": _count_today_or_overdue(f_p1.result()),
                 "bestcase": _count_today_or_overdue(f_bc.result()),
                 "code": len(code_new_issues),
