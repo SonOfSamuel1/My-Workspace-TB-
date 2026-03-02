@@ -20,9 +20,10 @@ logger = logging.getLogger(__name__)
 class EmailFormatter:
     """Builds HTML and plain-text versions of the daily teachings email."""
 
-    def __init__(self, vault_name: str = "", vault_subfolder: str = ""):
+    def __init__(self, vault_name: str = "", vault_subfolder: str = "", obsidian_redirect_base: str = ""):
         self.vault_name = vault_name
         self.vault_subfolder = vault_subfolder
+        self.obsidian_redirect_base = obsidian_redirect_base.rstrip("/")
 
     def format_email(
         self,
@@ -237,8 +238,16 @@ class EmailFormatter:
             return ""
         filename = s3_key.replace(".md", "")
         file_path = f"{self.vault_subfolder}/{filename}" if self.vault_subfolder else filename
-        url = f"obsidian://open?vault={quote(self.vault_name, safe='')}&amp;file={quote(file_path, safe='')}"
-        logger.info(f"Obsidian URL: {url.replace('&amp;', '&')}")
+        vault_enc = quote(self.vault_name, safe='')
+        file_enc = quote(file_path, safe='')
+        if self.obsidian_redirect_base:
+            # HTTPS redirect — works in Gmail (custom protocols are blocked)
+            url = f"{self.obsidian_redirect_base}?action=obsidian_open&amp;vault={vault_enc}&amp;file={file_enc}"
+        else:
+            # Direct obsidian:// link — works in Apple Mail, not Gmail
+            url = f"obsidian://open?vault={vault_enc}&amp;file={file_enc}"
+        direct_url = f"obsidian://open?vault={vault_enc}&file={file_enc}"
+        logger.info(f"Obsidian URL: {direct_url}")
         btn_style = (
             "display:inline-block;margin-top:16px;padding:9px 22px;"
             "background-color:#1f4020;color:#f0e8d0;"
@@ -260,7 +269,7 @@ class EmailFormatter:
 
         lines = verse_text.strip().splitlines()
         ref_pattern = re.compile(
-            r"^(?:\d\s+)?[A-Z]\w+(\s\w+)?\s+\d+:\d+[\d\-,\s]*(\s*\(\w+\))?$"
+            r"^(?:\d\s+)?[A-Z]\w+(\s\w+)?\s+\d+:\d+[\d\u2013\-,\s]*(\s*\([^)]+\))?$"
         )
 
         reference = ""
