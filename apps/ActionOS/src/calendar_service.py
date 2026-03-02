@@ -325,13 +325,13 @@ class CalendarService:
         event_start_iso: str,
         travel_minutes: int = 30,
         calendar_id: str = "primary",
+        destination: str = "",
+        drive_seconds: int = 0,
     ) -> str:
-        """Create a travel time event that ends when the main event starts.
+        """Create a travel-buffer event that ends when the main event starts.
 
-        Returns the html_link of the created Google Calendar event.
+        Returns the htmlLink of the created Google Calendar event.
         """
-        import zoneinfo as _zi
-
         try:
             event_start = datetime.fromisoformat(event_start_iso)
         except Exception:
@@ -347,8 +347,17 @@ class CalendarService:
         except Exception:
             tz_name = "America/New_York"
 
+        desc_parts = [f"For: {title}"]
+        if destination:
+            desc_parts.append(f"Destination: {destination}")
+        drive_min_raw = drive_seconds // 60 if drive_seconds else travel_minutes
+        desc_parts.append(
+            f"Estimated drive: {drive_min_raw} min (+10 min buffer = {travel_minutes} min total)"
+        )
+
         body = {
             "summary": f"Travel Time: {title}",
+            "description": "\n".join(desc_parts),
             "start": {
                 "dateTime": travel_start.isoformat(),
                 "timeZone": tz_name,
@@ -357,6 +366,7 @@ class CalendarService:
                 "dateTime": travel_end.isoformat(),
                 "timeZone": tz_name,
             },
+            "colorId": "2",  # sage green
         }
         result = self.service.events().insert(calendarId=calendar_id, body=body).execute()
         logger.info(
