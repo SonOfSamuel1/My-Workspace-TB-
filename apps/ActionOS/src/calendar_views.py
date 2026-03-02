@@ -246,6 +246,18 @@ def _build_project_options_html(projects: List[Dict[str, Any]]) -> str:
     return options
 
 
+def _format_short_date(iso: str) -> str:
+    """Format an ISO datetime/date string as 'Feb 3' (short month + day)."""
+    try:
+        if len(iso) > 10:
+            dt = datetime.fromisoformat(iso).astimezone(_EASTERN)
+        else:
+            dt = datetime.strptime(iso, "%Y-%m-%d")
+        return dt.strftime("%b %-d")
+    except Exception:
+        return iso[:10]
+
+
 def _is_upcoming_timed_event(event: Dict[str, Any]) -> bool:
     """Return True if the event is a timed (non-all-day) event within the next 7 days."""
     if event.get("is_all_day", False):
@@ -274,6 +286,8 @@ def _build_event_card(
     todoist_task_id: str = "",
     has_prep_action: bool = False,
     prep_task_id: str = "",
+    last_date: str = "",
+    next_date: str = "",
 ) -> str:
     eid = event.get("id", "")
     eid_safe = html.escape(eid)
@@ -377,6 +391,17 @@ def _build_event_card(
             "Prep Scheduled</a>"
         )
 
+    # Schedule badges (last / next occurrence, shown with green event badge style)
+    schedule_badges = ""
+    if last_date:
+        schedule_badges += (
+            f'<span class="event-schedule-badge">Last: {html.escape(_format_short_date(last_date))}</span>'
+        )
+    if next_date:
+        schedule_badges += (
+            f'<span class="event-schedule-badge">Next: {html.escape(_format_short_date(next_date))}</span>'
+        )
+
     # Meta line: date · location
     meta_parts = [date_range]
     if location:
@@ -438,6 +463,7 @@ def _build_event_card(
         f'<span class="cal-type-badge" style="background:{cal_color}">{cal_label}</span>'
         f"{todoist_indicator}"
         f"{prep_indicator}"
+        f"{schedule_badges}"
         f"</div>"
         f'<div class="task-meta">{meta_line}</div>'
         f'<div class="task-actions">'
@@ -611,11 +637,37 @@ def build_calendar_html(
     ffm_tasks: List[Dict[str, Any]] = None,
     ffm_project_id: str = None,
     todoist_tasks: List[Dict[str, Any]] = None,
+    all_events: List[Dict[str, Any]] = None,
 ) -> str:
     """Build the Calendar page with categorized sections."""
     project_options_html = _build_project_options_html(projects)
     checklists = checklists or {}
     todoist_tasks = todoist_tasks or []
+
+    # Build title → sorted start-date list for prev/next occurrence lookup.
+    # all_events may include past occurrences (fetched with lookback_days).
+    _schedule_source = all_events if all_events is not None else events
+    _title_dates: Dict[str, List[str]] = {}
+    for ev in _schedule_source:
+        t = (ev.get("title") or "").strip().lower()
+        s = (ev.get("start") or "")[:19]
+        if t and s:
+            _title_dates.setdefault(t, []).append(s)
+    for t in _title_dates:
+        _title_dates[t].sort()
+
+    def _get_schedule(title: str, start: str):
+        """Return (last_date, next_date) ISO strings relative to *start*."""
+        dates = _title_dates.get((title or "").strip().lower(), [])
+        s = (start or "")[:19]
+        last = next_occ = ""
+        for d in dates:
+            if d < s:
+                last = d
+            elif d > s:
+                next_occ = d
+                break
+        return last, next_occ
 
     # Build lookup sets for calendar-todoist matching
     _todoist_title_map = {}  # content_lower → task_id
@@ -665,6 +717,7 @@ def build_calendar_html(
             r = _is_event_reviewed(eid, reviewed_state)
             days_rem = _days_until_reviewed_reset(eid, reviewed_state)
             ev_title_lower = (event.get("title") or "").strip().lower()
+            last_date, next_date = _get_schedule(event.get("title", ""), event.get("start", ""))
             out += _build_event_card(
                 event,
                 r,
@@ -677,6 +730,8 @@ def build_calendar_html(
                 todoist_task_id=_todoist_title_map.get(ev_title_lower, ""),
                 has_prep_action=bool(_todoist_prep_map.get(ev_title_lower)),
                 prep_task_id=_todoist_prep_map.get(ev_title_lower, ""),
+                last_date=last_date,
+                next_date=next_date,
             )
         return out
 
@@ -840,6 +895,9 @@ def build_calendar_html(
         "padding:2px 7px;border-radius:6px;white-space:nowrap;}"
         ".prep-indicator{font-size:10px;font-weight:600;text-decoration:none;"
         "background:var(--ok-bg,#16382a);color:var(--ok,#22c55e);"
+        "padding:2px 7px;border-radius:6px;white-space:nowrap;}"
+        ".event-schedule-badge{font-size:10px;font-weight:700;text-decoration:none;"
+        "background:var(--ok-bg);color:var(--ok);border:1px solid var(--ok-b);"
         "padding:2px 7px;border-radius:6px;white-space:nowrap;}"
         ".task-meta{font-size:12px;color:var(--text-2);margin-bottom:10px;line-height:1.5;"
         "word-break:break-word;overflow-wrap:break-word;}"

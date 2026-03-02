@@ -59,14 +59,21 @@ class CalendarService:
 
         self.service = build("calendar", "v3", credentials=creds, cache_discovery=False)
 
-    def get_upcoming_events(self, days: int = 90) -> List[Dict[str, Any]]:
+    def get_upcoming_events(self, days: int = 90, lookback_days: int = 0) -> List[Dict[str, Any]]:
         """Fetch from all calendars in parallel, deduplicate by event ID, sort by start time.
+
+        Args:
+            days: How many days forward to fetch.
+            lookback_days: How many days back to also include (for prev-occurrence lookups).
 
         Returns a list of dicts:
           {id, title, start, end, is_all_day, location, description, html_link, calendar_type}
         """
         now = datetime.now(timezone.utc)
-        time_min = now.isoformat()
+        if lookback_days > 0:
+            time_min = (now - timedelta(days=lookback_days)).isoformat()
+        else:
+            time_min = now.isoformat()
 
         def _fetch_one(cal_type, cal_id):
             cal_days = _CALENDAR_DAY_OVERRIDES.get(cal_type, days)
