@@ -23,27 +23,10 @@ def format_duration(seconds: int) -> str:
 
 
 def build_description(day: dict) -> str:
-    """Build a rich Toggl time entry description from Eight Sleep data."""
+    """Build Toggl time entry description with sleep score and time slept."""
     score = day.get("score", "N/A")
     sleep_dur = format_duration(day.get("sleepDuration", 0))
-    deep_min = day.get("deepDuration", 0) // 60
-    deep_pct = round(day.get("deepPercent", 0) * 100)
-    rem_min = day.get("remDuration", 0) // 60
-    rem_pct = round(day.get("remPercent", 0) * 100)
-    light_min = day.get("lightDuration", 0) // 60
-    tnt = day.get("tnt", 0)
-
-    quality = day.get("sleepQualityScore", {})
-    hr = quality.get("heartRate", {}).get("current", "N/A")
-    hrv = quality.get("hrv", {}).get("current", "N/A")
-    rr = quality.get("respiratoryRate", {}).get("current", "N/A")
-
-    lines = [
-        f"Score: {score}/100 | Slept: {sleep_dur}",
-        f"Deep: {deep_min}m ({deep_pct}%) | REM: {rem_min}m ({rem_pct}%) | Light: {light_min}m",
-        f"HR: {hr} bpm | HRV: {hrv} ms | RR: {rr} br/min | T&T: {tnt}",
-    ]
-    return " | ".join(lines)
+    return f"Score: {score}/100 | Slept: {sleep_dur}"
 
 
 def already_synced(toggl: TogglClient, presence_start: str) -> bool:
