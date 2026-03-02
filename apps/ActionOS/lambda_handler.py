@@ -1363,6 +1363,7 @@ def handle_action(event: dict) -> dict:
                 service = TodoistService(todoist_token)
                 today_str = datetime.now().strftime("%Y-%m-%d")
                 _toggl_tok = os.environ.get("TOGGL_API_TOKEN", "")
+                toggl_projects = _fetch_toggl_projects(_toggl_tok)
                 toggl_time_totals = _fetch_toggl_time_entries(_toggl_tok) if _toggl_tok else {}
 
                 if view == "inbox":
@@ -1432,9 +1433,7 @@ def handle_action(event: dict) -> dict:
                         reverse=True,
                     )
 
-                checklists = (
-                    _load_checklists() if view == "commit" else None
-                )
+                checklists = _load_checklists() if view == "commit" else None
                 body = build_view_html(
                     tasks,
                     projects,
@@ -1502,6 +1501,14 @@ def handle_action(event: dict) -> dict:
                     reverse=True,
                 )
 
+                # Fetch completed tasks (best-effort)
+                try:
+                    completed_tasks, _ = service.get_completed_code_project_tasks(
+                        days=30
+                    )
+                except Exception:
+                    completed_tasks = []
+
                 body = build_code_projects_html(
                     issues_tasks,
                     in_progress_tasks,
@@ -1511,6 +1518,7 @@ def handle_action(event: dict) -> dict:
                     function_url,
                     expected,
                     embed=True,
+                    completed_tasks=completed_tasks,
                 )
                 return {
                     "statusCode": 200,
@@ -1982,8 +1990,7 @@ def handle_action(event: dict) -> dict:
                 return sum(
                     1
                     for t in tasks
-                    if not t.get("due")
-                    or t["due"].get("date", "")[:10] <= today
+                    if not t.get("due") or t["due"].get("date", "")[:10] <= today
                 )
 
             with ThreadPoolExecutor(max_workers=6) as ex:

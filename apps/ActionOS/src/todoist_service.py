@@ -14,6 +14,7 @@ API v1 notes:
 import logging
 import time
 import uuid
+from datetime import datetime, timedelta, timezone
 
 import requests
 
@@ -672,6 +673,66 @@ class TodoistService:
             f"{len(cc_dev_project_ids)} active-dev project(s)"
         )
         return all_tasks, projects, cc_dev_project_ids
+
+    def get_completed_code_project_tasks(self, days=30):
+        """Fetch recently completed tasks from Claude Code-related projects.
+
+        Uses the same project-matching logic as get_code_project_tasks().
+        Calls GET /archive/items?project_id={pid}&limit=100 for each project.
+        Client-side filters to completed_at >= cutoff, stops paging once items
+        are older than the cutoff.
+
+        Returns:
+            (completed_tasks, projects)
+            - completed_tasks: list of task dicts sorted by completed_at desc
+            - projects: full list of all project dicts
+        """
+        projects = self.get_all_projects()
+        cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+
+        cc_project_ids = []
+        for p in projects:
+            name_lower = p.get("name", "").lower()
+            if (
+                "claude code" in name_lower
+                or "cc dev" in name_lower
+                or name_lower.startswith("cc-")
+            ):
+                cc_project_ids.append(p["id"])
+
+        completed = []
+        for pid in cc_project_ids:
+            try:
+                resp = requests.get(
+                    f"{API_BASE}/archive/items",
+                    headers=self.headers,
+                    params={"project_id": pid, "limit": 100},
+                    timeout=10,
+                )
+                resp.raise_for_status()
+                items = resp.json().get(
+                    "items", resp.json() if isinstance(resp.json(), list) else []
+                )
+                for item in items:
+                    completed_at = item.get("completed_at", "")
+                    if not completed_at:
+                        continue
+                    try:
+                        dt = datetime.fromisoformat(completed_at.replace("Z", "+00:00"))
+                    except (ValueError, TypeError):
+                        continue
+                    if dt >= cutoff:
+                        item["_completed_dt"] = dt
+                        completed.append(item)
+            except Exception as e:
+                logger.warning(f"Failed to fetch archive for project {pid}: {e}")
+
+        completed.sort(key=lambda t: t.get("_completed_dt", cutoff), reverse=True)
+        logger.info(
+            f"Completed code tasks: {len(completed)} in last {days} days "
+            f"from {len(cc_project_ids)} projects"
+        )
+        return completed, projects
 
     def get_task_comments(self, task_id):
         """Fetch all comments for a task (includes file attachments).

@@ -108,12 +108,12 @@ Read the task `content` and `description` to understand what needs to be done.
 Then complete the task — this is usually a code change in this workspace. All
 work happens inside the worktree created in step 5.
 
-## 9. Commit, Merge & Close
+## 9. Commit & Merge to Main
 
-> **CRITICAL — DO NOT SKIP STEP 9c.**
-> You MUST ask the user for explicit approval before closing the task or
-> pushing to main. This applies even after context compaction or session
-> continuation. If you are unsure whether you already asked, ask again.
+> **CRITICAL — DO NOT SKIP STEP 9c.** You MUST ask the user for explicit
+> approval before closing the task or pushing to main. This applies even after
+> context compaction or session continuation. If you are unsure whether you
+> already asked, ask again.
 
 ### 9a. Commit all changes
 
@@ -122,61 +122,59 @@ referencing the task.
 
 ### 9b. Merge to main
 
-```bash
-git checkout main && git merge <worktree-branch>
-```
+1. Switch to `main` and pull latest:
+
+   ```bash
+   git checkout main && git pull origin main
+   ```
+
+2. Merge the feature branch:
+
+   ```bash
+   git merge <worktree-branch>
+   ```
 
 If merge conflicts occur, **inform the user** and leave the task open — do NOT
 force-resolve or auto-close.
 
-### 9c. Ask the user before closing AND pushing
+## 10. Deploy
+
+> **Always merge to main BEFORE deploying.** Never deploy from a worktree branch
+> — the deploy must run from the merged main branch.
+
+If the task changed any deployable app (e.g. ActionOS, a Lambda function),
+deploy it now using the appropriate deploy script (e.g.
+`./scripts/deploy-lambda-zip.sh`). If the task was a non-deployable change
+(docs, local scripts, etc.), skip this step.
+
+## 11. Ask Before Closing & Pushing
 
 **Always ask**: "Can I mark this task as complete on Todoist and push to main?"
 
 Do **NOT** auto-close. Do **NOT** push to main. Wait for explicit user approval
 for both actions.
 
-### 9d. Close and push (if approved)
+## 12. Close and Push (if approved)
 
 If the user approves:
 
-```bash
-curl -s -X POST "https://api.todoist.com/api/v1/tasks/<TASK_ID>/close" \
-  -H "Authorization: Bearer <TOKEN>"
-```
-
-A successful close returns HTTP **204** (no content).
-
-If the user does **not** approve, leave the task open and inform the user that
-the task remains in "In Progress" status on Todoist.
-
-## 10. Merge to Main and Push
-
-After closing the Todoist task, merge the worktree branch into `main` and push:
-
-1. Commit any remaining changes on the current branch.
-2. Switch to `main` and pull latest:
+1. Close the Todoist task:
 
    ```bash
-   git checkout main && git pull origin main
+   curl -s -X POST "https://api.todoist.com/api/v1/tasks/<TASK_ID>/close" \
+     -H "Authorization: Bearer <TOKEN>"
    ```
 
-3. Merge the feature branch:
+   A successful close returns HTTP **204** (no content).
 
-   ```bash
-   git merge <worktree-branch> --no-edit
-   ```
-
-4. Push to remote:
+2. Push to remote:
 
    ```bash
    git push origin main
    ```
 
-5. Confirm the merge and push succeeded before finishing.
-
-If there are merge conflicts, stop and ask the user how to resolve them rather
-than force-merging.
+If the user does **not** approve, leave the task open and inform the user that
+the task remains in "In Progress" status on Todoist.
 
 ## API Reference
 

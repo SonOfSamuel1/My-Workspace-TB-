@@ -36,8 +36,9 @@ def build_code_projects_html(
     function_url,
     action_token,
     embed=False,
+    completed_tasks=None,
 ):
-    """Build the Code Projects page with In Progress, Planned, Backlog, and New Issues sections.
+    """Build the Code Projects page with In Progress, Planned, Backlog, New Issues, and Completed sections.
 
     Args:
         issues_tasks:      List of task dicts for the New Issues section.
@@ -48,7 +49,10 @@ def build_code_projects_html(
         function_url:      Base Lambda function URL.
         action_token:      Auth token for action requests.
         embed:             If True, hides the top-bar and posts count to parent.
+        completed_tasks:   List of completed task dicts (last 30 days).
     """
+    if completed_tasks is None:
+        completed_tasks = []
     projects_by_id = {p["id"]: p.get("name", "Unknown") for p in projects}
     # Badge count = only untagged new issues
     total_count = len(issues_tasks)
@@ -72,6 +76,39 @@ def build_code_projects_html(
         return (
             '<div style="text-align:center;padding:32px 20px;color:var(--text-2);">'
             f'<div style="font-size:14px;">{empty_msg}</div>'
+            "</div>"
+        )
+
+    def _render_completed_card(task):
+        title = html.escape(task.get("content", "(no title)"))
+        project_name = projects_by_id.get(task.get("project_id", ""), "")
+        completed_at = task.get("completed_at", "")
+        # Format completed date
+        date_display = ""
+        if completed_at:
+            try:
+                from datetime import datetime
+
+                dt = datetime.fromisoformat(completed_at.replace("Z", "+00:00"))
+                date_display = dt.strftime("%b %d")
+            except (ValueError, TypeError):
+                date_display = completed_at[:10]
+        return (
+            '<div class="task-card completed-card">'
+            '<div class="card-row"><div class="card-content">'
+            f'<div class="task-title" style="text-decoration:line-through;color:var(--text-2);">{title}</div>'
+            f'<div class="task-meta">'
+            f'<span style="color:var(--ok);">Completed {html.escape(date_display)}</span>'
+            + (f" &middot; {html.escape(project_name)}" if project_name else "")
+            + "</div></div></div></div>"
+        )
+
+    def _render_completed_cards():
+        if completed_tasks:
+            return "".join(_render_completed_card(t) for t in completed_tasks)
+        return (
+            '<div style="text-align:center;padding:32px 20px;color:var(--text-2);">'
+            '<div style="font-size:14px;">No completed tasks in the last 30 days</div>'
             "</div>"
         )
 
@@ -148,10 +185,26 @@ def build_code_projects_html(
         # Section headers (sticky on mobile)
         ".section-hdr{display:flex;align-items:center;justify-content:space-between;"
         "padding:14px 16px 6px;max-width:700px;margin:0 auto;"
-        "position:sticky;top:0;z-index:10;background:var(--bg-base);}"
+        "position:sticky;top:46px;z-index:10;background:var(--bg-base);}"
         ".section-title{font-size:11px;font-weight:700;text-transform:uppercase;"
         "letter-spacing:0.8px;}"
         ".section-badge{font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;}"
+        # Section nav bar
+        ".section-nav{position:sticky;top:0;z-index:20;background:var(--bg-base);"
+        "display:flex;align-items:center;gap:6px;padding:10px 16px;"
+        "overflow-x:auto;-webkit-overflow-scrolling:touch;border-bottom:1px solid var(--border);}"
+        ".section-nav::-webkit-scrollbar{display:none;}"
+        ".section-nav{-ms-overflow-style:none;scrollbar-width:none;}"
+        ".nav-pill{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;"
+        "border-radius:100px;font-size:12px;font-weight:600;cursor:pointer;"
+        "white-space:nowrap;border:1px solid transparent;transition:opacity .15s;flex-shrink:0;}"
+        ".nav-pill:hover{opacity:0.85;}"
+        ".nav-badge{font-size:11px;font-weight:700;padding:1px 6px;border-radius:8px;"
+        "background:rgba(255,255,255,0.15);min-width:18px;text-align:center;}"
+        "@media(prefers-color-scheme:light){.nav-badge{background:rgba(0,0,0,0.08);}}"
+        # Completed card
+        ".completed-card{opacity:0.65;cursor:default;}"
+        ".completed-card:hover{border-color:var(--border);background:var(--bg-s1);}"
         ".section-divider{height:1px;background:var(--border);margin:12px 16px 0;"
         "max-width:calc(700px);margin-left:auto;margin-right:auto;}"
         # Split-pane layout
@@ -343,35 +396,76 @@ def build_code_projects_html(
         "::-webkit-scrollbar-thumb{background:var(--scrollbar);border-radius:3px;}"
         "</style>"
         "</head><body>" + header_html + '<div class="split-wrap" id="split-wrap">'
-        # Left pane — four-section task list
+        # Left pane — nav bar + five-section task list
         + '<div class="left-pane">'
+        # ── Section Navigation Bar ────────────────────────────────────────
+        + '<div class="section-nav">'
+        f'<div class="nav-pill" style="background:var(--ok-bg);color:var(--ok);border-color:var(--ok-b);" onclick="scrollToSection(\'sec-in_progress\')">'
+        f'In Progress <span class="nav-badge" id="nbadge-in_progress">{len(in_progress_tasks)}</span></div>'
+        f'<div class="nav-pill" style="background:var(--warn-bg);color:var(--warn);border-color:var(--warn-b);" onclick="scrollToSection(\'sec-planned\')">'
+        f'Planned <span class="nav-badge" id="nbadge-planned">{len(planned_tasks)}</span></div>'
+        f'<div class="nav-pill" style="background:var(--border);color:var(--text-2);border-color:var(--border-h);" onclick="scrollToSection(\'sec-backlog\')">'
+        f'Backlog <span class="nav-badge" id="nbadge-backlog">{len(backlog_tasks)}</span></div>'
+        f'<div class="nav-pill" style="background:var(--accent-bg);color:var(--accent-l);border-color:var(--accent-b);" onclick="scrollToSection(\'sec-issues\')">'
+        f'New Issues <span class="nav-badge" id="nbadge-issues">{len(issues_tasks)}</span></div>'
+        f'<div class="nav-pill" style="background:rgba(255,255,255,0.04);color:var(--text-3);border-color:var(--border);" onclick="scrollToSection(\'sec-completed\')">'
+        f'Completed <span class="nav-badge" id="nbadge-completed">{len(completed_tasks)}</span></div>'
+        "</div>"
         # ── In Progress ───────────────────────────────────────────────────
+        + '<div id="sec-in_progress" style="height:0;"></div>'
         + '<div class="section-hdr">'
         f'<span class="section-title" style="color:var(--ok);">In Progress</span>'
         f'<span class="section-badge" id="sbadge-in_progress" style="background:var(--ok-bg);color:var(--ok);'
         f'border:1px solid var(--ok-b);">{len(in_progress_tasks)}</span>'
-        "</div>" + '<div class="task-list" data-section="in_progress">' + in_progress_cards + "</div>"
+        "</div>"
+        + '<div class="task-list" data-section="in_progress">'
+        + in_progress_cards
+        + "</div>"
         # ── Planned ───────────────────────────────────────────────────────
         + '<div class="section-divider"></div>'
+        + '<div id="sec-planned" style="height:0;"></div>'
         + '<div class="section-hdr" style="margin-top:4px;">'
         f'<span class="section-title" style="color:var(--warn);">Planned</span>'
         f'<span class="section-badge" id="sbadge-planned" style="background:var(--warn-bg);color:var(--warn);'
         f'border:1px solid var(--warn-b);">{len(planned_tasks)}</span>'
-        "</div>" + '<div class="task-list" data-section="planned">' + planned_cards + "</div>"
+        "</div>"
+        + '<div class="task-list" data-section="planned">'
+        + planned_cards
+        + "</div>"
         # ── Backlog ───────────────────────────────────────────────────────
         + '<div class="section-divider"></div>'
+        + '<div id="sec-backlog" style="height:0;"></div>'
         + '<div class="section-hdr" style="margin-top:4px;">'
         f'<span class="section-title" style="color:var(--text-2);">Backlog</span>'
         f'<span class="section-badge" id="sbadge-backlog" style="background:var(--border);color:var(--text-2);'
         f'border:1px solid var(--border-h);">{len(backlog_tasks)}</span>'
-        "</div>" + '<div class="task-list" data-section="backlog">' + backlog_cards + "</div>"
+        "</div>"
+        + '<div class="task-list" data-section="backlog">'
+        + backlog_cards
+        + "</div>"
         # ── New Issues ────────────────────────────────────────────────────
         + '<div class="section-divider"></div>'
+        + '<div id="sec-issues" style="height:0;"></div>'
         + '<div class="section-hdr" style="margin-top:4px;">'
         f'<span class="section-title" style="color:var(--accent-l);">New Issues</span>'
         f'<span class="section-badge" id="sbadge-issues" style="background:var(--accent-bg);color:var(--accent-l);'
         f'border:1px solid var(--accent-b);">{len(issues_tasks)}</span>'
-        "</div>" + '<div class="task-list" data-section="issues">' + issues_cards + "</div>" + "</div>"
+        "</div>"
+        + '<div class="task-list" data-section="issues">'
+        + issues_cards
+        + "</div>"
+        # ── Completed (30d) ───────────────────────────────────────────────
+        + '<div class="section-divider"></div>'
+        + '<div id="sec-completed" style="height:0;"></div>'
+        + '<div class="section-hdr" style="margin-top:4px;">'
+        f'<span class="section-title" style="color:var(--text-3);">Completed (30d)</span>'
+        f'<span class="section-badge" id="sbadge-completed" style="background:var(--border);color:var(--text-3);'
+        f'border:1px solid var(--border);">{len(completed_tasks)}</span>'
+        "</div>"
+        + '<div class="task-list" data-section="completed">'
+        + _render_completed_cards()
+        + "</div>"
+        + "</div>"
         # Right pane — detail / email viewer
         + '<div id="viewer-pane">'
         '<div class="viewer-mobile-header">'
@@ -418,6 +512,14 @@ def build_code_projects_html(
         "</div></div>"
         # JavaScript
         + "<script>"
+        "function scrollToSection(id){"
+        "var el=document.getElementById(id);if(!el)return;"
+        "var pane=document.querySelector('.left-pane');"
+        "var navH=document.querySelector('.section-nav');"
+        "var offset=navH?navH.offsetHeight:46;"
+        "var elRect=el.getBoundingClientRect();"
+        "var paneRect=pane.getBoundingClientRect();"
+        "pane.scrollTo({top:pane.scrollTop+(elRect.top-paneRect.top)-offset,behavior:'smooth'});}"
         "var _cs=getComputedStyle(document.documentElement);"
         "function cv(n){return _cs.getPropertyValue(n).trim();}"
         "var viewName='code';"
@@ -441,8 +543,11 @@ def build_code_projects_html(
         "function _sectionBadge(card,delta){"
         "var tl=card.closest('[data-section]');"
         "if(!tl)return;"
-        "var badge=document.getElementById('sbadge-'+tl.getAttribute('data-section'));"
+        "var sec=tl.getAttribute('data-section');"
+        "var badge=document.getElementById('sbadge-'+sec);"
         "if(badge){var n=parseInt(badge.textContent,10)+delta;if(n<0)n=0;badge.textContent=n;}"
+        "var nbadge=document.getElementById('nbadge-'+sec);"
+        "if(nbadge){var m=parseInt(nbadge.textContent,10)+delta;if(m<0)m=0;nbadge.textContent=m;}"
         "}"
         "function removeCard(id){"
         "var card=document.getElementById('card-'+id);"
