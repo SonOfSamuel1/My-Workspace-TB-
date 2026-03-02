@@ -1041,6 +1041,7 @@ def handle_action(event: dict) -> dict:
             "calendar_commit",
             "ffm_outreach",
             "toggl_start",
+            "toggl_stop",
             "starred_to_todoist",
             "followup_reviewed",
             "followup_resolved",
@@ -1302,6 +1303,13 @@ def handle_action(event: dict) -> dict:
                 home_state = _load_home_reviewed_state()
                 cal_state = _load_calendar_state()
 
+                _toggl_tok_home = os.environ.get("TOGGL_API_TOKEN", "")
+                toggl_time_totals = (
+                    _fetch_toggl_time_entries(_toggl_tok_home)
+                    if _toggl_tok_home
+                    else {}
+                )
+
                 body = build_home_html(
                     commit_tasks=commit_tasks,
                     bestcase_tasks=bestcase_tasks,
@@ -1318,6 +1326,7 @@ def handle_action(event: dict) -> dict:
                     function_url=function_url,
                     action_token=expected,
                     embed=True,
+                    toggl_time_totals=toggl_time_totals,
                 )
                 return {
                     "statusCode": 200,
@@ -1344,7 +1353,6 @@ def handle_action(event: dict) -> dict:
                 service = TodoistService(todoist_token)
                 today_str = datetime.now().strftime("%Y-%m-%d")
                 _toggl_tok = os.environ.get("TOGGL_API_TOKEN", "")
-                toggl_projects = _fetch_toggl_projects(_toggl_tok)
                 toggl_time_totals = _fetch_toggl_time_entries(_toggl_tok) if _toggl_tok else {}
 
                 if view == "inbox":
@@ -1425,7 +1433,6 @@ def handle_action(event: dict) -> dict:
                     expected,
                     embed=True,
                     checklists=checklists,
-                    toggl_projects=toggl_projects,
                     toggl_time_totals=toggl_time_totals,
                 )
                 return {
@@ -2214,10 +2221,6 @@ def handle_action(event: dict) -> dict:
             post_data = {}
 
         ts_subject = post_data.get("subject", "Email task")
-        ts_project_id = post_data.get("project_id")
-        ts_workspace_id = post_data.get("workspace_id")
-        if not ts_workspace_id:
-            return _error_json("Missing workspace_id")
 
         try:
             import base64 as _b64
@@ -2230,6 +2233,15 @@ def handle_action(event: dict) -> dict:
                 "Authorization": f"Basic {_auth}",
                 "Content-Type": "application/json",
             }
+            # Fetch default workspace from Toggl /me
+            _me_r = _req.get(
+                "https://api.track.toggl.com/api/v9/me",
+                headers=_th,
+            )
+            _me_r.raise_for_status()
+            ts_workspace_id = _me_r.json().get("default_workspace_id")
+            if not ts_workspace_id:
+                return _error_json("No default workspace found")
             timer_body = {
                 "description": ts_subject,
                 "workspace_id": int(ts_workspace_id),
@@ -2237,8 +2249,6 @@ def handle_action(event: dict) -> dict:
                 "duration": -1,
                 "created_with": "actionos",
             }
-            if ts_project_id:
-                timer_body["project_id"] = int(ts_project_id)
             _r = _req.post(
                 f"https://api.track.toggl.com/api/v9/workspaces/{ts_workspace_id}/time_entries",
                 headers=_th,
@@ -2248,6 +2258,44 @@ def handle_action(event: dict) -> dict:
             return _ok_json()
         except Exception as e:
             logger.error(f"toggl_start failed: {e}", exc_info=True)
+            return _error_json(str(e))
+
+    elif action == "toggl_stop":
+        try:
+            import base64 as _b64
+
+            import requests as _req
+
+            toggl_token = os.environ.get("TOGGL_API_TOKEN", "")
+            _auth = _b64.b64encode(f"{toggl_token}:api_token".encode()).decode()
+            _th = {
+                "Authorization": f"Basic {_auth}",
+                "Content-Type": "application/json",
+            }
+            # Get the currently running time entry
+            _cur_r = _req.get(
+                "https://api.track.toggl.com/api/v9/me/time_entries/current",
+                headers=_th,
+            )
+            _cur_r.raise_for_status()
+            current_entry = _cur_r.json()
+            if not current_entry:
+                return _error_json("No running timer")
+            entry_id = current_entry.get("id")
+            wid = current_entry.get("workspace_id")
+            if not entry_id or not wid:
+                return _error_json("Invalid timer entry")
+            # Stop the timer
+            _stop_r = _req.patch(
+                f"https://api.track.toggl.com/api/v9/workspaces/{wid}/time_entries/{entry_id}/stop",
+                headers=_th,
+            )
+            _stop_r.raise_for_status()
+            stopped = _stop_r.json()
+            duration = stopped.get("duration", 0)
+            return _ok_json({"duration": duration})
+        except Exception as e:
+            logger.error(f"toggl_stop failed: {e}", exc_info=True)
             return _error_json(str(e))
 
     elif action == "home_reviewed":

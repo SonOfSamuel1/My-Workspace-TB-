@@ -146,7 +146,15 @@ def _due_date_display(due_date_str: str):
         return (due_date_str, "#8b8b93")
 
 
-_CC_LABEL = "Claude"
+_CC_ICON_SVG = (
+    '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" '
+    'stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" '
+    'style="vertical-align:-1px;">'
+    '<rect x="9" y="9" width="13" height="13" rx="2"/>'
+    '<path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>'
+    '</svg>'
+)
+_CC_LABEL = _CC_ICON_SVG + " Claude"
 
 
 def _build_projects_by_id(projects: List[Dict[str, Any]]) -> Dict[str, str]:
@@ -205,6 +213,7 @@ def _build_task_card(
     idx: int,
     email_actions_url: str = "",
     email_actions_token: str = "",
+    toggl_time_totals=None,
 ) -> str:
     """Build a task card with full action buttons for Home view."""
     task_id = html.escape(str(task.get("id", "")))
@@ -368,18 +377,45 @@ def _build_task_card(
         + "</button>"
     )
 
-    # Schedule button — opens duration picker modal to create calendar events
+    # Schedule button
     schedule_btn = (
         f'<button class="schedule-btn" '
         f"onclick=\"event.stopPropagation();openScheduleModal('{task_id}')\">"
-        '<svg class="schedule-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" '
-        'stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
-        '<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/>'
-        '<line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>'
-        '<path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01M16 18h.01"/></svg>'
+        '<svg class="schedule-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01M16 18h.01"/></svg>'
         " Schedule</button>"
     )
 
+    # Toggl timer button
+    safe_subj = raw_content.replace("'", "\\'").replace('"', "&quot;")
+    toggl_select = (
+        '<button class="toggl-btn"'
+        ' onclick="event.stopPropagation();doTogglStart(this)"'
+        ' data-subject="' + safe_subj + '">'
+        'Track</button>'
+    )
+
+    # Total time tracked from Toggl
+    time_tracked_html = ""
+    if toggl_time_totals:
+        total_secs = toggl_time_totals.get(raw_content, 0)
+        if total_secs > 0:
+            hours = total_secs // 3600
+            mins = (total_secs % 3600) // 60
+            if hours > 0:
+                time_str = f"{hours}h {mins}m"
+            else:
+                time_str = f"{mins}m"
+            _clock_icon = (
+                '<svg class="time-icon" width="12" height="12" viewBox="0 0 24 24" '
+                'fill="none" stroke="currentColor" stroke-width="2" '
+                'stroke-linecap="round" stroke-linejoin="round">'
+                '<circle cx="12" cy="12" r="10"/>'
+                '<polyline points="12 6 12 12 16 14"/></svg>'
+            )
+            time_tracked_html = (
+                f'<span class="time-tracked">'
+                f'{_clock_icon} {time_str}</span>'
+            )
     # Data attributes for detail pane
     gmail_link = _extract_gmail_link(description)
     msg_id_field = _extract_msg_id(description)
@@ -427,9 +463,9 @@ def _build_task_card(
         f'<div class="task-title">{title}{priority_badge}</div>'
         f'<div class="task-meta">{meta_line}</div>'
         f'<div class="task-actions">'
-        f"{review_btn}{move_select}{priority_select}{due_date_input}"
-        f"{complete_btn}{commit_btn}{bestcase_btn}{schedule_btn}{cc_btn}"
-        f"</div>"
+        f'{review_btn}{move_select}{priority_select}{due_date_input}'
+        f'{complete_btn}{commit_btn}{bestcase_btn}{schedule_btn}{cc_btn}{toggl_select}{time_tracked_html}'
+        f'</div>'
         f"</div></div>"
         f"</div>"
     )
@@ -1049,9 +1085,11 @@ def build_home_html(
     embed: bool = False,
     email_actions_url: str = "",
     email_actions_token: str = "",
+    toggl_time_totals=None,
 ) -> str:
     """Build the Home aggregated view HTML."""
     projects_by_id = _build_projects_by_id(projects)
+
     home_state = home_state or {}
     cal_state = cal_state or {}
     followup_state = followup_state or {}
@@ -1097,6 +1135,7 @@ def build_home_html(
                 idx,
                 email_actions_url=email_actions_url,
                 email_actions_token=email_actions_token,
+                toggl_time_totals=toggl_time_totals,
             )
             if rev:
                 reviewed_cards += card
@@ -1523,11 +1562,54 @@ def build_home_html(
         "background:transparent;border:none;color:var(--text-1);cursor:pointer;"
         "outline:none;width:100px;}"
         # CC button
-        ".assign-cc-btn{display:inline-flex;align-items:center;justify-content:center;"
-        "padding:4px 10px;border-radius:6px;"
-        "background:rgba(196,120,64,0.10);border:1px solid rgba(196,120,64,0.25);"
-        "cursor:pointer;transition:background .15s;color:#c47840;font-size:13px;font-weight:600;}"
-        ".assign-cc-btn:hover{background:rgba(196,120,64,0.25);}"
+        ".assign-cc-btn{font-family:inherit;font-size:12px;font-weight:600;"
+        "padding:5px 14px;border-radius:6px;"
+        "background:rgba(249,115,22,0.10);color:#f97316;border:1px solid rgba(249,115,22,0.25);"
+        "cursor:pointer;transition:background .15s ease-out;display:inline-flex;align-items:center;gap:4px;}"
+        ".assign-cc-btn:hover{background:rgba(249,115,22,0.25);}"
+        # Schedule button
+        ".schedule-btn{font-family:inherit;font-size:12px;font-weight:600;"
+        "padding:5px 14px;border-radius:6px;"
+        "background:rgba(56,189,248,0.10);color:#38bdf8;border:1px solid rgba(56,189,248,0.20);cursor:pointer;"
+        "transition:background .15s ease-out;display:inline-flex;align-items:center;gap:4px;}"
+        ".schedule-btn:hover{background:rgba(56,189,248,0.25);}"
+        ".schedule-icon{flex-shrink:0;}"
+        # Schedule modal
+        "#schedule-overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;"
+        "z-index:2000;background:rgba(0,0,0,0.6);align-items:center;justify-content:center;}"
+        "#schedule-overlay.open{display:flex;}"
+        "#schedule-modal{background:var(--bg-s1);border:1px solid var(--border);border-radius:14px;"
+        "padding:24px;width:320px;max-width:90vw;box-shadow:0 8px 32px rgba(0,0,0,0.4);}"
+        "#schedule-modal h3{font-size:16px;font-weight:700;color:var(--text-1);margin-bottom:4px;}"
+        "#schedule-modal p{font-size:13px;color:var(--text-2);margin-bottom:16px;}"
+        ".duration-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px;}"
+        ".duration-opt{font-family:inherit;font-size:14px;font-weight:600;"
+        "padding:12px 8px;border-radius:8px;border:1px solid var(--border);"
+        "background:var(--bg-s2);color:var(--text-1);cursor:pointer;"
+        "transition:all .15s;text-align:center;}"
+        ".duration-opt:hover{border-color:rgba(56,189,248,0.4);background:rgba(56,189,248,0.08);color:#38bdf8;}"
+        ".duration-opt.selected{border-color:#38bdf8;background:rgba(56,189,248,0.15);color:#38bdf8;}"
+        "#schedule-confirm{width:100%;font-family:inherit;font-size:14px;font-weight:700;"
+        "padding:12px;border-radius:8px;border:none;cursor:pointer;"
+        "background:#38bdf8;color:#0e0e10;transition:opacity .15s;}"
+        "#schedule-confirm:hover{opacity:0.85;}"
+        "#schedule-confirm:disabled{opacity:0.4;cursor:default;}"
+        "#schedule-cancel{width:100%;font-family:inherit;font-size:13px;font-weight:600;"
+        "padding:8px;border-radius:8px;border:none;cursor:pointer;margin-top:8px;"
+        "background:transparent;color:var(--text-2);}"
+        "#schedule-cancel:hover{color:var(--text-1);}"
+        # Toggl timer button
+        ".toggl-btn{font-family:inherit;font-size:12px;font-weight:600;"
+        "padding:3px 8px;border-radius:6px;"
+        "background:var(--border);color:var(--text-2);border:1px solid var(--border);cursor:pointer;"
+        "transition:background .15s ease-out;display:inline-flex;align-items:center;gap:4px;}"
+        ".toggl-btn:hover{background:var(--border-h);}"
+        ".toggl-running{border-style:dashed;}"
+        # Time tracked display
+        ".time-tracked{font-size:12px;font-weight:600;color:var(--text-2);"
+        "display:inline-flex;align-items:center;gap:4px;padding:5px 10px;"
+        "background:var(--bg-s2);border:1px solid var(--border);border-radius:6px;}"
+        ".time-icon{flex-shrink:0;}"
         # Detail pane
         "#home-detail-pane{display:none;}"
         "#home-detail-pane.open{display:flex!important;flex-direction:column;"
@@ -1569,7 +1651,10 @@ def build_home_html(
         ".section-cards{margin-bottom:4px;}"
         ".task-actions{gap:6px;}"
         ".review-btn,.markread-btn,.complete-btn,.commit-btn,.bestcase-btn,.todoist-btn,"
-        ".skip-inbox-btn,.resolve-btn,.timer-btn,.schedule-btn,.assign-cc-btn{font-size:11px;padding:3px 8px;}"
+        ".skip-inbox-btn,.resolve-btn,.timer-btn{font-size:11px;padding:3px 8px;}"
+        ".schedule-btn,.assign-cc-btn{font-size:11px;padding:4px 6px;}"
+        ".toggl-btn{font-size:11px;padding:3px 6px;}"
+        ".time-tracked{font-size:11px;padding:4px 8px;}"
         ".move-pill-select{font-size:10px;max-width:70px;}"
         ".action-select{font-size:10px;padding:3px 4px;}"
         ".date-pill-input{font-size:10px;width:80px;}"
@@ -1603,9 +1688,9 @@ def build_home_html(
         "</div>"
         '<div id="home-detail-content"></div>'
         '<iframe id="home-detail-frame" src="about:blank"></iframe>'
-        "</div>"
+        '</div>'
         # Schedule duration picker modal
-        + '<div id="schedule-overlay" onclick="if(event.target===this)closeScheduleModal()">'
+        '<div id="schedule-overlay" onclick="if(event.target===this)closeScheduleModal()">'
         '<div id="schedule-modal">'
         "<h3>Schedule Action</h3>"
         '<p id="schedule-task-label">How long will this take?</p>'
@@ -1623,7 +1708,8 @@ def build_home_html(
         "</div>"
         '<button id="schedule-confirm" disabled>Schedule</button>'
         '<button id="schedule-cancel" onclick="closeScheduleModal()">Cancel</button>'
-        "</div></div>" + "<script>"
+        "</div></div>"
+        "<script>"
         "var _homeUrl='" + func_url_safe + "';"
         "var _cs=getComputedStyle(document.documentElement);"
         "function cv(n){return _cs.getPropertyValue(n).trim();}" + post_message_js +
@@ -1758,25 +1844,84 @@ def build_home_html(
         "}).catch(function(){btn.textContent='!';setTimeout(function(){btn.innerHTML=orig;},1500);});}"
         # --- Copy email for Claude ---
         "function doCopyEmailCC(btn,subject,fromAddr,gmailLink){"
-        "var orig=btn.innerHTML;"
+        "var orig=btn.innerHTML;"  # nosec: restoring own button content
         "var msg='Please handle this email in my inbox:\\n\\nSubject: '+subject+'\\nFrom: '+fromAddr+(gmailLink?'\\nGmail: '+gmailLink:'');"
         "navigator.clipboard.writeText(msg).then(function(){"
         "btn.textContent='\u2713';setTimeout(function(){btn.innerHTML=orig;},1500);"
         "}).catch(function(){btn.textContent='!';setTimeout(function(){btn.innerHTML=orig;},1500);});}"
         # --- Copy calendar event for Claude ---
         "function doCopyCalCC(btn,title,dateStr,location){"
-        "var orig=btn.innerHTML;"
+        "var orig=btn.innerHTML;"  # nosec: restoring own button content
         "var msg='Calendar event:\\n\\nTitle: '+title+'\\nDate: '+dateStr+(location?'\\nLocation: '+location:'');"
         "navigator.clipboard.writeText(msg).then(function(){"
         "btn.textContent='\u2713';setTimeout(function(){btn.innerHTML=orig;},1500);"
         "}).catch(function(){btn.textContent='!';setTimeout(function(){btn.innerHTML=orig;},1500);});}"
         # --- Copy followup email for Claude ---
         "function doCopyFollowupCC(btn,subject,sender,gmailLink){"
-        "var orig=btn.innerHTML;"
+        "var orig=btn.innerHTML;"  # nosec: restoring own button content
         "var msg='Please follow up on this email:\\n\\nSubject: '+subject+'\\nFrom: '+sender+(gmailLink?'\\nGmail: '+gmailLink:'');"
         "navigator.clipboard.writeText(msg).then(function(){"
         "btn.textContent='\u2713';setTimeout(function(){btn.innerHTML=orig;},1500);"
         "}).catch(function(){btn.textContent='!';setTimeout(function(){btn.innerHTML=orig;},1500);});}"
+        # --- Toggl timer ---
+        "function doTogglStart(btn){"
+        "var subject=btn.getAttribute('data-subject')||'';"
+        "btn.disabled=true;btn.textContent='Starting\u2026';"
+        "fetch(_homeUrl+'?action=toggl_start',{method:'POST',headers:{'Content-Type':'application/json'},"
+        "body:JSON.stringify({subject:subject})})"
+        ".then(function(r){return r.json();})"
+        ".then(function(d){"
+        "if(d.ok){"
+        "var stop=document.createElement('button');"
+        "stop.className='toggl-btn toggl-running';"
+        "stop.setAttribute('onclick','event.stopPropagation();doTogglStop(this)');"
+        "stop.setAttribute('data-start',String(Math.floor(Date.now()/1000)));"
+        "var sq=document.createElementNS('http://www.w3.org/2000/svg','svg');"
+        "sq.setAttribute('width','8');sq.setAttribute('height','8');sq.setAttribute('viewBox','0 0 10 10');"
+        "var r2=document.createElementNS('http://www.w3.org/2000/svg','rect');"
+        "r2.setAttribute('x','1');r2.setAttribute('y','1');r2.setAttribute('width','8');r2.setAttribute('height','8');"
+        "r2.setAttribute('rx','1');r2.setAttribute('fill','currentColor');"
+        "sq.appendChild(r2);stop.appendChild(sq);"
+        "stop.appendChild(document.createTextNode(' Stop'));"
+        "btn.parentNode.replaceChild(stop,btn);"
+        "}else{"
+        "btn.disabled=false;btn.textContent='Track';"
+        "}"
+        "}).catch(function(){"
+        "btn.disabled=false;btn.textContent='Track';"
+        "});"
+        "}"
+        "function _makeTimeSpan(secs){"
+        "var m=Math.floor(secs/60),h=Math.floor(m/60);m=m%60;"
+        "var lbl=h>0?(h+'h '+m+'m'):(m+'m');"
+        "var span=document.createElement('span');"
+        "span.className='time-tracked';"
+        "var icon=document.createElementNS('http://www.w3.org/2000/svg','svg');"
+        "icon.setAttribute('class','time-icon');icon.setAttribute('width','12');icon.setAttribute('height','12');"
+        "icon.setAttribute('viewBox','0 0 24 24');icon.setAttribute('fill','none');"
+        "icon.setAttribute('stroke','currentColor');icon.setAttribute('stroke-width','2');"
+        "icon.setAttribute('stroke-linecap','round');icon.setAttribute('stroke-linejoin','round');"
+        "var ci=document.createElementNS('http://www.w3.org/2000/svg','circle');"
+        "ci.setAttribute('cx','12');ci.setAttribute('cy','12');ci.setAttribute('r','10');"
+        "var pl=document.createElementNS('http://www.w3.org/2000/svg','polyline');"
+        "pl.setAttribute('points','12 6 12 12 16 14');"
+        "icon.appendChild(ci);icon.appendChild(pl);"
+        "span.appendChild(icon);span.appendChild(document.createTextNode(' '+lbl));"
+        "return span;}"
+        "function doTogglStop(btn){"
+        "btn.disabled=true;btn.textContent='Stopping\u2026';"
+        "var startTs=parseInt(btn.getAttribute('data-start')||'0');"
+        "fetch(_homeUrl+'?action=toggl_stop',{method:'POST'})"
+        ".then(function(r){return r.json();})"
+        ".then(function(d){"
+        "if(d.ok){"
+        "var secs=d.duration||0;"
+        "if(!secs&&startTs){secs=Math.floor(Date.now()/1000)-startTs;}"
+        "var span=_makeTimeSpan(secs);"
+        "btn.parentNode.replaceChild(span,btn);"
+        "}else{btn.disabled=false;btn.textContent='Stop';}"
+        "}).catch(function(){btn.disabled=false;btn.textContent='Stop';});"
+        "}"
         # --- Unstar email ---
         "function doUnstar(msgId,btn){"
         "btn.style.pointerEvents='none';btn.textContent='Unstarring\u2026';"
@@ -1942,6 +2087,8 @@ def build_home_html(
         # --- Detail pane (rich view matching todoist_views) ---
         # All user content is sanitized via esc() before DOM insertion
         "function openHomeDetail(card){"
+        "if(event&&event.target&&event.target.closest('.toggl-btn'))return;"
+        "if(window.innerWidth>768)return;"
         "var url=card.getAttribute('data-open-url');"
         "if(url){openHomeEmail(card);return;}"
         "var taskId=card.getAttribute('data-task-id')||'';"
@@ -2145,6 +2292,51 @@ def build_home_html(
         "if(lastIdx<text.length)frag.appendChild(document.createTextNode(text.slice(lastIdx)));"
         "node.parentNode.replaceChild(frag,node);"
         "}}});});}linkifyTitles();"
+        # Schedule modal JS
+        "var _schedTaskId=null,_schedMins=0;"
+        "function openScheduleModal(taskId){"
+        "_schedTaskId=taskId;_schedMins=0;"
+        "document.querySelectorAll('.duration-opt').forEach(function(b){"
+        "b.classList.remove('selected');});"
+        "var btn=document.getElementById('schedule-confirm');"
+        "btn.disabled=true;btn.textContent='Schedule';"
+        "document.getElementById('schedule-overlay').classList.add('open');"
+        "}"
+        "function closeScheduleModal(){"
+        "document.getElementById('schedule-overlay').classList.remove('open');"
+        "_schedTaskId=null;_schedMins=0;"
+        "}"
+        "document.querySelectorAll('.duration-opt').forEach(function(b){"
+        "b.addEventListener('click',function(){"
+        "document.querySelectorAll('.duration-opt').forEach(function(x){x.classList.remove('selected');});"
+        "this.classList.add('selected');"
+        "_schedMins=parseInt(this.getAttribute('data-mins'));"
+        "var n=_schedMins/30;"
+        "document.getElementById('schedule-confirm').disabled=false;"
+        "document.getElementById('schedule-confirm').textContent="
+        "'Schedule '+n+' event'+(n>1?'s':'');"
+        "});});"
+        "document.getElementById('schedule-confirm').addEventListener('click',function(){"
+        "if(!_schedTaskId||!_schedMins)return;"
+        "var btn=this;btn.disabled=true;btn.textContent='Scheduling...';"
+        "fetch(_homeUrl+'?action=schedule_action&task_id='+_schedTaskId+'&duration='+_schedMins)"
+        ".then(function(r){return r.json();})"
+        ".then(function(d){"
+        "if(d.ok){"
+        "btn.textContent='\\u2713 '+d.events_created+' events created!';"
+        "btn.style.background='#22c55e';"
+        "setTimeout(function(){closeScheduleModal();btn.style.background='';},1500);"
+        "}else{"
+        "btn.textContent='Failed: '+(d.error||'Unknown error');"
+        "btn.disabled=false;btn.style.background='#ef4444';"
+        "setTimeout(function(){btn.style.background='';btn.textContent='Schedule';},2000);"
+        "}"
+        "})"
+        ".catch(function(e){"
+        "btn.textContent='Error';btn.disabled=false;"
+        "setTimeout(function(){btn.textContent='Schedule';},2000);"
+        "});"
+        "});"
         "</script>"
         "</body></html>"
     )
