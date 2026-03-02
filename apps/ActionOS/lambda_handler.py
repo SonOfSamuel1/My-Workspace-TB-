@@ -65,10 +65,11 @@ import json
 import logging
 import os
 import re
+import hashlib
 import sys
 import urllib.parse
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -83,6 +84,7 @@ _s3 = boto3.client("s3", region_name="us-east-1")
 CALENDAR_STATE_BUCKET = os.environ.get("STATE_BUCKET", "gmail-unread-digest")
 CALENDAR_STATE_KEY = "calendar_reviewed_state.json"
 CHECKLIST_STATE_KEY = "actionos/calendar_checklists.json"
+COUNTDOWN_STATE_KEY = "actionos/countdowns.json"
 FOLLOWUP_STATE_KEY = "actionos/followup_state.json"
 HOME_REVIEWED_STATE_KEY = "actionos/home_reviewed_state.json"
 
@@ -689,6 +691,30 @@ def _save_checklists(data: dict) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Countdown notification helpers
+# ---------------------------------------------------------------------------
+
+
+def _load_countdowns() -> dict:
+    try:
+        bucket = os.environ.get("STATE_BUCKET", "gmail-unread-digest")
+        obj = _s3.get_object(Bucket=bucket, Key=COUNTDOWN_STATE_KEY)
+        return json.loads(obj["Body"].read())
+    except Exception:
+        return {}
+
+
+def _save_countdowns(data: dict) -> None:
+    bucket = os.environ.get("STATE_BUCKET", "gmail-unread-digest")
+    _s3.put_object(
+        Bucket=bucket,
+        Key=COUNTDOWN_STATE_KEY,
+        Body=json.dumps(data),
+        ContentType="application/json",
+    )
+
+
+# ---------------------------------------------------------------------------
 # Follow-up state helpers
 # ---------------------------------------------------------------------------
 
@@ -1024,6 +1050,8 @@ def handle_action(event: dict) -> dict:
             "remove_backlog",
             "search",
             "schedule_action",
+            "schedule_countdown",
+            "cancel_countdown",
         }
         if _action_check in _api_actions:
             return {"statusCode": 403, "body": "Forbidden"}
@@ -2570,8 +2598,48 @@ def handle_action(event: dict) -> dict:
     elif action == "notify_test":
         from push_service import send_push
 
-        ok = send_push("ActionOS", "Push notifications are working! 🎉", "/")
+        ok = send_push("ActionOS", "Push notifications are working! \U0001f389", "/")
         return _ok_json() if ok else _error_json("Push failed — check subscription")
+
+    # -----------------------------------------------------------------------
+    # Countdown push notifications
+    # -----------------------------------------------------------------------
+    elif action == "schedule_countdown":
+        event_title = params.get("event_title", "").strip()
+        event_start = params.get("event_start", "").strip()
+        if not event_title or not event_start:
+            return _error_json("Missing event_title or event_start")
+        try:
+            start_dt = datetime.fromisoformat(event_start.replace("Z", "+00:00"))
+            notify_at = start_dt - timedelta(minutes=5)
+            event_id = hashlib.md5(
+                f"{event_title}|{event_start}".encode()
+            ).hexdigest()[:12]
+            countdowns = _load_countdowns()
+            countdowns[event_id] = {
+                "title": event_title,
+                "event_start": event_start,
+                "notify_at": notify_at.isoformat(),
+            }
+            _save_countdowns(countdowns)
+            return _ok_json({"event_id": event_id})
+        except Exception as e:
+            logger.error(f"schedule_countdown error: {e}", exc_info=True)
+            return _error_json(f"Failed: {e}")
+
+    elif action == "cancel_countdown":
+        event_title = params.get("event_title", "").strip()
+        event_start = params.get("event_start", "").strip()
+        if not event_title or not event_start:
+            return _error_json("Missing event_title or event_start")
+        event_id = hashlib.md5(
+            f"{event_title}|{event_start}".encode()
+        ).hexdigest()[:12]
+        countdowns = _load_countdowns()
+        if event_id in countdowns:
+            del countdowns[event_id]
+            _save_countdowns(countdowns)
+        return _ok_json()
 
     else:
         return {"statusCode": 400, "body": "Bad Request"}
@@ -2599,6 +2667,43 @@ def lambda_handler(event, context):
         # EventBridge scheduled invocation
         mode = event.get("mode", "sync")
         dry_run = event.get("dry_run", False)
+
+        if mode == "check_countdowns":
+            logger.info("Running check_countdowns mode")
+            countdowns = _load_countdowns()
+            if not countdowns:
+                return {"statusCode": 200, "body": "No countdowns"}
+            now = datetime.now(timezone.utc)
+            fired = []
+            for eid, entry in list(countdowns.items()):
+                notify_at = datetime.fromisoformat(entry["notify_at"])
+                if notify_at.tzinfo is None:
+                    notify_at = notify_at.replace(tzinfo=timezone.utc)
+                if notify_at <= now:
+                    from push_service import send_push
+
+                    func_url = os.environ.get("FUNCTION_URL", "")
+                    cal_url = (
+                        func_url.rstrip("/")
+                        + "?action=web&view=calendar&embed=1"
+                    )
+                    ok = send_push(
+                        entry["title"],
+                        "Starting in 5 minutes",
+                        cal_url,
+                    )
+                    logger.info(
+                        f"Countdown fired for '{entry['title']}': push={'ok' if ok else 'fail'}"
+                    )
+                    fired.append(eid)
+            for eid in fired:
+                del countdowns[eid]
+            if fired:
+                _save_countdowns(countdowns)
+            return {
+                "statusCode": 200,
+                "body": json.dumps({"fired": len(fired)}),
+            }
 
         from unread_main import run_daily_digest, run_sync
 

@@ -247,7 +247,7 @@ def _build_project_options_html(projects: List[Dict[str, Any]]) -> str:
 
 
 def _is_upcoming_timed_event(event: Dict[str, Any]) -> bool:
-    """Return True if the event is a timed (non-all-day) event happening today or tomorrow."""
+    """Return True if the event is a timed (non-all-day) event within the next 7 days."""
     if event.get("is_all_day", False):
         return False
     start = event.get("start", "")
@@ -255,9 +255,9 @@ def _is_upcoming_timed_event(event: Dict[str, Any]) -> bool:
         return False
     try:
         dt_start = datetime.fromisoformat(start).astimezone(_EASTERN)
-        today = datetime.now(_EASTERN).date()
-        tomorrow = today + timedelta(days=1)
-        return dt_start.date() in (today, tomorrow)
+        now = datetime.now(_EASTERN)
+        cutoff = now + timedelta(days=7)
+        return now <= dt_start <= cutoff
     except Exception:
         return False
 
@@ -360,10 +360,12 @@ def _build_event_card(
             '<line x1="12" y1="1" x2="12" y2="4"/>'
             "</svg>"
         )
+        gcal_link_safe = html.escape(html_link) if html_link else ""
         timer_btn = (
             f'<button class="timer-btn" id="tmr-{idx}" '
             f'data-start="{start_iso}" '
             f'data-title="{title_for_timer}" '
+            f'data-gcal="{gcal_link_safe}" '
             f'onclick="doPrepTimer(this)">'
             f'{_timer_svg} <span class="timer-label">Countdown</span></button>'
         )
@@ -1048,16 +1050,17 @@ def build_calendar_html(
         "_setTimerText(btn,_timerLabel(secs)+' \u2713');"
         "btn.style.background=cv('--ok-bg');btn.style.color=cv('--ok');"
         "btn.style.borderColor=cv('--ok-b');"
-        "var payload=secs+'|'+title;"
-        "window.top.open('shortcuts://run-shortcut?name=Prep%20Timer&input=text&text='+encodeURIComponent(payload));"
-        "setTimeout(function(){_setTimerText(btn,_timerLabel(_calcPrepSec(btn)));"
-        "btn.style.background='';btn.style.color='';btn.style.borderColor='';},3000);}"
+        "btn.classList.add('scheduled');"
+        "window.top.location='justtimers://x-callback-url/new/?name='"
+        "+encodeURIComponent(title)+'&duration='+secs;}"
         "function _tickTimers(){"
         "var btns=document.querySelectorAll('.timer-btn');"
         "for(var i=0;i<btns.length;i++){"
         "if(btns[i].classList.contains('expired'))continue;"
         "var secs=_calcPrepSec(btns[i]);"
         "if(secs<=0){_setTimerText(btns[i],'Starting soon');btns[i].classList.add('expired');}"
+        "else if(btns[i].classList.contains('scheduled')){"
+        "_setTimerText(btns[i],_timerLabel(secs)+' \u2713');}"
         "else{_setTimerText(btns[i],_timerLabel(secs));}"
         "}}"
         "_tickTimers();"
