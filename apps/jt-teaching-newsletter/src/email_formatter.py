@@ -12,12 +12,17 @@ import re
 import logging
 from datetime import datetime
 from typing import List, Tuple
+from urllib.parse import quote
 
 logger = logging.getLogger(__name__)
 
 
 class EmailFormatter:
     """Builds HTML and plain-text versions of the daily teachings email."""
+
+    def __init__(self, vault_name: str = "", vault_subfolder: str = ""):
+        self.vault_name = vault_name
+        self.vault_subfolder = vault_subfolder
 
     def format_email(
         self,
@@ -153,6 +158,19 @@ class EmailFormatter:
       color: #7a6a4a;
       letter-spacing: 0.5px;
       font-style: normal;
+      font-weight: bold;
+    }}
+    .obsidian-btn {{
+      display: inline-block;
+      margin-top: 8px;
+      padding: 5px 14px;
+      background-color: #7c3aed;
+      color: #ffffff !important;
+      font-size: 12px;
+      font-family: Georgia, serif;
+      text-decoration: none;
+      border-radius: 4px;
+      letter-spacing: 0.3px;
     }}
     .footer {{
       background-color: #f4f0e8;
@@ -196,14 +214,28 @@ class EmailFormatter:
         title = self._escape_html(teaching.get("title", "Teaching"))
         verse_raw = teaching.get("verse", "")
         verse_html = self._verse_to_html(verse_raw)
+        obsidian_html = self._obsidian_button_html(teaching)
 
         return f"""      <div class="teaching">
         <div class="teaching-badge">{number}</div>
         <h2 class="teaching-title">{title}</h2>
         <div class="title-rule"></div>
         {verse_html}
+        {obsidian_html}
       </div>
 """
+
+    def _obsidian_button_html(self, teaching: dict) -> str:
+        """Generate an Obsidian deep-link button for the teaching file."""
+        if not self.vault_name:
+            return ""
+        s3_key = teaching.get("s3_key", "")
+        if not s3_key:
+            return ""
+        filename = s3_key.replace(".md", "")
+        file_path = f"{self.vault_subfolder}/{filename}" if self.vault_subfolder else filename
+        url = f"obsidian://open?vault={quote(self.vault_name)}&file={quote(file_path)}"
+        return f'<a href="{url}" class="obsidian-btn">Open in Obsidian</a>'
 
     def _parse_verse_parts(self, verse_text: str) -> Tuple[str, str]:
         """
@@ -224,7 +256,7 @@ class EmailFormatter:
         body_lines = lines
 
         if lines and ref_pattern.match(lines[0].strip()):
-            reference = lines[0].strip()
+            reference = re.sub(r"\s*\([^)]+\)\s*$", "", lines[0].strip()).strip()
             body_lines = lines[1:]
 
         body = "\n".join(body_lines).strip()
