@@ -756,7 +756,7 @@ def build_view_html(
         ".schedule-icon{flex-shrink:0;}"
         # Toggl timer button
         ".toggl-btn{font-family:inherit;font-size:12px;font-weight:600;"
-        "padding:3px 8px;border-radius:6px;"
+        "padding:5px 14px;border-radius:6px;"
         "background:var(--border);color:var(--text-2);border:1px solid var(--border);cursor:pointer;"
         "transition:background .15s ease-out;display:inline-flex;align-items:center;gap:4px;}"
         ".toggl-btn:hover{background:var(--border-h);}"
@@ -866,7 +866,7 @@ def build_view_html(
         ".move-pill-select{font-size:11px;}"
         ".date-pill{padding:4px 10px 4px 8px;}"
         ".date-pill-input{font-size:11px;}"
-        ".toggl-btn{font-size:11px;padding:3px 6px;}"
+        ".toggl-btn{font-size:11px;padding:4px 8px;}"
         ".time-tracked{font-size:11px;padding:4px 8px;}"
         ".left-pane{flex:1 1 100%!important;}"
         "#viewer-pane{display:none;position:fixed;top:0;left:0;right:0;bottom:0;z-index:200;"
