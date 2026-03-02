@@ -716,6 +716,190 @@ def _save_countdowns(data: dict) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Shell / view HTML cache — Railway runs always-on so these stay warm.
+# ---------------------------------------------------------------------------
+
+_shell_data_cache: dict = {}
+_home_html_cache: dict = {}
+_view_html_cache: dict = {}  # key: view name → {ts, html}
+_SHELL_CACHE_TTL = 300  # seconds (5 minutes)
+
+
+def _get_view_cache(view: str):
+    """Return cached HTML string for a view, or None if expired/missing."""
+    import time
+
+    cached = _view_html_cache.get(view)
+    if cached and (time.time() - cached["ts"]) < _SHELL_CACHE_TTL:
+        return cached["html"]
+    return None
+
+
+def _set_view_cache(view: str, html: str) -> None:
+    import time
+
+    _view_html_cache[view] = {"ts": time.time(), "html": html}
+
+
+def _get_shell_data(todoist_token: str) -> tuple:
+    """Return (projects, starred_count, vapid_public_key) from cache or by fetching in parallel."""
+    import time
+
+    cached = _shell_data_cache.get("data")
+    if cached and (time.time() - cached["ts"]) < _SHELL_CACHE_TTL:
+        return cached["projects"], cached["starred_count"], cached["vapid_public_key"]
+
+    def _fetch_starred_count_inner() -> int:
+        try:
+            from gmail_service import GmailService
+
+            return len(GmailService().get_starred_emails())
+        except Exception as _e:
+            logger.warning(f"Could not fetch starred count: {_e}")
+            return 0
+
+    def _fetch_vapid_key() -> str:
+        try:
+            from push_service import get_vapid_public_key
+
+            return get_vapid_public_key() or ""
+        except Exception as _e:
+            logger.warning(f"Could not load VAPID key: {_e}")
+            return ""
+
+    with ThreadPoolExecutor(max_workers=3) as _ex:
+        _proj_fut = _ex.submit(_fetch_todoist_projects, todoist_token)
+        _star_fut = _ex.submit(_fetch_starred_count_inner)
+        _vapid_fut = _ex.submit(_fetch_vapid_key)
+        projects = _proj_fut.result()
+        starred_count = _star_fut.result()
+        vapid_public_key = _vapid_fut.result()
+
+    _shell_data_cache["data"] = {
+        "ts": time.time(),
+        "projects": projects,
+        "starred_count": starred_count,
+        "vapid_public_key": vapid_public_key,
+    }
+    return projects, starred_count, vapid_public_key
+
+
+def _build_home_html_uncached(
+    function_url: str, action_token: str, todoist_token: str
+) -> str:
+    """Fetch all home view data and render the HTML. Called by the cache wrapper."""
+    import os as _os
+
+    from calendar_service import CalendarService
+    from gmail_service import GmailService
+    from home_views import build_home_html
+    from todoist_service import TodoistService
+
+    service = TodoistService(todoist_token)
+    cal = CalendarService(
+        _os.environ["CALENDAR_CREDENTIALS_JSON"],
+        _os.environ["CALENDAR_TOKEN_JSON"],
+    )
+    gmail = GmailService()
+    today_str = datetime.now().strftime("%Y-%m-%d")
+
+    with ThreadPoolExecutor(max_workers=10) as ex:
+        f_projects = ex.submit(service.get_all_projects)
+        f_commit = ex.submit(service.get_tasks_by_label, "Commit")
+        f_bestcase = ex.submit(service.get_tasks_by_label, "Best Case")
+        f_p1 = ex.submit(service.get_tasks_by_priority, 4)
+        f_inbox = ex.submit(service.get_inbox_tasks)
+        f_all_todoist = ex.submit(service.get_all_tasks)
+        f_prep_todoist = ex.submit(service.get_event_prep_tasks)
+        f_calendar = ex.submit(cal.get_upcoming_events, 90)
+        f_starred = ex.submit(gmail.get_starred_emails)
+        f_unread = ex.submit(
+            lambda: __import__("unread_main").get_unread_emails_for_web()
+        )
+
+        projects = f_projects.result()
+
+        def _due_today(tasks):
+            return [
+                t
+                for t in tasks
+                if t.get("due") and t["due"].get("date", "")[:10] <= today_str
+            ]
+
+        def _due_today_or_undated(tasks):
+            return [
+                t
+                for t in tasks
+                if not t.get("due") or t["due"].get("date", "")[:10] <= today_str
+            ]
+
+        commit_tasks = _due_today_or_undated(f_commit.result())
+        bestcase_tasks = _due_today(f_bestcase.result())
+        p1_tasks = _due_today(f_p1.result())
+        inbox_tasks = f_inbox.result()
+        inbox_tasks.sort(
+            key=lambda t: t.get("created_at", "") or t.get("added_at", ""), reverse=True
+        )
+        calendar_events = f_calendar.result()
+        all_todoist_tasks = f_all_todoist.result()
+        _prep_tasks = f_prep_todoist.result()
+        _seen_ids = {t["id"] for t in all_todoist_tasks}
+        all_todoist_tasks = all_todoist_tasks + [
+            t for t in _prep_tasks if t["id"] not in _seen_ids
+        ]
+        starred_emails = f_starred.result()
+        try:
+            unread_emails = f_unread.result()
+        except Exception:
+            unread_emails = []
+
+    fu_state = _load_followup_state()
+    followup_emails = []
+    for tid, edata in fu_state.get("emails", {}).items():
+        edata.setdefault("threadId", tid)
+        followup_emails.append(edata)
+
+    home_state = _load_home_reviewed_state()
+    cal_state = _load_calendar_state()
+
+    _toggl_tok = _os.environ.get("TOGGL_API_TOKEN", "")
+    toggl_time_totals = _fetch_toggl_time_entries(_toggl_tok) if _toggl_tok else {}
+
+    return build_home_html(
+        commit_tasks=commit_tasks,
+        bestcase_tasks=bestcase_tasks,
+        calendar_events=calendar_events,
+        p1_tasks=p1_tasks,
+        starred_emails=starred_emails,
+        unread_emails=unread_emails,
+        followup_emails=followup_emails,
+        inbox_tasks=inbox_tasks,
+        projects=projects,
+        home_state=home_state,
+        cal_state=cal_state,
+        followup_state=fu_state,
+        function_url=function_url,
+        action_token=action_token,
+        embed=True,
+        toggl_time_totals=toggl_time_totals,
+        todoist_tasks=all_todoist_tasks,
+    )
+
+
+def _get_home_html(function_url: str, action_token: str, todoist_token: str) -> str:
+    """Return cached home HTML, rebuilding when TTL expires."""
+    import time
+
+    cached = _home_html_cache.get("data")
+    if cached and (time.time() - cached["ts"]) < _SHELL_CACHE_TTL:
+        return cached["html"]
+
+    html = _build_home_html_uncached(function_url, action_token, todoist_token)
+    _home_html_cache["data"] = {"ts": time.time(), "html": html}
+    return html
+
+
+# ---------------------------------------------------------------------------
 # Follow-up state helpers
 # ---------------------------------------------------------------------------
 
@@ -1464,7 +1648,8 @@ def handle_action(event: dict) -> dict:
                 _all_calendar_events = f_calendar.result()
                 _now_home_iso = datetime.now(timezone.utc).isoformat()[:19]
                 calendar_events = [
-                    ev for ev in _all_calendar_events
+                    ev
+                    for ev in _all_calendar_events
                     if (ev.get("start") or "")[:19] >= _now_home_iso
                 ]
                 all_todoist_tasks = f_all_todoist.result()
@@ -1743,7 +1928,9 @@ def handle_action(event: dict) -> dict:
                 # Fetch with 60-day lookback so we can show "Last scheduled" on event cards.
                 all_events = cal.get_upcoming_events(days=90, lookback_days=60)
                 _now_iso = datetime.now(timezone.utc).isoformat()[:19]
-                events = [ev for ev in all_events if (ev.get("start") or "")[:19] >= _now_iso]
+                events = [
+                    ev for ev in all_events if (ev.get("start") or "")[:19] >= _now_iso
+                ]
                 state = _load_calendar_state()
                 projects = _fetch_todoist_projects(todoist_token)
                 checklists = _load_checklists()
