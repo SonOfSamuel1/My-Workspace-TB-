@@ -188,7 +188,11 @@ class CalendarService:
         if not ffm_events:
             return {"synced": 0, "skipped": 0}
 
-        # Fetch existing [FFM] events in Family calendar to avoid duplicates
+        # Fetch existing [FFM] events in Family calendar to avoid duplicates.
+        # NOTE: Do NOT use the `q` search parameter here — Google Calendar's
+        # full-text index has eventual-consistency lag, so recently-inserted
+        # events may not appear in search results yet.  Instead fetch all
+        # family events and filter by the prefix in Python.
         try:
             family_result = (
                 self.service.events()
@@ -199,7 +203,6 @@ class CalendarService:
                     singleEvents=True,
                     orderBy="startTime",
                     maxResults=500,
-                    q=self._FFM_SYNC_PREFIX,
                 )
                 .execute()
             )
