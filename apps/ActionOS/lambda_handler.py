@@ -3081,6 +3081,93 @@ def handle_action(event: dict) -> dict:
             return _error_json(str(e))
 
     # -----------------------------------------------------------------------
+    # Calendar travel time — calculate drive time and create buffer event
+    # -----------------------------------------------------------------------
+    elif action == "calendar_travel_time":
+        try:
+            import requests as _req
+
+            event_id = params.get("event_id", "")
+            event_title = params.get("event_title", "Event")
+            event_start = params.get("event_start", "")
+            event_location = params.get("event_location", "")
+
+            if not event_location:
+                return _error_json("Event has no location — cannot calculate travel time")
+            if not event_start:
+                return _error_json(
+                    "Event has no start time — cannot add travel time to all-day event"
+                )
+
+            travel_seconds = 0
+            home_address = os.environ.get("HOME_ADDRESS", "")
+            maps_api_key = os.environ.get("GOOGLE_MAPS_API_KEY", "")
+
+            if not home_address or not maps_api_key:
+                return _error_json("Home address or Maps API key not configured")
+
+            resp = _req.get(
+                "https://maps.googleapis.com/maps/api/distancematrix/json",
+                params={
+                    "origins": home_address,
+                    "destinations": event_location,
+                    "mode": "driving",
+                    "key": maps_api_key,
+                },
+                timeout=10,
+            )
+            resp.raise_for_status()
+            maps_data = resp.json()
+
+            try:
+                element = maps_data["rows"][0]["elements"][0]
+                if element.get("status") == "OK":
+                    travel_seconds = element["duration"]["value"]
+                else:
+                    return _error_json(
+                        f"Maps API could not find route: {element.get('status', 'UNKNOWN')}"
+                    )
+            except (KeyError, IndexError) as e:
+                return _error_json(f"Failed to parse Maps response: {e}")
+
+            # Round up to nearest 5 minutes + 10 min buffer
+            travel_minutes = (travel_seconds // 60) + 10
+            travel_minutes = ((travel_minutes + 4) // 5) * 5
+
+            from calendar_service import CalendarService
+
+            cal = CalendarService(
+                os.environ["CALENDAR_CREDENTIALS_JSON"],
+                os.environ["CALENDAR_TOKEN_JSON"],
+            )
+            travel_event_link = cal.create_travel_time_event(
+                title=event_title,
+                event_start_iso=event_start,
+                travel_minutes=travel_minutes,
+                destination=event_location,
+                drive_seconds=travel_seconds,
+            )
+
+            if event_id:
+                state = _load_calendar_state()
+                state.setdefault("travel_time", {})[event_id] = {
+                    "travel_event_link": travel_event_link,
+                    "travel_minutes": travel_minutes,
+                }
+                _save_calendar_state(state)
+
+            logger.info(
+                f"Travel time event created for '{event_title}': "
+                f"{travel_minutes} min, link={travel_event_link}"
+            )
+            return _ok_json(
+                {"travel_event_link": travel_event_link, "travel_minutes": travel_minutes}
+            )
+        except Exception as e:
+            logger.error(f"calendar_travel_time failed: {e}", exc_info=True)
+            return _error_json(str(e))
+
+    # -----------------------------------------------------------------------
     # FFM outreach — create committed task to reach out to a target
     # -----------------------------------------------------------------------
     elif action == "ffm_outreach":
