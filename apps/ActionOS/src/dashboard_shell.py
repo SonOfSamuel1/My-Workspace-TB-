@@ -389,7 +389,7 @@ def build_shell_html(
         ".qa-fab{display:flex;bottom:88px;}"
         "}"
         # Bottom navigation bar (Todoist floating pill style)
-        ".bottom-nav{display:flex;position:fixed;bottom:20px;left:16px;right:84px;"
+        ".bottom-nav{display:flex;position:fixed;bottom:20px;left:16px;right:auto;"
         "background:var(--bg-s1);border:1px solid var(--border-h);"
         "border-radius:100px;padding:0 6px;height:56px;"
         "box-shadow:0 4px 20px rgba(0,0,0,0.35),0 1px 6px rgba(0,0,0,0.2);"
@@ -491,8 +491,6 @@ def build_shell_html(
         '<div class="header">'
         f'<a class="header-title-link" href="{function_url.rstrip("/")}?action=web" '
         f'onclick="goHome(event)">ActionOS</a>'
-        '<span class="due-today-badge zero" id="due-today-badge">'
-        '<span id="due-today-count">...</span> due today</span>'
         # Mobile section picker (hidden on desktop)
         + f'<button class="section-picker" id="section-picker" onclick="toggleSectionPicker()">'
         f'<span class="section-picker-label" id="section-picker-label">{first_label}</span>'
