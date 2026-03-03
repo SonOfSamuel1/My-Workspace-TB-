@@ -300,6 +300,7 @@ def _build_event_card(
     location = html.escape(event.get("location", ""))
     html_link = event.get("html_link", "")
     cal_type = event.get("calendar_type", "family")
+    cal_type_enc = urllib.parse.quote(cal_type)
     date_range = html.escape(_format_event_date_range(event))
 
     cal_label = html.escape(_CAL_TYPE_LABELS.get(cal_type, cal_type.capitalize()))
@@ -565,6 +566,21 @@ def _build_event_card(
         + "</button>"
     )
 
+    # Delete button
+    delete_url = (
+        function_url.rstrip("/")
+        + "?action=calendar_delete_event"
+        + "&event_id="
+        + eid_enc
+        + "&calendar_type="
+        + cal_type_enc
+    )
+    delete_btn = (
+        f'<button class="delete-event-btn" id="del-{idx}" '
+        f"onclick=\"doDeleteEvent(this,{idx},'{delete_url}')\">"
+        "Delete</button>"
+    )
+
     card_extra = " reviewed-card" if reviewed else " unreviewed-card"
 
     # Build action buttons — birthday/anniversary cards omit Commit and use SMS reminder
@@ -609,6 +625,7 @@ def _build_event_card(
         f"{timer_btn}"
         f"{toggl_log_btn}"
         f"{cc_btn}"
+        f"{delete_btn}"
         f"{gcal_html}"
         f"</div>"
         f"</div></div>"
@@ -1106,10 +1123,15 @@ def build_calendar_html(
         "background:var(--border);border:1px solid var(--border);"
         "cursor:pointer;transition:background .15s;color:var(--text-2);font-size:13px;font-weight:600;}"
         ".assign-cc-btn:hover{background:var(--border-h);}"
+        ".delete-event-btn{font-family:inherit;font-size:12px;font-weight:600;"
+        "padding:5px 14px;border-radius:6px;"
+        "background:transparent;color:var(--err);border:1px solid var(--err-b);"
+        "cursor:pointer;transition:background .15s,color .15s;}"
+        ".delete-event-btn:hover{background:var(--err-bg);}"
         ".empty-state{text-align:center;color:var(--text-2);padding:24px 20px;font-size:14px;}"
         "@media(max-width:768px){"
         ".task-actions{gap:6px;}"
-        ".action-select,.review-btn,.todoist-btn,.commit-btn,.schedule-prep-btn,.timer-btn,.toggl-log-btn,.assign-cc-btn,.ffm-meal-btn{font-size:11px;padding:4px 6px;}"
+        ".action-select,.review-btn,.todoist-btn,.commit-btn,.schedule-prep-btn,.timer-btn,.toggl-log-btn,.assign-cc-btn,.delete-event-btn,.ffm-meal-btn{font-size:11px;padding:4px 6px;}"
         ".todoist-btn{min-height:44px;}"
         ".travel-time-btn{min-height:44px;font-size:12px;padding:10px 14px;}"
         "}"
@@ -1392,6 +1414,22 @@ def build_calendar_html(
         "btn.textContent='Failed';btn.style.background=cv('--err-bg');btn.style.color=cv('--err');"
         "setTimeout(function(){btn.textContent=orig;btn.style.background='';btn.style.color='';"
         "btn.style.pointerEvents='auto';},2000);});}"
+        "function doDeleteEvent(btn,idx,url){"
+        "if(!confirm('Delete this calendar event? This cannot be undone.'))return;"
+        "btn.style.pointerEvents='none';btn.textContent='Deleting\u2026';"
+        "fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'})"
+        ".then(function(r){return r.json();})"
+        ".then(function(d){"
+        "if(d.ok){"
+        "var card=btn.closest('.task-card');"
+        "if(card){card.style.transition='opacity .3s';card.style.opacity='0';"
+        "setTimeout(function(){card.remove();},300);}"
+        "}else{"
+        "btn.textContent='Delete';btn.style.pointerEvents='auto';"
+        "alert('Delete failed: '+(d.error||'Unknown error'));}"
+        "}).catch(function(){"
+        "btn.textContent='Delete';btn.style.pointerEvents='auto';"
+        "alert('Delete failed — check network connection.');});}"
         "function _timerLabel(secs){"
         "if(secs<=0)return 'Starting soon';"
         "var h=Math.floor(secs/3600);var m=Math.floor((secs%3600)/60);var s=secs%60;"

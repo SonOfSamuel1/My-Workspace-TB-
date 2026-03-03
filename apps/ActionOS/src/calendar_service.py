@@ -383,6 +383,14 @@ class CalendarService:
         )
         return result.get("htmlLink", "")
 
+    def delete_event(self, event_id: str, calendar_type: str) -> None:
+        """Delete a calendar event by ID from the given calendar type."""
+        cal_id = CALENDAR_IDS.get(calendar_type)
+        if not cal_id:
+            raise ValueError(f"Unknown calendar_type: {calendar_type!r}")
+        self.service.events().delete(calendarId=cal_id, eventId=event_id).execute()
+        logger.info(f"Deleted event {event_id!r} from calendar {calendar_type!r}")
+
     def get_upcoming_events_cached(self, days: int = 90) -> List[Dict[str, Any]]:
         """TTL-cached wrapper around get_upcoming_events (60s cache)."""
         now_ts = time.time()
