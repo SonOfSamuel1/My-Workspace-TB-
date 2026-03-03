@@ -296,12 +296,11 @@ class CalendarService:
         duration_minutes: int,
         calendar_id: str = "primary",
     ) -> List[Dict[str, Any]]:
-        """Create 30-min calendar events for today totaling *duration_minutes*.
+        """Create a single calendar event starting at the next 30-min slot.
 
-        Events are placed sequentially starting from the next half-hour slot.
-        Returns a list of created event dicts.
+        The event duration equals *duration_minutes*.
+        Returns a list containing the created event dict (empty on failure).
         """
-        num_events = max(1, duration_minutes // 30)
         now = datetime.now(timezone.utc)
 
         # Find user's local timezone from the calendar settings
@@ -310,8 +309,6 @@ class CalendarService:
             tz_name = settings.get("value", "America/New_York")
         except Exception:
             tz_name = "America/New_York"
-
-        import zoneinfo
 
         local_tz = zoneinfo.ZoneInfo(tz_name)
         local_now = now.astimezone(local_tz)
@@ -327,35 +324,31 @@ class CalendarService:
                 minute=0, second=0, microsecond=0
             )
 
-        created = []
-        for i in range(num_events):
-            ev_start = start + timedelta(minutes=30 * i)
-            ev_end = ev_start + timedelta(minutes=30)
-            body = {
-                "summary": title,
-                "start": {
-                    "dateTime": ev_start.isoformat(),
-                    "timeZone": tz_name,
-                },
-                "end": {
-                    "dateTime": ev_end.isoformat(),
-                    "timeZone": tz_name,
-                },
-            }
-            try:
-                result = (
-                    self.service.events()
-                    .insert(calendarId=calendar_id, body=body)
-                    .execute()
-                )
-                created.append(result)
-                logger.info(
-                    f"Created event '{title}' {ev_start.strftime('%H:%M')}-{ev_end.strftime('%H:%M')}"
-                )
-            except Exception as e:
-                logger.error(f"Failed to create event slot {i + 1}: {e}")
-
-        return created
+        ev_end = start + timedelta(minutes=duration_minutes)
+        body = {
+            "summary": title,
+            "start": {
+                "dateTime": start.isoformat(),
+                "timeZone": tz_name,
+            },
+            "end": {
+                "dateTime": ev_end.isoformat(),
+                "timeZone": tz_name,
+            },
+        }
+        try:
+            result = (
+                self.service.events()
+                .insert(calendarId=calendar_id, body=body)
+                .execute()
+            )
+            logger.info(
+                f"Created event '{title}' {start.strftime('%H:%M')}-{ev_end.strftime('%H:%M')}"
+            )
+            return [result]
+        except Exception as e:
+            logger.error(f"Failed to create event: {e}")
+            return []
 
     def create_travel_time_event(
         self,
