@@ -28,6 +28,50 @@ _FONT = (
     "'Segoe UI',Roboto,sans-serif"
 )
 
+# Daily faith exercises cycling through Use God Power section
+_GP_ACTIVITIES = [
+    (
+        "Be Like the Persistent Widow",
+        "Ask God 3x a day for what you want.",
+    ),
+    (
+        "Command Mountains to be Moved",
+        "Write out your greatest obstacle to accomplishing your goals and verbally command it to be moved.",
+    ),
+    (
+        "Reason From Earthly Models",
+        "Identify and write out favorable outcomes from various earthly scenarios. See yourself in the humbled lowly state. See God in the position of Power. Tell God that he is much better than the earthly model and ask accordingly.",
+    ),
+    (
+        "Have Shameless Audacity",
+        "Define steps of shameless audacity you can take, schedule them and take them.",
+    ),
+    (
+        "Everything in the Name is Approved",
+        "Write out how your ask aligns with Jesus\u2019 name, and how you\u2019ve seen God do it in the past. Ask in accordance with this.",
+    ),
+    (
+        "Expect to Receive",
+        "Write out your next step after receiving what you asked for. Expect that God will act and visualize yourself taking the next step.",
+    ),
+    (
+        "Believe and Act As If You Already Received",
+        "Now that what you want is yours, write out what you do differently.",
+    ),
+    (
+        "Check Your Motivations",
+        "Be honest with yourself. Write out your motivations for what\u2019s on your list. Confirm it\u2019s not just to spend on your own earthly passions.",
+    ),
+    (
+        "Ask, Knock, Seek",
+        "Write out all of the actions you\u2019re currently doing to obtain what you\u2019re praying for. Brainstorm if there is anything additional you can do. Add every additional action to your todo list and calendar.",
+    ),
+    (
+        "Provide Yourself With Moneybag",
+        "Give a meaningful donation to the poor, needy and widow. Do it with a good attitude and thankful heart, looking forward to heavenly treasure from God.",
+    ),
+]
+
 # Section display config: key -> (label, left-border color, cycle_days)
 _SECTION_CONFIG = {
     "commit": ("@Commit", "#6366f1", 1),
@@ -1216,6 +1260,7 @@ def build_home_html(
     toggl_time_totals=None,
     todoist_tasks: List[Dict[str, Any]] = None,
     all_calendar_events: List[Dict[str, Any]] = None,
+    godpower_state: dict = None,
 ) -> str:
     """Build the Home aggregated view HTML."""
     projects_by_id = _build_projects_by_id(projects)
@@ -1322,6 +1367,32 @@ def build_home_html(
     _nav_counts: Dict[str, int] = {}
 
     # --- Use God Power (permanent section, always above commit) ---
+    godpower_state = godpower_state or {}
+    _today_str = datetime.now().strftime("%Y-%m-%d")
+    _activity_done = godpower_state.get("completed_date") == _today_str
+    _day_idx = (datetime.now().timetuple().tm_yday - 1) % len(_GP_ACTIVITIES)
+    _act_name, _act_desc = _GP_ACTIVITIES[_day_idx]
+    _safe_act_name = _act_name.replace("'", "\\'").replace('"', "&quot;")
+    if _activity_done:
+        _activity_card_html = ""
+    else:
+        _activity_card_html = (
+            '<div class="gp-activity-card" id="gp-activity-card">'
+            '<div class="gp-card-ref">Activity</div>'
+            '<div class="gp-activity-title">' + html.escape(_act_name) + '</div>'
+            '<div class="gp-activity-desc">' + html.escape(_act_desc) + '</div>'
+            '<div class="task-actions" style="margin-top:12px;">'
+            '<button class="complete-btn" onclick="doGpActivityComplete(this)">Complete</button>'
+            '<button class="schedule-btn" onclick="openScheduleModal(\'gp_activity\',\'' + _safe_act_name + '\')">'
+            '<svg class="schedule-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+            '<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/>'
+            '<line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>'
+            '<path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01M16 18h.01"/></svg>'
+            ' Schedule Work</button>'
+            '<button class="toggl-btn" onclick="event.stopPropagation();doTogglStart(this)" data-subject="' + _safe_act_name + '">Track</button>'
+            '</div>'
+            '</div>'
+        )
     _god_power_cards = (
         '<div class="gp-card">'
         '<div class="gp-card-title">'
@@ -1330,7 +1401,7 @@ def build_home_html(
         '</div>'
         '<div class="gp-card-ref">John 15:7</div>'
         '<div class="gp-card-verse">'
-        '\u201c<sup>7</sup>If you abide in me, and my words abide in you, ask whatever you wish, '
+        '\u201cIf you abide in me, and my words abide in you, ask whatever you wish, '
         'and it will be done for you.\u201d'
         '</div>'
         '</div>'
@@ -1340,7 +1411,7 @@ def build_home_html(
         '</div>'
         '<div class="gp-card-ref">Matthew 17:20</div>'
         '<div class="gp-card-verse">'
-        '\u201c<sup>20</sup>He said to them, \u201cBecause of your little faith. For truly, I say to you, '
+        '\u201cHe said to them, \u201cBecause of your little faith. For truly, I say to you, '
         'if you have faith like a grain of mustard seed, you will say to this mountain, '
         '\u2018Move from here to there,\u2019 and it will move, and nothing will be impossible for you.\u201d'
         '</div>'
@@ -1349,9 +1420,9 @@ def build_home_html(
     sections_html += _build_section_html(
         "godpower",
         "Use God Power",
-        _god_power_cards,
+        _god_power_cards + _activity_card_html,
         0,
-        2,
+        2 + (0 if _activity_done else 1),
         collapsed=False,
         border_color="var(--warn)",
     )
@@ -1940,6 +2011,10 @@ def build_home_html(
         ".gp-card-ref{font-size:11px;font-weight:700;color:var(--warn);text-transform:uppercase;"
         "letter-spacing:.5px;margin-bottom:6px;}"
         ".gp-card-verse{font-size:13px;color:var(--text-2);line-height:1.6;font-style:italic;}"
+        ".gp-activity-card{background:var(--bg-s1);border:1px solid var(--warn-b);"
+        "border-radius:8px;padding:14px 16px;margin-bottom:10px;}"
+        ".gp-activity-title{font-size:14px;font-weight:700;color:var(--text-1);line-height:1.4;margin-bottom:8px;}"
+        ".gp-activity-desc{font-size:13px;color:var(--text-2);line-height:1.6;}"
         "</style></head><body>"
         + (
             ""
@@ -2071,6 +2146,18 @@ def build_home_html(
         "if(d.ok){input.style.borderColor=cv('--ok-b');setTimeout(function(){input.style.borderColor='';},1500);}"
         "}).catch(function(){});}"
         # --- Complete task ---
+        # --- God Power activity complete ---
+        "function doGpActivityComplete(btn){"
+        "btn.style.pointerEvents='none';btn.textContent='Completing\u2026';"
+        "fetch(_homeUrl+'?action=godpower_complete',{method:'POST'})"
+        ".then(function(r){return r.json();}).then(function(d){"
+        "if(d.ok){"
+        "btn.textContent='\u2713 Done';"
+        "var card=document.getElementById('gp-activity-card');"
+        "if(card){card.style.transition='opacity .3s';card.style.opacity='0';"
+        "setTimeout(function(){card.remove();},300);}}"
+        "else{btn.textContent='Complete';btn.style.pointerEvents='auto';}"
+        "}).catch(function(){btn.textContent='Complete';btn.style.pointerEvents='auto';});}"
         "function doComplete(taskId,btn){"
         "btn.style.pointerEvents='none';btn.textContent='Completing\u2026';"
         "fetch(_homeUrl+'?action=complete&task_id='+encodeURIComponent(taskId))"

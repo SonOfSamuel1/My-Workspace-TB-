@@ -88,6 +88,7 @@ CHECKLIST_STATE_KEY = "actionos/calendar_checklists.json"
 COUNTDOWN_STATE_KEY = "actionos/countdowns.json"
 FOLLOWUP_STATE_KEY = "actionos/followup_state.json"
 HOME_REVIEWED_STATE_KEY = "actionos/home_reviewed_state.json"
+GODPOWER_STATE_KEY = "actionos/godpower_state.json"
 
 _PAGE_STYLE = (
     "font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;"
@@ -867,6 +868,7 @@ def _build_home_html_uncached(
 
     home_state = _load_home_reviewed_state()
     cal_state = _load_calendar_state()
+    godpower_state = _load_godpower_state()
 
     _toggl_tok = _os.environ.get("TOGGL_API_TOKEN", "")
     toggl_time_totals = _fetch_toggl_time_entries(_toggl_tok) if _toggl_tok else {}
@@ -889,6 +891,7 @@ def _build_home_html_uncached(
         embed=True,
         toggl_time_totals=toggl_time_totals,
         todoist_tasks=all_todoist_tasks,
+        godpower_state=godpower_state,
     )
 
 
@@ -977,6 +980,25 @@ def _save_home_reviewed_state(state: dict) -> None:
     _s3.put_object(
         Bucket=bucket,
         Key=HOME_REVIEWED_STATE_KEY,
+        Body=json.dumps(state),
+        ContentType="application/json",
+    )
+
+
+def _load_godpower_state() -> dict:
+    try:
+        bucket = os.environ.get("STATE_BUCKET", "gmail-unread-digest")
+        obj = _s3.get_object(Bucket=bucket, Key=GODPOWER_STATE_KEY)
+        return json.loads(obj["Body"].read())
+    except Exception:
+        return {}
+
+
+def _save_godpower_state(state: dict) -> None:
+    bucket = os.environ.get("STATE_BUCKET", "gmail-unread-digest")
+    _s3.put_object(
+        Bucket=bucket,
+        Key=GODPOWER_STATE_KEY,
         Body=json.dumps(state),
         ContentType="application/json",
     )
@@ -1248,6 +1270,7 @@ def handle_action(event: dict) -> dict:
             "schedule_action",
             "schedule_countdown",
             "cancel_countdown",
+            "godpower_complete",
         }
         if _action_check in _api_actions:
             return {"statusCode": 403, "body": "Forbidden"}
@@ -1946,10 +1969,11 @@ def handle_action(event: dict) -> dict:
             from calendar_service import CalendarService
             from todoist_service import TodoistService
 
-            # Get the task title
+            # Get the task title (use provided task_title param as fallback)
+            task_title_param = params.get("task_title", "")
             service = TodoistService(todoist_token)
             task = service.get_task(task_id)
-            task_title = task.get("content", "Action") if task else "Action"
+            task_title = (task.get("content") if task else None) or task_title_param or "Action"
 
             # Create calendar events
             cal = CalendarService(
@@ -1975,6 +1999,20 @@ def handle_action(event: dict) -> dict:
         except Exception as e:
             logger.error(f"schedule_action failed: {e}", exc_info=True)
             return _error_json(str(e))
+
+    # -----------------------------------------------------------------------
+    # God Power activity complete
+    # -----------------------------------------------------------------------
+    elif action == "godpower_complete":
+        today_str = datetime.now().strftime("%Y-%m-%d")
+        state = _load_godpower_state()
+        state["completed_date"] = today_str
+        try:
+            _save_godpower_state(state)
+        except Exception as e:
+            logger.warning(f"godpower_complete save failed: {e}")
+        _home_html_cache.clear()
+        return _ok_json({"ok": True})
 
     # -----------------------------------------------------------------------
     # AJAX refresh — returns JSON {count, html} for card list swap
