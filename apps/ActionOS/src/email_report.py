@@ -454,7 +454,7 @@ def build_cards_html(
                     + msg_id
                     + "','accept')\" "
                     'class="action-pill rsvp-accept-btn" data-label="Accept" '
-                    'style="color:var(--ok);background:var(--ok-bg);border:1px solid var(--ok-b);min-height:44px;font-size:14px;padding:10px 12px;">'
+                    'style="color:var(--ok);background:var(--ok-bg);border:1px solid var(--ok-b);">'
                     + _SVG_CALENDAR_ACCEPT
                     + " Accept</button>"
                 ),
@@ -463,7 +463,7 @@ def build_cards_html(
                     + msg_id
                     + "','decline')\" "
                     'class="action-pill rsvp-decline-btn" data-label="Decline" '
-                    'style="color:var(--err);background:var(--err-bg);border:1px solid var(--err-b);min-height:44px;font-size:14px;padding:10px 12px;">'
+                    'style="color:var(--err);background:var(--err-bg);border:1px solid var(--err-b);">'
                     "Decline</button>"
                 ),
                 (
@@ -471,7 +471,7 @@ def build_cards_html(
                     + msg_id
                     + "','maybe')\" "
                     'class="action-pill rsvp-maybe-btn" data-label="Maybe" '
-                    'style="color:var(--warn);background:var(--warn-bg);border:1px solid var(--warn-b);min-height:44px;font-size:14px;padding:10px 12px;">'
+                    'style="color:var(--warn);background:var(--warn-bg);border:1px solid var(--warn-b);">'
                     "Maybe</button>"
                 ),
             ]
@@ -498,7 +498,7 @@ def build_cards_html(
             + "')\" "
             'class="action-pill assign-cc-btn" title="Assign CC" '
             'style="display:inline-flex;align-items:center;justify-content:center;'
-            "padding:5px 10px;min-height:36px;background:rgba(196,120,64,0.10);"
+            "background:rgba(196,120,64,0.10);"
             "border:1px solid rgba(196,120,64,0.25);border-radius:6px;"
             'cursor:pointer;">' + _CC_LABEL + "</button>"
         )
@@ -513,8 +513,8 @@ def build_cards_html(
         # Date picker (calendar icon button wrapping a hidden native date input)
         date_input = (
             '<label class="action-pill due-date-wrap"'
-            ' style="color:var(--accent-l);background:var(--accent-bg);font-size:12px;'
-            "padding:5px 10px;min-height:36px;border:1px solid var(--accent-b);border-radius:6px;cursor:pointer;"
+            ' style="color:var(--accent-l);background:var(--accent-bg);'
+            "border:1px solid var(--accent-b);border-radius:6px;cursor:pointer;"
             'display:inline-flex;align-items:center;gap:4px;position:relative;"'
             ' onclick="event.stopPropagation()">'
             + _SVG_CALENDAR
@@ -821,7 +821,7 @@ def build_web_html(
         "var vccSubj=card.getAttribute('data-subject')||'';"
         "var vccFrom=card.getAttribute('data-from')||'';"
         "var vccGmail=card.getAttribute('data-gmail-link')||'';"
-        "for(var j=0;j<vccs.length;j++){vccs[j].setAttribute('data-subject',vccSubj);vccs[j].setAttribute('data-from',vccFrom);vccs[j].setAttribute('data-gmail',vccGmail);vccs[j].style.display='';}"
+        "for(var j=0;j<vccs.length;j++){vccs[j].setAttribute('data-subject',vccSubj);vccs[j].setAttribute('data-from',vccFrom);vccs[j].setAttribute('data-gmail',vccGmail);if(!vccs[j].classList.contains('viewer-cc-desktop')||window.innerWidth>768){vccs[j].style.display='inline-flex';}}"
         "if(window.innerWidth<=768){"
         "pane.style.display='flex';"
         "document.body.classList.add('viewer-open');"
@@ -1439,6 +1439,7 @@ def build_web_html(
         "#viewer-pane{display:none;position:fixed;top:0;right:0;bottom:0;width:100%;z-index:10;"
         "border-left:none;flex-direction:column;}"
         ".close-btn{display:none!important;}"
+        ".viewer-cc-desktop{display:none!important;}"
         ".viewer-mobile-header{display:flex;align-items:center;background:transparent;"
         "padding:0 12px;height:52px;flex-shrink:0;z-index:12;}"
         ".viewer-back-btn{display:flex;align-items:center;gap:6px;background:none;border:none;"
@@ -1568,11 +1569,11 @@ def build_web_html(
         '<div id="viewer-pane">'
         # Desktop CC button (shown beside close-btn; hidden until email is opened)
         + (
-            '<button class="viewer-cc-btn assign-cc-btn" title="Assign CC" '
+            '<button class="viewer-cc-btn viewer-cc-desktop assign-cc-btn" title="Assign CC" '
             'style="display:none;position:absolute;top:10px;right:58px;z-index:11;'
             "padding:5px 10px;background:rgba(196,120,64,0.10);"
             "border:1px solid rgba(196,120,64,0.25);border-radius:6px;"
-            'cursor:pointer;color:#c47840;font-size:13px;font-weight:600;align-items:center;justify-content:center;" '
+            'cursor:pointer;color:#c47840;font-size:13px;font-weight:600;" '
             'onclick="viewerCopyCC(this)">' + _CC_LABEL + "</button>"
         )
         + '<button class="close-btn" onclick="closeViewer()" title="Close">&times;</button>'
@@ -1586,7 +1587,7 @@ def build_web_html(
             '<button class="viewer-cc-btn viewer-action-btn assign-cc-btn" title="Assign CC" '
             'style="display:none;background:rgba(196,120,64,0.10);'
             "border:1px solid rgba(196,120,64,0.25);"
-            'align-items:center;justify-content:center;" '
+            'color:#c47840;" '
             'onclick="viewerCopyCC(this)">' + _CC_LABEL + "</button>"
         )
         + "</div>"

@@ -350,7 +350,7 @@ def _build_task_card(
         f'<button class="schedule-btn" '
         f"onclick=\"event.stopPropagation();openScheduleModal('{task_id}')\">"
         '<svg class="schedule-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01M16 18h.01"/></svg>'
-        " Schedule</button>"
+        " Schedule Work</button>"
     )
 
     # Assign CC button — copy task info to clipboard for Claude Code (all views)
@@ -443,7 +443,10 @@ def _build_task_card(
         f'<div class="card-content">'
         f'<div class="task-title">{content_linked}</div>'
         f'<div class="task-meta">{meta_line}</div>'
-        f'<div class="task-actions">{move_select}{priority_select}{due_date_input}{complete_btn}{commit_btn}{bestcase_btn}{backlog_btn}{schedule_btn}{copy_claude_btn}{toggl_select}{time_tracked_html}</div>'
+        f'<div class="task-actions">'
+        + (move_select if view_name not in ("commit", "bestcase") else "")
+        + (priority_select if view_name not in ("commit", "bestcase") else "")
+        + f'{due_date_input}{complete_btn}{commit_btn}{bestcase_btn}{backlog_btn}{schedule_btn}{copy_claude_btn}{toggl_select}{time_tracked_html}</div>'
         f"</div></div>"
         f'<div class="undo-bar" style="display:none;"></div>'
         f"</div>"
@@ -732,16 +735,16 @@ def build_view_html(
         "transition:background .15s ease-out;}"
         ".commit-btn:hover{background:var(--warn-b);}"
         ".commit-btn.committed{background:var(--ok-bg);color:var(--ok);border-color:var(--ok-b);cursor:default;}"
-        ".commit-btn.remove{background:var(--err-bg);color:var(--err);border-color:var(--err-b);}"
-        ".commit-btn.remove:hover{background:var(--err-b);}"
+        ".commit-btn.remove{background:var(--border);color:var(--text-2);border-color:var(--border);}"
+        ".commit-btn.remove:hover{background:var(--border-h);}"
         ".bestcase-btn{font-family:inherit;font-size:12px;font-weight:600;"
         "padding:5px 14px;border-radius:6px;"
         "background:var(--purple-bg);color:var(--purple);border:1px solid var(--purple-b);cursor:pointer;"
         "transition:background .15s ease-out;}"
         ".bestcase-btn:hover{background:var(--purple-b);}"
         ".bestcase-btn.active{background:var(--ok-bg);color:var(--ok);border-color:var(--ok-b);cursor:default;}"
-        ".bestcase-btn.remove{background:var(--ok-bg);color:var(--ok);border-color:var(--ok-b);}"
-        ".bestcase-btn.remove:hover{background:var(--err-bg);color:var(--err);border-color:var(--err-b);}"
+        ".bestcase-btn.remove{background:var(--border);color:var(--text-2);border-color:var(--border);}"
+        ".bestcase-btn.remove:hover{background:var(--border-h);}"
         ".assign-cc-btn{display:inline-flex;align-items:center;justify-content:center;gap:3px;"
         "padding:5px 10px;border-radius:6px;"
         "background:var(--border);border:1px solid var(--border);"

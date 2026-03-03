@@ -382,7 +382,7 @@ def _build_task_card(
         f'<button class="schedule-btn" '
         f"onclick=\"event.stopPropagation();openScheduleModal('{task_id}')\">"
         '<svg class="schedule-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01M16 18h.01"/></svg>'
-        " Schedule</button>"
+        " Schedule Work</button>"
     )
 
     # Toggl timer button
@@ -464,7 +464,9 @@ def _build_task_card(
         f'<div class="task-title">{title}{priority_badge}</div>'
         f'<div class="task-meta">{meta_line}</div>'
         f'<div class="task-actions">'
-        f"{review_btn}{move_select}{priority_select}{due_date_input}"
+        f"{review_btn}"
+        + (move_select + priority_select if section not in ("commit", "bestcase") else "")
+        + f"{due_date_input}"
         f"{complete_btn}{commit_btn}{bestcase_btn}{schedule_btn}{cc_btn}{toggl_select}{time_tracked_html}"
         f"</div>"
         f"</div></div>"
@@ -1124,19 +1126,14 @@ def _build_section_html(
     border_color: str,
 ) -> str:
     """Build a flat section with sticky header (calendar style)."""
-    # Badge: "N NEEDS REVIEW" (warn) or "FULLY REVIEWED" (ok)
+    # Badge: "N NEEDS REVIEW" (warn) only — hide when fully reviewed
     if needs_review_count > 0:
         badge_html = (
             f'<span class="section-badge section-needs-badge" id="sbadge-{key}">'
             f"{needs_review_count} NEEDS REVIEW</span>"
         )
     else:
-        badge_html = (
-            f'<span class="section-badge section-ok-badge" id="sbadge-{key}">'
-            f"FULLY REVIEWED</span>"
-            if total > 0
-            else ""
-        )
+        badge_html = f'<span class="section-badge section-needs-badge" id="sbadge-{key}" style="display:none;"></span>'
 
     if not cards_html:
         cards_html = '<div class="empty-state">Nothing here \u2713</div>'
@@ -1653,10 +1650,9 @@ def build_home_html(
         ".todoist-indicator{font-size:10px;font-weight:600;text-decoration:none;"
         "background:var(--ok-bg,#16382a);color:var(--ok,#22c55e);"
         "padding:2px 7px;border-radius:6px;white-space:nowrap;}"
-        ".prep-indicator{font-size:12px;font-weight:600;text-decoration:none;"
+        ".prep-indicator{font-size:10px;font-weight:600;text-decoration:none;"
         "background:var(--warn-bg);color:var(--warn);"
-        "padding:12px 10px;border-radius:6px;white-space:nowrap;"
-        "min-height:44px;display:inline-flex;align-items:center;}"
+        "padding:2px 7px;border-radius:6px;white-space:nowrap;}"
         ".prep-indicator.prep-done{background:var(--ok-bg);color:var(--ok);}"
         ".event-schedule-badge{font-size:10px;font-weight:700;text-decoration:none;"
         "background:var(--ok-bg);color:var(--ok);border:1px solid var(--ok-b);"
@@ -1674,8 +1670,8 @@ def build_home_html(
         "background:var(--warn-bg);color:var(--warn);border:1px solid var(--warn-b);cursor:pointer;"
         "transition:background .15s;}"
         ".review-btn:hover{background:var(--warn-b);}"
-        ".review-btn.reviewed{background:var(--ok-bg);color:var(--ok);"
-        "border-color:var(--ok-b);cursor:default;}"
+        ".review-btn.reviewed{background:var(--border);color:var(--text-2);"
+        "border-color:var(--border);cursor:default;}"
         # Mark Read button
         ".markread-btn{font-family:inherit;font-size:12px;font-weight:600;"
         "padding:4px 12px;border-radius:6px;"
@@ -1695,14 +1691,14 @@ def build_home_html(
         "cursor:pointer;transition:background .15s;}"
         ".commit-btn:hover{background:var(--border-h);color:var(--text-1);}"
         ".commit-btn.committed{background:var(--ok-bg);color:var(--ok);border-color:var(--ok-b);cursor:default;}"
-        ".commit-btn.remove{background:var(--err-bg);color:var(--err);border-color:var(--err-b);}"
+        ".commit-btn.remove{background:var(--border);color:var(--text-2);border-color:var(--border);}"
         # Best Case button
         ".bestcase-btn{font-family:inherit;font-size:12px;font-weight:600;"
         "padding:4px 12px;border-radius:6px;"
-        "background:var(--purple-bg);color:var(--purple);border:1px solid var(--purple-b);"
+        "background:var(--border);color:var(--text-2);border:1px solid var(--border);"
         "cursor:pointer;transition:background .15s;}"
-        ".bestcase-btn:hover{background:var(--purple-b);}"
-        ".bestcase-btn.remove{background:var(--err-bg);color:var(--err);border-color:var(--err-b);}"
+        ".bestcase-btn:hover{background:var(--border-h);color:var(--text-1);}"
+        ".bestcase-btn.remove{background:var(--border);color:var(--text-2);border-color:var(--border);}"
         # Schedule button
         ".schedule-btn{font-family:inherit;font-size:12px;font-weight:600;"
         "padding:4px 12px;border-radius:6px;"
@@ -1972,9 +1968,8 @@ def build_home_html(
         "var badge=document.getElementById('sbadge-'+section);"
         "if(badge){var cur=parseInt(badge.textContent)||0;"
         "var nxt=Math.max(0,cur-1);"
-        "if(nxt>0){badge.textContent=nxt+' NEEDS REVIEW';}"
-        "else{badge.textContent='FULLY REVIEWED';"
-        "badge.className='section-badge section-ok-badge';}}"
+        "if(nxt>0){badge.textContent=nxt+' NEEDS REVIEW';badge.style.display='';}"
+        "else{badge.style.display='none';}}  "
         "if(typeof homeCount!=='undefined'){homeCount=Math.max(0,homeCount-1);"
         "if(typeof postHomeCount==='function')postHomeCount();}}"
         # --- Home Review (task sections) ---

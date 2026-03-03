@@ -1100,8 +1100,8 @@ def build_calendar_html(
         + ";overflow-y:auto;overflow-x:hidden;background:var(--bg-base);}"
         ".task-list{max-width:700px;margin:0 auto;padding:0 16px 12px;overflow:clip;}"
         # Section nav bar
-        ".sec-nav{display:flex;gap:8px;overflow-x:auto;padding:10px 0 10px;"
-        "position:sticky;top:60px;z-index:19;background:var(--bg-base);"
+        ".cal-sticky-top{position:sticky;top:0;z-index:20;background:var(--bg-base);}"
+        ".sec-nav{display:flex;gap:8px;overflow-x:auto;padding:10px 16px 10px;"
         "border-bottom:1px solid var(--border);margin-bottom:12px;"
         "-webkit-overflow-scrolling:touch;-ms-overflow-style:none;scrollbar-width:none;}"
         ".sec-nav::-webkit-scrollbar{display:none;}"
@@ -1135,13 +1135,12 @@ def build_calendar_html(
         ".badge-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:4px;}"
         ".cal-type-badge{font-size:10px;font-weight:700;color:#fff;"
         "padding:2px 7px;border-radius:6px;white-space:nowrap;flex-shrink:0;}"
-        ".todoist-indicator{font-size:12px;font-weight:600;text-decoration:none;"
+        ".todoist-indicator{font-size:10px;font-weight:600;text-decoration:none;"
         "background:var(--ok-bg,#16382a);color:var(--ok,#22c55e);"
         "padding:2px 7px;border-radius:6px;white-space:nowrap;}"
-        ".prep-indicator{font-size:12px;font-weight:600;text-decoration:none;"
+        ".prep-indicator{font-size:10px;font-weight:600;text-decoration:none;"
         "background:var(--warn-bg);color:var(--warn);"
-        "padding:12px 10px;border-radius:6px;white-space:nowrap;"
-        "min-height:44px;display:inline-flex;align-items:center;}"
+        "padding:2px 7px;border-radius:6px;white-space:nowrap;}"
         ".prep-indicator.prep-done{background:var(--ok-bg);color:var(--ok);}"
         ".event-schedule-badge{font-size:10px;font-weight:700;text-decoration:none;"
         "background:var(--ok-bg);color:var(--ok);border:1px solid var(--ok-b);"
@@ -1175,11 +1174,11 @@ def build_calendar_html(
         "cursor:pointer;transition:background .15s;}"
         ".schedule-prep-btn:hover{background:var(--border-h);}"
         ".travel-time-btn{font-family:inherit;font-size:12px;font-weight:600;"
-        "padding:5px 14px;border-radius:6px;min-height:44px;"
+        "padding:5px 14px;border-radius:6px;"
         "background:var(--ok-bg);color:var(--ok);border:1px solid var(--ok-b);"
         "cursor:pointer;transition:background .15s;}"
         ".travel-time-btn:hover{background:var(--ok-b);}"
-        ".travel-indicator{font-size:12px;font-weight:600;text-decoration:none;"
+        ".travel-indicator{font-size:10px;font-weight:600;text-decoration:none;"
         "background:var(--ok-bg,#16382a);color:var(--ok,#22c55e);padding:2px 7px;"
         "border-radius:6px;white-space:nowrap;}"
         ".timer-btn{font-family:inherit;font-size:12px;font-weight:600;"
@@ -1257,10 +1256,7 @@ def build_calendar_html(
         ".ev-save-btn:hover{opacity:0.88;}"
         "@media(max-width:768px){"
         ".task-actions{gap:6px;}"
-        ".action-select,.review-btn,.todoist-btn,.commit-btn,.schedule-prep-btn,.timer-btn,.toggl-log-btn,.assign-cc-btn,.delete-event-btn,.ffm-meal-btn{font-size:11px;padding:4px 6px;}"
-        ".todoist-btn{min-height:44px;}"
-        ".travel-time-btn{min-height:44px;font-size:12px;padding:10px 14px;}"
-        ".delete-event-btn{min-height:44px;}"
+        ".action-select,.review-btn,.todoist-btn,.commit-btn,.schedule-prep-btn,.travel-time-btn,.timer-btn,.toggl-log-btn,.assign-cc-btn,.delete-event-btn,.ffm-meal-btn{font-size:11px;padding:4px 6px;}"
         ".ev-datetime-row{grid-template-columns:1fr;}"
         "}"
         "::-webkit-scrollbar{width:6px;}"
@@ -1291,8 +1287,7 @@ def build_calendar_html(
         ".ffm-dinner{background:var(--purple-bg);color:var(--purple);border-color:var(--purple-b);}"
         ".ffm-dinner:hover{background:var(--purple-b);}"
         # View toggle bar
-        ".view-toggle{display:flex;gap:4px;padding:8px 16px;max-width:700px;margin:0 auto;"
-        "position:sticky;top:0;z-index:20;background:var(--bg-base);}"
+        ".view-toggle{display:flex;gap:4px;padding:8px 16px;max-width:700px;margin:0 auto;}"
         ".view-toggle-btn{flex:1;font-family:inherit;font-size:13px;font-weight:600;"
         "padding:8px 12px;border-radius:8px;border:1px solid var(--border);"
         "background:var(--bg-s1);color:var(--text-2);cursor:pointer;transition:all .15s;}"
@@ -1339,15 +1334,16 @@ def build_calendar_html(
             "</div>"
         )
         + '<div class="scroll-area">'
-        # View toggle bar
+        # Sticky header: view toggle + section nav bar together (no gap)
+        '<div class="cal-sticky-top">'
         '<div class="view-toggle">'
         '<button class="view-toggle-btn active" id="btn-events" onclick="switchView(\'events\')">Events</button>'
         '<button class="view-toggle-btn" id="btn-7days" onclick="switchView(\'7days\')">Next 7 Days</button>'
         "</div>"
+        + _build_cal_nav_bar(_cal_nav_counts)
+        + "</div>"
         # Events view (default)
         '<div id="view-events"><div class="task-list">'
-        # Calendar section nav bar
-        + _build_cal_nav_bar(_cal_nav_counts)
         # Section 1: Not Reviewed
         + (
             f'<div class="section-hdr" id="cal-sec-not-reviewed">'
@@ -1356,11 +1352,7 @@ def build_calendar_html(
             f'color:var(--warn);border:1px solid var(--warn-b);">{unreviewed_count}</span>'
             f"</div>" + unreviewed_cards
             if unreviewed_count > 0
-            else f'<div class="section-hdr" id="cal-sec-not-reviewed">'
-            f'<span style="color:var(--ok);">Fully Reviewed</span>'
-            f'<span class="section-badge" id="unrev-badge" style="background:var(--ok-bg);'
-            f'color:var(--ok);border:1px solid var(--ok-b);">0</span>'
-            f"</div>"
+            else f'<div id="cal-sec-not-reviewed"></div>'
         )
         # Categorized reviewed sections
         + reviewed_sections_html + "</div></div>"
@@ -1484,12 +1476,15 @@ def build_calendar_html(
         "var sd=document.getElementById('view-7days');"
         "var be=document.getElementById('btn-events');"
         "var bs=document.getElementById('btn-7days');"
+        "var sn=document.getElementById('cal-sec-nav');"
         "if(v==='7days'){"
         "evts.style.display='none';sd.style.display='block';"
         "be.classList.remove('active');bs.classList.add('active');"
+        "if(sn)sn.style.display='none';"
         "}else{"
         "evts.style.display='block';sd.style.display='none';"
         "be.classList.add('active');bs.classList.remove('active');"
+        "if(sn)sn.style.display='';"
         "}}" + post_message_js + "function doReview(btn,eid,url){"
         "btn.style.pointerEvents='none';btn.textContent='Reviewing\u2026';"
         "fetch(url).then(function(r){return r.json();}).then(function(d){"
