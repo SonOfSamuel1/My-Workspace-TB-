@@ -114,6 +114,11 @@ class CalendarService:
                 if not event_id:
                     continue
 
+                # Skip events created by the Schedule Work button
+                _private = item.get("extendedProperties", {}).get("private", {})
+                if _private.get("actionos_source") == "scheduled_work":
+                    continue
+
                 start = item.get("start", {})
                 end = item.get("end", {})
 
@@ -385,6 +390,11 @@ class CalendarService:
                 minute=0, second=0, microsecond=0
             )
 
+        # Enforce minimum 30-minute buffer from now
+        min_start = local_now + timedelta(minutes=30)
+        while start < min_start:
+            start += timedelta(minutes=30)
+
         created = []
         for i in range(num_events):
             ev_start = start + timedelta(minutes=30 * i)
@@ -398,6 +408,9 @@ class CalendarService:
                 "end": {
                     "dateTime": ev_end.isoformat(),
                     "timeZone": tz_name,
+                },
+                "extendedProperties": {
+                    "private": {"actionos_source": "scheduled_work"}
                 },
             }
             try:
