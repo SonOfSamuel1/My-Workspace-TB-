@@ -925,6 +925,94 @@ def _build_cal_nav_bar(section_counts: Dict[str, int]) -> str:
     return f'<div class="sec-nav" id="cal-sec-nav">{pills}</div>'
 
 
+_LLD_CALENDARS = [
+    ("love_god", "Love God", "#f59e0b"),
+    ("love_brittany", "Love Brittany", "#a78bfa"),
+    ("love_children", "Love Children", "#a78bfa"),
+    ("love_friends_family", "Love Friends & Family", "#ec4899"),
+    ("serve_least_of_these", "Serve Least of These", "#22c55e"),
+]
+
+
+def _build_lay_life_down_view(events: List[Dict[str, Any]]) -> str:
+    """Build a 6-month view grouped by LLD calendar, then by month."""
+    now = datetime.now(_EASTERN)
+    today = now.date()
+    six_months = today + timedelta(days=182)
+
+    cal_buckets: Dict[str, List[Dict[str, Any]]] = {
+        cal_type: [] for cal_type, _, _ in _LLD_CALENDARS
+    }
+    for ev in events:
+        cal_type = ev.get("calendar_type", "")
+        if cal_type not in cal_buckets:
+            continue
+        start = ev.get("start", "")[:10]
+        try:
+            ev_date = datetime.strptime(start, "%Y-%m-%d").date()
+            if today <= ev_date <= six_months:
+                cal_buckets[cal_type].append(ev)
+        except Exception:
+            pass
+
+    parts = ['<div class="lld-container">']
+    for cal_type, label, color in _LLD_CALENDARS:
+        evs = sorted(cal_buckets[cal_type], key=lambda e: e.get("start", ""))
+        parts.append(
+            f'<div class="lld-cal-section">'
+            f'<div class="lld-cal-hdr" style="border-left:3px solid {color};padding-left:10px;">'
+            f'<span style="color:{color};font-weight:700;font-size:14px;">{html.escape(label)}</span>'
+            f'<span class="lld-count">{len(evs)}</span>'
+            f"</div>"
+        )
+        if not evs:
+            parts.append('<div class="lld-empty">No events in next 6 months</div>')
+        else:
+            month_buckets: Dict[str, List[Dict[str, Any]]] = {}
+            for ev in evs:
+                try:
+                    ev_date = datetime.strptime(ev.get("start", "")[:10], "%Y-%m-%d").date()
+                    month_key = ev_date.strftime("%B %Y")
+                except Exception:
+                    month_key = "Unknown"
+                month_buckets.setdefault(month_key, []).append(ev)
+            for month_label, month_evs in month_buckets.items():
+                parts.append(f'<div class="lld-month-hdr">{html.escape(month_label)}</div>')
+                for ev in month_evs:
+                    title = html.escape(ev.get("title", "(No title)"))
+                    start = ev.get("start", "")
+                    try:
+                        ev_date = datetime.strptime(start[:10], "%Y-%m-%d").date()
+                        date_str = ev_date.strftime("%b %-d")
+                    except Exception:
+                        date_str = start[:10]
+                    if not ev.get("is_all_day", False) and len(start) > 10:
+                        try:
+                            dt = datetime.fromisoformat(start)
+                            if dt.tzinfo:
+                                dt = dt.astimezone(_EASTERN)
+                            date_str += " · " + dt.strftime("%-I:%M %p")
+                        except Exception:
+                            pass
+                    ev_link = ev.get("html_link", "")
+                    if ev_link:
+                        title_html = (
+                            f'<a href="{html.escape(ev_link)}" target="_blank"'
+                            f' class="lld-ev-title">{title}</a>'
+                        )
+                    else:
+                        title_html = f'<span class="lld-ev-title">{title}</span>'
+                    parts.append(
+                        f'<div class="lld-ev-row">'
+                        f'<span class="lld-ev-date">{html.escape(date_str)}</span>'
+                        f"{title_html}"
+                        f"</div>"
+                    )
+        parts.append("</div>")
+    parts.append("</div>")
+    return "".join(parts)
+
+
 def build_calendar_html(
     events: List[Dict[str, Any]],
     reviewed_state: dict,
@@ -1116,6 +1204,7 @@ def build_calendar_html(
         _cal_nav_counts[key] = len(reviewed_buckets[key])
 
     seven_day_html = _build_next7days_html(events)
+    lld_html = _build_lay_life_down_view(events)
 
     embed_css = ".top-bar{display:none;}" if embed else ""
     page_height = "100vh" if embed else "calc(100vh - 57px)"
@@ -1380,26 +1469,27 @@ def build_calendar_html(
         ".view-toggle-btn:hover{background:var(--bg-s2);color:var(--text-1);}"
         ".view-toggle-btn.active{background:var(--accent);color:#fff;border-color:var(--accent);}"
         "#view-events{display:block;}#view-7days{display:none;}#view-lay-life-down{display:none;}"
-        # Lay Life Down section styles
         ".lld-container{max-width:700px;margin:0 auto;padding:8px 16px 24px;}"
-        ".lld-cal-section{margin-bottom:20px;}"
-        ".lld-cal-hdr{font-size:14px;font-weight:700;padding:10px 12px;"
-        "border-radius:8px 8px 0 0;background:var(--bg-s1);"
-        "border:1px solid var(--border);border-bottom:none;}"
-        ".lld-month-hdr{font-size:11px;font-weight:600;letter-spacing:.06em;"
-        "text-transform:uppercase;color:var(--text-3);padding:10px 12px 6px;"
-        "background:var(--bg-s1);border-left:1px solid var(--border);"
-        "border-right:1px solid var(--border);}"
-        ".lld-ev-row{display:flex;align-items:baseline;gap:10px;padding:9px 12px;"
-        "background:var(--bg-s1);border-left:1px solid var(--border);"
-        "border-right:1px solid var(--border);border-bottom:1px solid var(--border);}"
-        ".lld-ev-row:last-child{border-radius:0 0 8px 8px;}"
-        ".lld-ev-title{font-size:14px;font-weight:500;color:var(--text-1);flex:1;min-width:0;"
-        "word-break:break-word;}"
-        ".lld-ev-date{font-size:12px;color:var(--text-2);white-space:nowrap;flex-shrink:0;}"
-        ".lld-empty-cal{font-size:13px;color:var(--text-3);font-style:italic;"
-        "padding:10px 12px 12px;background:var(--bg-s1);"
-        "border:1px solid var(--border);border-top:none;border-radius:0 0 8px 8px;}"
+        ".lld-cal-section{margin-bottom:24px;}"
+        ".lld-cal-hdr{display:flex;align-items:center;justify-content:space-between;"
+        "padding:10px 0 8px;border-bottom:1px solid var(--border);margin-bottom:8px;}"
+        ".lld-count{font-size:11px;font-weight:700;color:var(--text-2);"
+        "background:var(--border);padding:2px 7px;border-radius:8px;}"
+        ".lld-month-hdr{font-size:11px;font-weight:700;color:var(--text-3);"
+        "text-transform:uppercase;letter-spacing:.06em;padding:8px 0 4px;"
+        "border-bottom:1px solid var(--border);margin-bottom:4px;}"
+        ".lld-ev-row{display:flex;align-items:center;gap:10px;padding:6px 0;"
+        "border-bottom:1px solid var(--border);}"
+        ".lld-ev-row:last-child{border-bottom:none;}"
+        ".lld-ev-date{font-size:12px;font-weight:600;color:var(--text-2);"
+        "min-width:90px;flex-shrink:0;white-space:nowrap;}"
+        ".lld-ev-title{font-size:14px;font-weight:500;color:var(--text-1);"
+        "text-decoration:none;flex:1;min-width:0;overflow:hidden;"
+        "text-overflow:ellipsis;white-space:nowrap;}"
+        "a.lld-ev-title:hover{color:var(--accent-l);text-decoration:underline;}"
+        ".lld-empty{font-size:13px;color:var(--text-3);padding:8px 0 12px;}"
+        "@media(max-width:768px){.lld-container{padding:8px 8px 24px;}"
+        ".lld-ev-date{min-width:72px;font-size:11px;}.lld-ev-title{font-size:13px;}}"
         # Next-7-days list styles
         ".sd-container{max-width:700px;margin:0 auto;padding:8px 16px 24px;}"
         ".sd-day{margin-bottom:4px;}"
@@ -1465,8 +1555,8 @@ def build_calendar_html(
         + reviewed_sections_html + "</div></div>"
         # Next-7-days view (hidden by default)
         '<div id="view-7days">' + seven_day_html + "</div>"
-        # Lay Life Down 6-month view (hidden by default)
-        '<div id="view-lay-life-down">' + _build_lay_life_down_view(events) + "</div>"
+        # Lay Life Down view (hidden by default)
+        '<div id="view-lay-life-down">' + lld_html + "</div>"
         "</div>"
         # Event detail modal
         '<div class="ev-modal-overlay" id="ev-modal" onclick="if(event.target===this)closeEventDetail()">'
@@ -1588,12 +1678,20 @@ def build_calendar_html(
         "var bs=document.getElementById('btn-7days');"
         "var bl=document.getElementById('btn-lay-life-down');"
         "var sn=document.getElementById('cal-sec-nav');"
-        "evts.style.display='none';sd.style.display='none';if(lld)lld.style.display='none';"
-        "be.classList.remove('active');bs.classList.remove('active');if(bl)bl.classList.remove('active');"
+        "evts.style.display='none';sd.style.display='none';"
+        "if(lld)lld.style.display='none';"
+        "be.classList.remove('active');bs.classList.remove('active');"
+        "if(bl)bl.classList.remove('active');"
+        "if(v==='7days'){"
+        "sd.style.display='block';bs.classList.add('active');"
         "if(sn)sn.style.display='none';"
-        "if(v==='7days'){sd.style.display='block';bs.classList.add('active');}"
-        "else if(v==='lay-life-down'){if(lld)lld.style.display='block';if(bl)bl.classList.add('active');}"
-        "else{evts.style.display='block';be.classList.add('active');if(sn)sn.style.display='';}}" + post_message_js + "function doReview(btn,eid,url){"
+        "}else if(v==='lay-life-down'){"
+        "if(lld)lld.style.display='block';if(bl)bl.classList.add('active');"
+        "if(sn)sn.style.display='none';"
+        "}else{"
+        "evts.style.display='block';be.classList.add('active');"
+        "if(sn)sn.style.display='';"
+        "}}" + post_message_js + "function doReview(btn,eid,url){"
         "btn.style.pointerEvents='none';btn.textContent='Reviewing\u2026';"
         "fetch(url).then(function(r){return r.json();}).then(function(d){"
         "if(d.ok){"

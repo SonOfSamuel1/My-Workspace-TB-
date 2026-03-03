@@ -164,6 +164,61 @@ class CalendarService:
         events.sort(key=_sort_key)
         return events
 
+    def create_calendar(self, summary: str) -> str:
+        """Create a new Google Calendar and return its calendar ID."""
+        result = self.service.calendars().insert(body={"summary": summary}).execute()
+        return result.get("id", "")
+
+    def fetch_events_for_calendar(
+        self, cal_type: str, cal_id: str, days: int = 180
+    ) -> List[Dict[str, Any]]:
+        """Fetch events for a single calendar by its ID."""
+        now = datetime.now(timezone.utc)
+        local_now = now.astimezone(_EASTERN_TZ)
+        today_start = local_now.replace(hour=0, minute=0, second=0, microsecond=0)
+        time_min = today_start.isoformat()
+        time_max = (now + timedelta(days=days)).isoformat()
+        try:
+            result = (
+                self.service.events()
+                .list(
+                    calendarId=cal_id,
+                    timeMin=time_min,
+                    timeMax=time_max,
+                    singleEvents=True,
+                    orderBy="startTime",
+                    maxResults=100,
+                )
+                .execute()
+            )
+        except Exception as e:
+            logger.warning(f"Failed to fetch calendar {cal_type} ({cal_id}): {e}")
+            return []
+        events: List[Dict[str, Any]] = []
+        for item in result.get("items", []):
+            event_id = item.get("id", "")
+            if not event_id:
+                continue
+            start = item.get("start", {})
+            end = item.get("end", {})
+            is_all_day = "date" in start and "dateTime" not in start
+            start_val = start.get("dateTime") or start.get("date", "")
+            end_val = end.get("dateTime") or end.get("date", "")
+            events.append(
+                {
+                    "id": event_id,
+                    "title": item.get("summary", "(No title)"),
+                    "start": start_val,
+                    "end": end_val,
+                    "is_all_day": is_all_day,
+                    "location": item.get("location", ""),
+                    "description": item.get("description", ""),
+                    "html_link": item.get("htmlLink", ""),
+                    "calendar_type": cal_type,
+                }
+            )
+        return events
+
     # ------------------------------------------------------------------
     # FFM → Family calendar auto-sync
     # ------------------------------------------------------------------

@@ -1659,6 +1659,7 @@ def handle_action(event: dict) -> dict:
                 events = cal.get_upcoming_events(days=90)
                 # Ensure "Serve Least of These" calendar exists and append its events
                 state = _load_calendar_state()
+
                 _slt_id = state.get("serve_least_of_these_calendar_id", "")
                 if not _slt_id:
                     try:
