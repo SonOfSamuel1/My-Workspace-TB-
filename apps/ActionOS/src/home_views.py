@@ -1145,7 +1145,7 @@ def _build_section_html(
     chevron = "\u25b6" if collapsed else "\u25bc"
 
     return (
-        f'<div class="section-hdr" style="color:{border_color};cursor:pointer;" '
+        f'<div class="section-hdr" id="sec-{key}" style="color:{border_color};cursor:pointer;" '
         f"onclick=\"var b=document.getElementById('body-{key}'),"
         f"c=this.querySelector('.chevron');"
         f"if(b.style.display==='none'){{b.style.display='block';c.textContent='\\u25BC';}}"
@@ -1159,6 +1159,37 @@ def _build_section_html(
         f"{cards_html}"
         f"</div>"
     )
+
+
+# ---------------------------------------------------------------------------
+# Nav bar
+# ---------------------------------------------------------------------------
+
+_HOME_NAV_CONFIG = [
+    ("commit",   "@Commit",   "var(--accent)",  "var(--accent-bg)"),
+    ("bestcase", "Best Case", "var(--purple)",  "var(--purple-bg)"),
+    ("calendar", "Calendar",  "var(--warn)",    "var(--warn-bg)"),
+    ("p1",       "P1",        "var(--err)",     "var(--err-bg)"),
+    ("starred",  "Starred",   "var(--warn)",    "var(--warn-bg)"),
+    ("unread",   "Unread",    "var(--text-2)",  "rgba(142,142,147,0.10)"),
+    ("followup", "Follow-up", "var(--text-2)",  "rgba(142,142,147,0.10)"),
+    ("inbox",    "Inbox",     "var(--ok)",      "var(--ok-bg)"),
+]
+
+
+def _build_home_nav_bar(section_counts: Dict[str, int]) -> str:
+    pills = ""
+    for key, label, color, bg in _HOME_NAV_CONFIG:
+        count = section_counts.get(key, 0)
+        pills += (
+            f'<button class="sec-pill" '
+            f'style="color:{color};border-color:{color};background:{bg};" '
+            f"onclick=\"scrollToSec('{key}')\">"
+            f"{html.escape(label)}"
+            f'<span class="sec-pill-count">{count}</span>'
+            f"</button>"
+        )
+    return f'<div class="sec-nav" id="home-sec-nav">{pills}</div>'
 
 
 # ---------------------------------------------------------------------------
@@ -1290,12 +1321,14 @@ def build_home_html(
 
     sections_html = ""
     total_unreviewed = 0
+    _nav_counts: Dict[str, int] = {}
 
     # --- commit ---
     cards, needs_review, total, label, border_color = _build_task_section(
         commit_tasks, "commit"
     )
     total_unreviewed += needs_review
+    _nav_counts["commit"] = needs_review
     sections_html += _build_section_html(
         "commit",
         label,
@@ -1311,6 +1344,7 @@ def build_home_html(
         bestcase_tasks, "bestcase"
     )
     total_unreviewed += needs_review
+    _nav_counts["bestcase"] = needs_review
     sections_html += _build_section_html(
         "bestcase",
         label,
@@ -1372,6 +1406,7 @@ def build_home_html(
             needs_review += 1
             cards += card
     total_unreviewed += needs_review
+    _nav_counts["calendar"] = needs_review
     sections_html += _build_section_html(
         key,
         label,
@@ -1387,6 +1422,7 @@ def build_home_html(
         p1_tasks, "p1"
     )
     total_unreviewed += needs_review
+    _nav_counts["p1"] = needs_review
     sections_html += _build_section_html(
         "p1",
         label,
@@ -1424,6 +1460,7 @@ def build_home_html(
             needs_review += 1
             cards += card
     total_unreviewed += needs_review
+    _nav_counts["starred"] = needs_review
     sections_html += _build_section_html(
         key,
         label,
@@ -1449,6 +1486,7 @@ def build_home_html(
         )
     unread_count = len(unread_emails)
     total_unreviewed += unread_count
+    _nav_counts["unread"] = unread_count
     sections_html += _build_section_html(
         key,
         label,
@@ -1478,6 +1516,7 @@ def build_home_html(
         if not followup_reviews.get(tid):
             followup_unreviewed += 1
     followup_count = len(followup_emails)
+    _nav_counts["followup"] = followup_unreviewed
     sections_html += _build_section_html(
         key,
         label,
@@ -1492,6 +1531,7 @@ def build_home_html(
     cards, needs_review, total, label, border_color = _build_task_section(
         inbox_tasks, "inbox"
     )
+    _nav_counts["inbox"] = needs_review
     sections_html += _build_section_html(
         "inbox",
         label,
@@ -1565,12 +1605,27 @@ def build_home_html(
         ".scroll-area{height:"
         + page_height
         + ";overflow-y:auto;overflow-x:hidden;background:var(--bg-base);}"
-        ".home-list{max-width:700px;margin:0 auto;padding:12px 16px;}"
+        ".home-list{max-width:700px;margin:0 auto;padding:0 16px 12px;}"
+        # Section nav bar
+        ".sec-nav{display:flex;gap:8px;overflow-x:auto;padding:10px 0 10px;"
+        "position:sticky;top:0;z-index:20;background:var(--bg-base);"
+        "border-bottom:1px solid var(--border);margin-bottom:12px;"
+        "-webkit-overflow-scrolling:touch;-ms-overflow-style:none;scrollbar-width:none;}"
+        ".sec-nav::-webkit-scrollbar{display:none;}"
+        ".sec-pill{display:inline-flex;align-items:center;gap:7px;white-space:nowrap;"
+        "border-radius:10px;border:1.5px solid;padding:7px 12px;cursor:pointer;"
+        "font-size:13px;font-weight:600;font-family:inherit;flex-shrink:0;"
+        "transition:opacity .15s;background:transparent;}"
+        ".sec-pill:hover{opacity:0.72;}"
+        ".sec-pill-count{background:rgba(0,0,0,0.35);border-radius:999px;"
+        "min-width:20px;height:20px;display:inline-flex;align-items:center;"
+        "justify-content:center;font-size:11px;font-weight:700;color:#fff;padding:0 5px;}"
         # Section headers (flat, calendar-style)
         ".section-hdr{display:flex;align-items:center;gap:8px;padding:16px 0 8px;"
         "font-size:11px;font-weight:600;text-transform:uppercase;"
         "letter-spacing:0.6px;border-bottom:1px solid var(--border);margin-bottom:10px;"
-        "position:sticky;top:0;z-index:10;background:var(--bg-base);}"
+        "position:sticky;top:56px;z-index:10;background:var(--bg-base);"
+        "scroll-margin-top:56px;}"
         ".section-hdr+.section-hdr{margin-top:14px;}"
         ".section-badge{background:var(--border);color:var(--text-2);font-size:11px;"
         "font-weight:700;padding:2px 7px;border-radius:8px;}"
@@ -1857,6 +1912,7 @@ def build_home_html(
             "</div>"
         )
         + '<div class="scroll-area"><div class="home-list">'
+        + _build_home_nav_bar(_nav_counts)
         + sections_html
         + "</div></div>"
         # Detail pane (mobile fullscreen overlay)
@@ -1891,6 +1947,10 @@ def build_home_html(
         "var _homeUrl='" + func_url_safe + "';"
         "var _cs=getComputedStyle(document.documentElement);"
         "function cv(n){return _cs.getPropertyValue(n).trim();}" + post_message_js +
+        # --- Nav bar scroll ---
+        "function scrollToSec(key){"
+        "var el=document.getElementById('sec-'+key);"
+        "if(el){el.scrollIntoView({behavior:'smooth',block:'start'});}}"
         # --- Section toggle ---
         "function toggleSection(key){}"
         # --- Helper: fade card ---

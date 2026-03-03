@@ -808,6 +808,37 @@ def _build_ffm_action_cards(
     return cards
 
 
+_CAL_NAV_CONFIG = [
+    ("not-reviewed",        "Not Reviewed",  "var(--warn)",    "var(--warn-bg)"),
+    ("today",               "Today",         "var(--accent-l)","var(--accent-bg)"),
+    ("tomorrow",            "Tomorrow",      "var(--text-2)",  "rgba(142,142,147,0.10)"),
+    ("love_god",            "Love God",      "var(--gold)",    "var(--gold-bg)"),
+    ("love_brittany",       "Love Brittany", "var(--purple)",  "var(--purple-bg)"),
+    ("love_children",       "Love Children", "var(--purple)",  "var(--purple-bg)"),
+    ("love_friends_family", "Love Friends",  "var(--pink)",    "var(--pink-bg)"),
+    ("fishing_for_men",     "Fishing",       "var(--teal)",    "var(--teal-bg)"),
+    ("medical",             "Medical",       "var(--ok)",      "var(--ok-bg)"),
+    ("travel",              "Travel",        "var(--warn)",    "var(--warn-bg)"),
+    ("birthdays",           "Birthdays",     "var(--warn)",    "var(--warn-bg)"),
+    ("other",               "Other",         "var(--text-2)",  "rgba(142,142,147,0.10)"),
+]
+
+
+def _build_cal_nav_bar(section_counts: Dict[str, int]) -> str:
+    pills = ""
+    for key, label, color, bg in _CAL_NAV_CONFIG:
+        count = section_counts.get(key, 0)
+        pills += (
+            f'<button class="sec-pill" '
+            f'style="color:{color};border-color:{color};background:{bg};" '
+            f"onclick=\"scrollToCalSec('{key}')\">"
+            f"{html.escape(label)}"
+            f'<span class="sec-pill-count">{count}</span>'
+            f"</button>"
+        )
+    return f'<div class="sec-nav" id="cal-sec-nav">{pills}</div>'
+
+
 def build_calendar_html(
     events: List[Dict[str, Any]],
     reviewed_state: dict,
@@ -985,13 +1016,18 @@ def build_calendar_html(
                 f"</div>" + ffm_action_html
             )
         reviewed_sections_html += (
-            f'<div class="section-hdr" style="margin-top:24px;">'
+            f'<div class="section-hdr" id="cal-sec-{key}" style="margin-top:24px;">'
             f'<span style="color:var({color_var});">{label}</span>'
             f'<span class="section-badge" style="background:var({badge_bg});'
             f'color:var({badge_color});border:1px solid var({badge_border});">'
             f"{len(bucket)}</span>"
             f"</div>" + checklist_html + extra_html + cards
         )
+
+    # Build calendar nav bar counts
+    _cal_nav_counts = {"not-reviewed": unreviewed_count}
+    for key, *_ in _REVIEWED_SECTIONS:
+        _cal_nav_counts[key] = len(reviewed_buckets[key])
 
     seven_day_html = _build_next7days_html(events)
 
@@ -1062,11 +1098,26 @@ def build_calendar_html(
         ".scroll-area{height:"
         + page_height
         + ";overflow-y:auto;overflow-x:hidden;background:var(--bg-base);}"
-        ".task-list{max-width:700px;margin:0 auto;padding:12px 16px;overflow:clip;}"
+        ".task-list{max-width:700px;margin:0 auto;padding:0 16px 12px;overflow:clip;}"
+        # Section nav bar
+        ".sec-nav{display:flex;gap:8px;overflow-x:auto;padding:10px 0 10px;"
+        "position:sticky;top:60px;z-index:19;background:var(--bg-base);"
+        "border-bottom:1px solid var(--border);margin-bottom:12px;"
+        "-webkit-overflow-scrolling:touch;-ms-overflow-style:none;scrollbar-width:none;}"
+        ".sec-nav::-webkit-scrollbar{display:none;}"
+        ".sec-pill{display:inline-flex;align-items:center;gap:7px;white-space:nowrap;"
+        "border-radius:10px;border:1.5px solid;padding:7px 12px;cursor:pointer;"
+        "font-size:13px;font-weight:600;font-family:inherit;flex-shrink:0;"
+        "transition:opacity .15s;background:transparent;}"
+        ".sec-pill:hover{opacity:0.72;}"
+        ".sec-pill-count{background:rgba(0,0,0,0.35);border-radius:999px;"
+        "min-width:20px;height:20px;display:inline-flex;align-items:center;"
+        "justify-content:center;font-size:11px;font-weight:700;color:#fff;padding:0 5px;}"
         ".section-hdr{display:flex;align-items:center;gap:8px;padding:16px 0 8px;"
         "font-size:11px;font-weight:600;color:var(--text-3);text-transform:uppercase;"
         "letter-spacing:0.6px;border-bottom:1px solid var(--border);margin-bottom:10px;"
-        "position:sticky;top:0;z-index:10;background:var(--bg-base);}"
+        "position:sticky;top:116px;z-index:10;background:var(--bg-base);"
+        "scroll-margin-top:116px;}"
         ".section-hdr+.section-hdr{margin-top:24px;}"
         ".section-badge{background:var(--border);color:var(--text-2);font-size:11px;"
         "font-weight:700;padding:2px 7px;border-radius:8px;}"
@@ -1195,12 +1246,12 @@ def build_calendar_html(
         ".ev-gcal-btn:hover{text-decoration:underline;}"
         ".ev-modal-actions{display:flex;gap:8px;}"
         ".ev-cancel-btn{font-family:inherit;font-size:13px;font-weight:600;"
-        "padding:7px 16px;border-radius:7px;"
+        "padding:7px 16px;border-radius:7px;min-height:44px;"
         "background:var(--bg-s2);color:var(--text-2);border:1px solid var(--border);"
         "cursor:pointer;transition:background .15s;}"
         ".ev-cancel-btn:hover{background:var(--border);}"
         ".ev-save-btn{font-family:inherit;font-size:13px;font-weight:600;"
-        "padding:7px 18px;border-radius:7px;"
+        "padding:7px 18px;border-radius:7px;min-height:44px;"
         "background:var(--accent);color:#fff;border:1px solid var(--accent);"
         "cursor:pointer;transition:opacity .15s;}"
         ".ev-save-btn:hover{opacity:0.88;}"
@@ -1210,6 +1261,7 @@ def build_calendar_html(
         ".todoist-btn{min-height:44px;}"
         ".travel-time-btn{min-height:44px;font-size:12px;padding:10px 14px;}"
         ".delete-event-btn{min-height:44px;}"
+        ".ev-datetime-row{grid-template-columns:1fr;}"
         "}"
         "::-webkit-scrollbar{width:6px;}"
         "::-webkit-scrollbar-track{background:transparent;}"
@@ -1294,15 +1346,17 @@ def build_calendar_html(
         "</div>"
         # Events view (default)
         '<div id="view-events"><div class="task-list">'
+        # Calendar section nav bar
+        + _build_cal_nav_bar(_cal_nav_counts)
         # Section 1: Not Reviewed
         + (
-            f'<div class="section-hdr">'
+            f'<div class="section-hdr" id="cal-sec-not-reviewed">'
             f'<span style="color:var(--warn);">Not Reviewed</span>'
             f'<span class="section-badge" id="unrev-badge" style="background:var(--warn-bg);'
             f'color:var(--warn);border:1px solid var(--warn-b);">{unreviewed_count}</span>'
             f"</div>" + unreviewed_cards
             if unreviewed_count > 0
-            else f'<div class="section-hdr">'
+            else f'<div class="section-hdr" id="cal-sec-not-reviewed">'
             f'<span style="color:var(--ok);">Fully Reviewed</span>'
             f'<span class="section-badge" id="unrev-badge" style="background:var(--ok-bg);'
             f'color:var(--ok);border:1px solid var(--ok-b);">0</span>'
@@ -1422,6 +1476,9 @@ def build_calendar_html(
         "}).catch(function(){"
         "btn.textContent='Failed';btn.style.pointerEvents='auto';"
         "setTimeout(function(){btn.textContent='Save Changes';},2500);});}"
+        "function scrollToCalSec(key){"
+        "var el=document.getElementById('cal-sec-'+key);"
+        "if(el){el.scrollIntoView({behavior:'smooth',block:'start'});}}"
         "function switchView(v){"
         "var evts=document.getElementById('view-events');"
         "var sd=document.getElementById('view-7days');"
