@@ -810,6 +810,90 @@ def _build_ffm_action_cards(
     return cards
 
 
+# ---------------------------------------------------------------------------
+# Lay Life Down — 6-month embedded section within the Calendar tab
+# ---------------------------------------------------------------------------
+
+_LLD_CALENDARS = [
+    ("love_god",            "Love God",              "#f59e0b"),
+    ("love_brittany",       "Love Brittany",         "#a78bfa"),
+    ("love_children",       "Love Children",         "#38bdf8"),
+    ("love_friends_family", "Love Friends & Family", "#ec4899"),
+    ("serve_least_of_these","Serve Least of These",  "#f97316"),
+]
+
+
+def _fmt_lld_date(start_str: str, is_all_day: bool) -> str:
+    if not start_str:
+        return ""
+    try:
+        if is_all_day:
+            from datetime import datetime as _dt2
+            return _dt2.strptime(start_str[:10], "%Y-%m-%d").strftime("%-m/%-d")
+        else:
+            from datetime import datetime as _dt2
+            dt = _dt2.fromisoformat(start_str)
+            if dt.tzinfo is None:
+                from datetime import timezone as _tz
+                dt = dt.replace(tzinfo=_tz.utc)
+            dt = dt.astimezone(_EASTERN)
+            return dt.strftime("%-m/%-d %-I:%M%p").lower()
+    except Exception:
+        return start_str[:10]
+
+
+def _build_lay_life_down_view(events: List[Dict[str, Any]]) -> str:
+    """Build the Lay Life Down 6-month view, grouped by calendar then by month."""
+    from datetime import datetime as _dt3
+
+    by_type: Dict[str, List[Dict[str, Any]]] = {t: [] for t, _, _ in _LLD_CALENDARS}
+    for ev in events:
+        ct = ev.get("calendar_type", "")
+        if ct in by_type:
+            by_type[ct].append(ev)
+
+    sections = ""
+    for cal_type, label, color in _LLD_CALENDARS:
+        evs = by_type[cal_type]
+
+        # Group by month
+        by_month: Dict[str, List[Dict[str, Any]]] = {}
+        for ev in evs:
+            mk = (ev.get("start") or "")[:7]
+            if mk:
+                by_month.setdefault(mk, []).append(ev)
+
+        rows = ""
+        for ym in sorted(by_month.keys()):
+            try:
+                month_label = _dt3.strptime(ym, "%Y-%m").strftime("%B %Y")
+            except Exception:
+                month_label = ym
+            rows += f'<div class="lld-month-hdr">{html.escape(month_label)}</div>'
+            for ev in by_month[ym]:
+                title = html.escape(ev.get("title") or "(No title)")
+                date = html.escape(_fmt_lld_date(ev.get("start", ""), ev.get("is_all_day", True)))
+                rows += (
+                    f'<div class="lld-ev-row">'
+                    f'<span class="lld-ev-title">{title}</span>'
+                    f'<span class="lld-ev-date">{date}</span>'
+                    f"</div>"
+                )
+
+        if not rows:
+            rows = '<div class="lld-empty-cal">No events in the next 6 months</div>'
+
+        sections += (
+            f'<div class="lld-cal-section">'
+            f'<div class="lld-cal-hdr" style="border-left:3px solid {color};color:{color}">'
+            f"{html.escape(label)}</div>"
+            f"{rows}"
+            f"</div>"
+        )
+
+    return f'<div class="lld-container">{sections}</div>'
+
+
 _CAL_NAV_CONFIG = [
     ("not-reviewed",        "Not Reviewed",  "var(--warn)",    "var(--warn-bg)"),
     ("today",               "Today",         "var(--accent-l)","var(--accent-bg)"),
@@ -1295,7 +1379,27 @@ def build_calendar_html(
         "background:var(--bg-s1);color:var(--text-2);cursor:pointer;transition:all .15s;}"
         ".view-toggle-btn:hover{background:var(--bg-s2);color:var(--text-1);}"
         ".view-toggle-btn.active{background:var(--accent);color:#fff;border-color:var(--accent);}"
-        "#view-events{display:block;}#view-7days{display:none;}"
+        "#view-events{display:block;}#view-7days{display:none;}#view-lay-life-down{display:none;}"
+        # Lay Life Down section styles
+        ".lld-container{max-width:700px;margin:0 auto;padding:8px 16px 24px;}"
+        ".lld-cal-section{margin-bottom:20px;}"
+        ".lld-cal-hdr{font-size:14px;font-weight:700;padding:10px 12px;"
+        "border-radius:8px 8px 0 0;background:var(--bg-s1);"
+        "border:1px solid var(--border);border-bottom:none;}"
+        ".lld-month-hdr{font-size:11px;font-weight:600;letter-spacing:.06em;"
+        "text-transform:uppercase;color:var(--text-3);padding:10px 12px 6px;"
+        "background:var(--bg-s1);border-left:1px solid var(--border);"
+        "border-right:1px solid var(--border);}"
+        ".lld-ev-row{display:flex;align-items:baseline;gap:10px;padding:9px 12px;"
+        "background:var(--bg-s1);border-left:1px solid var(--border);"
+        "border-right:1px solid var(--border);border-bottom:1px solid var(--border);}"
+        ".lld-ev-row:last-child{border-radius:0 0 8px 8px;}"
+        ".lld-ev-title{font-size:14px;font-weight:500;color:var(--text-1);flex:1;min-width:0;"
+        "word-break:break-word;}"
+        ".lld-ev-date{font-size:12px;color:var(--text-2);white-space:nowrap;flex-shrink:0;}"
+        ".lld-empty-cal{font-size:13px;color:var(--text-3);font-style:italic;"
+        "padding:10px 12px 12px;background:var(--bg-s1);"
+        "border:1px solid var(--border);border-top:none;border-radius:0 0 8px 8px;}"
         # Next-7-days list styles
         ".sd-container{max-width:700px;margin:0 auto;padding:8px 16px 24px;}"
         ".sd-day{margin-bottom:4px;}"
@@ -1341,6 +1445,7 @@ def build_calendar_html(
         '<div class="view-toggle">'
         '<button class="view-toggle-btn active" id="btn-events" onclick="switchView(\'events\')">Events</button>'
         '<button class="view-toggle-btn" id="btn-7days" onclick="switchView(\'7days\')">Next 7 Days</button>'
+        '<button class="view-toggle-btn" id="btn-lay-life-down" onclick="switchView(\'lay-life-down\')">Lay Life Down</button>'
         "</div>"
         + _build_cal_nav_bar(_cal_nav_counts)
         + "</div>"
@@ -1360,6 +1465,8 @@ def build_calendar_html(
         + reviewed_sections_html + "</div></div>"
         # Next-7-days view (hidden by default)
         '<div id="view-7days">' + seven_day_html + "</div>"
+        # Lay Life Down 6-month view (hidden by default)
+        '<div id="view-lay-life-down">' + _build_lay_life_down_view(events) + "</div>"
         "</div>"
         # Event detail modal
         '<div class="ev-modal-overlay" id="ev-modal" onclick="if(event.target===this)closeEventDetail()">'
@@ -1476,18 +1583,17 @@ def build_calendar_html(
         "function switchView(v){"
         "var evts=document.getElementById('view-events');"
         "var sd=document.getElementById('view-7days');"
+        "var lld=document.getElementById('view-lay-life-down');"
         "var be=document.getElementById('btn-events');"
         "var bs=document.getElementById('btn-7days');"
+        "var bl=document.getElementById('btn-lay-life-down');"
         "var sn=document.getElementById('cal-sec-nav');"
-        "if(v==='7days'){"
-        "evts.style.display='none';sd.style.display='block';"
-        "be.classList.remove('active');bs.classList.add('active');"
+        "evts.style.display='none';sd.style.display='none';if(lld)lld.style.display='none';"
+        "be.classList.remove('active');bs.classList.remove('active');if(bl)bl.classList.remove('active');"
         "if(sn)sn.style.display='none';"
-        "}else{"
-        "evts.style.display='block';sd.style.display='none';"
-        "be.classList.add('active');bs.classList.remove('active');"
-        "if(sn)sn.style.display='';"
-        "}}" + post_message_js + "function doReview(btn,eid,url){"
+        "if(v==='7days'){sd.style.display='block';bs.classList.add('active');}"
+        "else if(v==='lay-life-down'){if(lld)lld.style.display='block';if(bl)bl.classList.add('active');}"
+        "else{evts.style.display='block';be.classList.add('active');if(sn)sn.style.display='';}}" + post_message_js + "function doReview(btn,eid,url){"
         "btn.style.pointerEvents='none';btn.textContent='Reviewing\u2026';"
         "fetch(url).then(function(r){return r.json();}).then(function(d){"
         "if(d.ok){"
