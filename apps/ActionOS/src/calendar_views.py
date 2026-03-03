@@ -1274,6 +1274,10 @@ def build_calendar_html(
         ".refresh-btn{margin-left:auto;background:var(--border);border:1px solid var(--border);"
         "color:var(--text-1);font-size:13px;font-weight:600;padding:6px 14px;border-radius:6px;cursor:pointer;}"
         ".refresh-btn:hover{background:var(--border-h);}"
+        ".add-event-btn{background:#16a34a;border:1px solid #15803d;"
+        "color:#fff;font-size:13px;font-weight:600;padding:6px 14px;border-radius:6px;"
+        "cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:5px;}"
+        ".add-event-btn:hover{background:#15803d;}"
         ".scroll-area{height:"
         + page_height
         + ";overflow-y:auto;overflow-x:hidden;background:var(--bg-base);}"
@@ -1531,6 +1535,7 @@ def build_calendar_html(
             else '<div class="top-bar">'
             '<span class="top-bar-title">Calendar</span>'
             '<button class="refresh-btn" onclick="location.reload()">&#8635; Refresh</button>'
+            '<a class="add-event-btn" href="x-fantastical3://add">+ Add Event</a>'
             "</div>"
         )
         + '<div class="scroll-area">'
