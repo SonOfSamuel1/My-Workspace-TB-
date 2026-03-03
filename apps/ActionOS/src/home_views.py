@@ -1613,7 +1613,7 @@ def build_home_html(
         "-webkit-overflow-scrolling:touch;-ms-overflow-style:none;scrollbar-width:none;}"
         ".sec-nav::-webkit-scrollbar{display:none;}"
         ".sec-pill{display:inline-flex;align-items:center;gap:7px;white-space:nowrap;"
-        "border-radius:10px;border:1.5px solid;padding:7px 12px;cursor:pointer;"
+        "border-radius:10px;border:1.5px solid;padding:7px 12px;cursor:pointer;min-height:44px;"
         "font-size:13px;font-weight:600;font-family:inherit;flex-shrink:0;"
         "transition:opacity .15s;background:transparent;}"
         ".sec-pill:hover{opacity:0.72;}"
