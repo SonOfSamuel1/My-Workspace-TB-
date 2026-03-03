@@ -150,14 +150,30 @@ cd apps/ActionOS && railway up --service actionos --detach
 
 If the task was a non-deployable change (docs, local scripts, etc.), skip this step.
 
-## 11. Ask Before Closing & Pushing
+## 11. Run Performance Check (ActionOS deploys only)
+
+If the task changed any file in ActionOS (`app.py`, `lambda_handler.py`, or
+anything under `src/`), **always** run `/perf-check` after the deploy
+completes. Do not wait for the user to ask.
+
+```
+/perf-check
+```
+
+This measures TTFB and DCL for all 6 endpoints against established baselines
+and confirms cache warming is working. If any endpoint FAILs, diagnose and fix
+before proceeding to close the task.
+
+If the task was a non-ActionOS change, skip this step.
+
+## 13. Ask Before Closing & Pushing
 
 **Always ask**: "Can I mark this task as complete on Todoist and push to main?"
 
 Do **NOT** auto-close. Do **NOT** push to main. Wait for explicit user approval
 for both actions.
 
-## 12. Close and Push (if approved)
+## 14. Close and Push (if approved)
 
 If the user approves:
 
