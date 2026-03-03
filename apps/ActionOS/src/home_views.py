@@ -74,7 +74,7 @@ _GP_ACTIVITIES = [
 
 # Section display config: key -> (label, left-border color, cycle_days)
 _SECTION_CONFIG = {
-    "commit": ("@Commit", "#6366f1", 1),
+    "commit": ("Commit", "#6366f1", 1),
     "bestcase": ("Best Case", "#a78bfa", 1),
     "calendar": ("Calendar", "#eab308", 7),
     "p1": ("P1", "#ef4444", 7),
@@ -1208,7 +1208,7 @@ def _build_section_html(
 
 _HOME_NAV_CONFIG = [
     ("godpower", "Use God Power", "var(--warn)", "var(--warn-bg)"),
-    ("commit",   "@Commit",   "var(--accent)",  "var(--accent-bg)"),
+    ("commit",   "Commit",    "var(--accent)",  "var(--accent-bg)"),
     ("bestcase", "Best Case", "var(--purple)",  "var(--purple-bg)"),
     ("calendar", "Calendar",  "var(--warn)",    "var(--warn-bg)"),
     ("p1",       "P1",        "var(--err)",     "var(--err-bg)"),
