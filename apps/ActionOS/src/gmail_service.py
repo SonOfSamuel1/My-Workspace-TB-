@@ -173,7 +173,7 @@ class GmailService:
             while True:
                 kwargs: Dict[str, Any] = {
                     "userId": "me",
-                    "q": "is:unread in:inbox",
+                    "q": 'is:unread in:inbox -subject:"Unread Emails"',
                     "maxResults": 100,
                 }
                 if page_token:
