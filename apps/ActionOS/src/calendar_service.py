@@ -553,15 +553,20 @@ class CalendarService:
         logger.info(f"Fetched {len(events)} events (cached for {_EVENTS_TTL}s)")
         return events
 
+    def set_calendar_color(self, cal_id: str, color_id: str) -> None:
+        """Set the background color of a calendar in the user's calendar list.
+
+        color_id values (Google Calendar palette):
+          "11" = Tomato (red), "9" = Blueberry, "6" = Sage, "3" = Grape, etc.
+        """
+        self.service.calendarList().patch(
+            calendarId=cal_id, body={"colorId": color_id}
+        ).execute()
+        logger.info(f"Set color {color_id!r} on calendar {cal_id!r}")
+
     # ------------------------------------------------------------------
     # Lay Life Down — fetch events for a specific subset of calendars
     # ------------------------------------------------------------------
-
-    def create_calendar(self, summary: str) -> str:
-        """Create a new Google Calendar and return its ID."""
-        body = {"summary": summary}
-        created = self.service.calendars().insert(body=body).execute()
-        return created["id"]
 
     def get_events_for_types(
         self,
