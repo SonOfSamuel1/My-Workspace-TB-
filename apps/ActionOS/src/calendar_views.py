@@ -656,7 +656,9 @@ def _build_event_card(
     )
 
 
-def _build_next7days_html(events: List[Dict[str, Any]]) -> str:
+def _build_next7days_html(
+    events: List[Dict[str, Any]], build_section_cards=None
+) -> str:
     """Build a next-7-days event list grouped by date."""
     now = datetime.now(_EASTERN)
     today = now.date()
@@ -707,6 +709,8 @@ def _build_next7days_html(events: List[Dict[str, Any]]) -> str:
 
         if not evs:
             rows_html += '<div class="sd-no-events">No events</div>'
+        elif build_section_cards is not None:
+            rows_html += build_section_cards(evs)
         else:
             for ev in evs:
                 title = html.escape(ev.get("title", "(No title)"))
@@ -1203,7 +1207,7 @@ def build_calendar_html(
     for key, *_ in _REVIEWED_SECTIONS:
         _cal_nav_counts[key] = len(reviewed_buckets[key])
 
-    seven_day_html = _build_next7days_html(events)
+    seven_day_html = _build_next7days_html(events, _build_section_cards)
     lld_html = _build_lay_life_down_view(events)
 
     embed_css = ".top-bar{display:none;}" if embed else ""
