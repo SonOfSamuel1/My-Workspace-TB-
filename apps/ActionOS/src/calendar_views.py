@@ -310,6 +310,7 @@ def _build_event_card(
     loc_enc = urllib.parse.quote(event.get("location", ""))
     start_enc = urllib.parse.quote(event.get("start", ""))
     end_enc = urllib.parse.quote(event.get("end", ""))
+    html_link_enc = urllib.parse.quote(html_link)
 
     # Review button
     if reviewed:
@@ -382,6 +383,8 @@ def _build_event_card(
         + date_enc
         + "&event_location="
         + loc_enc
+        + "&event_link="
+        + html_link_enc
     )
     if has_prep_action:
         schedule_prep_btn = ""

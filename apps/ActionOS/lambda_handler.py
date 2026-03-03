@@ -2846,6 +2846,7 @@ def handle_action(event: dict) -> dict:
             event_date = params.get("event_date", "")
             event_location = params.get("event_location", "")
             event_id = params.get("event_id", "")
+            event_link = params.get("event_link", "")
 
             # Calculate due date: 3 weeks before event date
             prep_due = ""
@@ -2866,6 +2867,8 @@ def handle_action(event: dict) -> dict:
                 desc_parts.append(f"**Event Date:** {event_date}")
             if event_location:
                 desc_parts.append(f"**Location:** {event_location}")
+            if event_link:
+                desc_parts.append(f"**Calendar Event:** {event_link}")
             task_json = {
                 "content": f"Event Prep: {event_title}",
                 "description": "\n".join(desc_parts),
