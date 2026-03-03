@@ -600,6 +600,27 @@ def build_view_html(
             "}).catch(function(){alert('Save failed');});}"
         )
 
+    # Permanent verse card for commit view (John 15:4)
+    verse_card_html = ""
+    verse_css = ""
+    if view_name == "commit":
+        verse_card_html = (
+            '<div class="verse-card">'
+            '<div class="verse-label">John 15:4</div>'
+            '<div class="verse-text">'
+            '&#8220;Remain in me, as I also remain in you. No branch can bear fruit by itself; '
+            'it must remain in the vine. Neither can you bear fruit unless you remain in me.&#8221;'
+            '</div>'
+            '</div>'
+        )
+        verse_css = (
+            ".verse-card{background:var(--accent-bg);border:1px solid var(--accent-b);"
+            "border-radius:8px;padding:14px 16px;margin-bottom:10px;}"
+            ".verse-label{font-size:11px;font-weight:700;color:var(--accent-l);"
+            "text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;}"
+            ".verse-text{font-size:14px;color:var(--text-1);line-height:1.6;font-style:italic;}"
+        )
+
     # Determine split-pane height
     split_height = "calc(100vh - 56px)" if not embed else "100vh"
 
@@ -883,6 +904,7 @@ def build_view_html(
         "::-webkit-scrollbar-track{background:transparent;}"
         "::-webkit-scrollbar-thumb{background:var(--scrollbar);border-radius:3px;}"
         + checklist_css
+        + verse_css
         + "</style>"
         "</head><body>" + header_html + '<div class="split-wrap" id="split-wrap">'
         # Left pane — task list
@@ -893,6 +915,7 @@ def build_view_html(
         f'<span>{html.escape(title.upper())}</span>'
         f'<span class="section-badge" id="task-count-badge">{count}</span>'
         f'</div>'
+        + verse_card_html
         + checklist_card_html
         + cards_html
         + "</div></div>"
