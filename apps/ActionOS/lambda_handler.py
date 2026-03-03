@@ -1231,6 +1231,7 @@ def handle_action(event: dict) -> dict:
             "calendar_create_todoist",
             "calendar_commit",
             "calendar_create_sms_reminder",
+            "calendar_update_event",
             "ffm_outreach",
             "toggl_start",
             "toggl_stop",
@@ -2979,6 +2980,51 @@ def handle_action(event: dict) -> dict:
             )
         except Exception as e:
             logger.error(f"calendar_travel_time failed: {e}", exc_info=True)
+            return _error_json(str(e))
+
+    # -----------------------------------------------------------------------
+    # Calendar update event — patch an existing Google Calendar event
+    # -----------------------------------------------------------------------
+    elif action == "calendar_update_event":
+        body_str = event.get("body", "")
+        if event.get("isBase64Encoded"):
+            body_str = base64.b64decode(body_str).decode("utf-8")
+        try:
+            post_data = json.loads(body_str) if body_str else {}
+        except Exception:
+            post_data = {}
+
+        event_id = post_data.get("event_id", "")
+        cal_type = post_data.get("cal_type", "family")
+        title = post_data.get("title", "")
+        start = post_data.get("start", "")
+        end = post_data.get("end", "")
+        location = post_data.get("location", "")
+        description = post_data.get("description", "")
+
+        if not event_id:
+            return _error_json("Missing event_id")
+
+        try:
+            from calendar_service import CalendarService, CALENDAR_IDS
+
+            cal = CalendarService(
+                os.environ["CALENDAR_CREDENTIALS_JSON"],
+                os.environ["CALENDAR_TOKEN_JSON"],
+            )
+            cal.update_event(
+                calendar_type=cal_type,
+                event_id=event_id,
+                title=title,
+                start=start,
+                end=end,
+                location=location,
+                description=description,
+            )
+            logger.info(f"calendar_update_event: updated event {event_id}")
+            return _ok_json()
+        except Exception as e:
+            logger.error(f"calendar_update_event failed: {e}", exc_info=True)
             return _error_json(str(e))
 
     # -----------------------------------------------------------------------
