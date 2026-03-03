@@ -87,6 +87,8 @@ class CalendarService:
             time_min = today_start.isoformat()
 
         def _fetch_one(cal_type, cal_id):
+            if not cal_id:
+                return []
             cal_days = _CALENDAR_DAY_OVERRIDES.get(cal_type, days)
             time_max = (now + timedelta(days=cal_days)).isoformat()
             try:
