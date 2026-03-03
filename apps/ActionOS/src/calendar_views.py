@@ -567,6 +567,16 @@ def _build_event_card(
 
     card_extra = " reviewed-card" if reviewed else " unreviewed-card"
 
+    # Data attributes for the click-to-edit modal
+    _title_attr = html.escape(event.get("title", "(No title)"), quote=True)
+    _loc_attr = html.escape(event.get("location", ""), quote=True)
+    _desc_attr = html.escape(event.get("description", ""), quote=True)
+    _gcal_attr = html.escape(event.get("html_link", ""), quote=True)
+    _start_attr = html.escape(event.get("start", ""), quote=True)
+    _end_attr = html.escape(event.get("end", ""), quote=True)
+    _is_all_day_attr = "1" if event.get("is_all_day", False) else "0"
+    _cal_type_attr = html.escape(cal_type, quote=True)
+
     # Build action buttons — birthday/anniversary cards omit Commit and use SMS reminder
     if is_birthday:
         _todoist_btn_label = "Reminder to Text"
@@ -589,7 +599,16 @@ def _build_event_card(
 
     # Always show all buttons regardless of review status
     return (
-        f'<div class="task-card{card_extra}" id="card-{idx}">'
+        f'<div class="task-card{card_extra}" id="card-{idx}" onclick="openEventDetail(event,this)"'
+        f' data-eid="{eid_safe}"'
+        f' data-cal-type="{_cal_type_attr}"'
+        f' data-title="{_title_attr}"'
+        f' data-start="{_start_attr}"'
+        f' data-end="{_end_attr}"'
+        f' data-is-all-day="{_is_all_day_attr}"'
+        f' data-location="{_loc_attr}"'
+        f' data-description="{_desc_attr}"'
+        f' data-gcal="{_gcal_attr}">'
         f'<div class="card-row">'
         f'<div class="card-content">'
         f'<div class="task-title">{title}</div>'
@@ -1107,6 +1126,52 @@ def build_calendar_html(
         "cursor:pointer;transition:background .15s;color:var(--text-2);font-size:13px;font-weight:600;}"
         ".assign-cc-btn:hover{background:var(--border-h);}"
         ".empty-state{text-align:center;color:var(--text-2);padding:24px 20px;font-size:14px;}"
+        # Task card cursor pointer (clickable to open detail)
+        ".task-card{cursor:pointer;}"
+        # Event detail modal
+        ".ev-modal-overlay{display:none;position:fixed;inset:0;z-index:1000;"
+        "background:rgba(0,0,0,0.55);backdrop-filter:blur(4px);"
+        "align-items:center;justify-content:center;padding:16px;}"
+        ".ev-modal-box{background:var(--bg-s1);border:1px solid var(--border-h);"
+        "border-radius:12px;width:100%;max-width:480px;max-height:90vh;"
+        "display:flex;flex-direction:column;overflow:hidden;"
+        "box-shadow:0 24px 64px rgba(0,0,0,0.45);}"
+        ".ev-modal-hdr{display:flex;align-items:center;justify-content:space-between;"
+        "padding:16px 20px 12px;border-bottom:1px solid var(--border);flex-shrink:0;}"
+        ".ev-modal-title{font-size:15px;font-weight:700;color:var(--text-1);}"
+        ".ev-modal-close{background:none;border:none;color:var(--text-2);"
+        "font-size:22px;line-height:1;cursor:pointer;padding:0 4px;}"
+        ".ev-modal-close:hover{color:var(--text-1);}"
+        ".ev-modal-body{padding:16px 20px;overflow-y:auto;flex:1;display:flex;"
+        "flex-direction:column;gap:12px;}"
+        ".ev-field-label{font-size:11px;font-weight:600;color:var(--text-2);"
+        "text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;display:block;}"
+        ".ev-field-input{width:100%;font-family:inherit;font-size:14px;padding:9px 12px;"
+        "background:var(--bg-s2);border:1px solid var(--border);border-radius:7px;"
+        "color:var(--text-1);outline:none;transition:border-color .15s;}"
+        ".ev-field-input:focus{border-color:var(--accent);}"
+        ".ev-field-textarea{width:100%;font-family:inherit;font-size:14px;padding:9px 12px;"
+        "background:var(--bg-s2);border:1px solid var(--border);border-radius:7px;"
+        "color:var(--text-1);outline:none;resize:vertical;min-height:80px;"
+        "transition:border-color .15s;line-height:1.5;}"
+        ".ev-field-textarea:focus{border-color:var(--accent);}"
+        ".ev-datetime-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;}"
+        ".ev-modal-footer{padding:12px 20px 16px;border-top:1px solid var(--border);"
+        "display:flex;align-items:center;justify-content:space-between;flex-shrink:0;flex-wrap:wrap;gap:8px;}"
+        ".ev-gcal-btn{font-size:12px;font-weight:500;color:var(--accent-l);"
+        "text-decoration:none;white-space:nowrap;}"
+        ".ev-gcal-btn:hover{text-decoration:underline;}"
+        ".ev-modal-actions{display:flex;gap:8px;}"
+        ".ev-cancel-btn{font-family:inherit;font-size:13px;font-weight:600;"
+        "padding:7px 16px;border-radius:7px;"
+        "background:var(--bg-s2);color:var(--text-2);border:1px solid var(--border);"
+        "cursor:pointer;transition:background .15s;}"
+        ".ev-cancel-btn:hover{background:var(--border);}"
+        ".ev-save-btn{font-family:inherit;font-size:13px;font-weight:600;"
+        "padding:7px 18px;border-radius:7px;"
+        "background:var(--accent);color:#fff;border:1px solid var(--accent);"
+        "cursor:pointer;transition:opacity .15s;}"
+        ".ev-save-btn:hover{opacity:0.88;}"
         "@media(max-width:768px){"
         ".task-actions{gap:6px;}"
         ".action-select,.review-btn,.todoist-btn,.commit-btn,.schedule-prep-btn,.timer-btn,.toggl-log-btn,.assign-cc-btn,.ffm-meal-btn{font-size:11px;padding:4px 6px;}"
@@ -1212,9 +1277,115 @@ def build_calendar_html(
         # 12-month view (hidden by default)
         '<div id="view-12month">' + twelve_month_html + "</div>"
         "</div>"
+        # Event detail modal
+        '<div class="ev-modal-overlay" id="ev-modal" onclick="if(event.target===this)closeEventDetail()">'
+        '<div class="ev-modal-box">'
+        '<div class="ev-modal-hdr">'
+        '<span class="ev-modal-title">Edit Event</span>'
+        '<button class="ev-modal-close" onclick="closeEventDetail()">\u00d7</button>'
+        "</div>"
+        '<div class="ev-modal-body">'
+        '<div><label class="ev-field-label">Title</label>'
+        '<input type="text" id="ev-edit-title" class="ev-field-input" /></div>'
+        '<div class="ev-datetime-row">'
+        '<div><label class="ev-field-label">Start</label>'
+        '<input id="ev-edit-start" class="ev-field-input" /></div>'
+        '<div><label class="ev-field-label" id="ev-end-label">End</label>'
+        '<input id="ev-edit-end" class="ev-field-input" /></div>'
+        "</div>"
+        '<div><label class="ev-field-label">Location</label>'
+        '<input type="text" id="ev-edit-location" class="ev-field-input" /></div>'
+        '<div><label class="ev-field-label">Description</label>'
+        '<textarea id="ev-edit-description" class="ev-field-textarea"></textarea></div>'
+        "</div>"
+        '<div class="ev-modal-footer">'
+        '<a id="ev-gcal-link" href="#" target="_blank" class="ev-gcal-btn">Open in Google Calendar \u2197</a>'
+        '<div class="ev-modal-actions">'
+        '<button class="ev-cancel-btn" onclick="closeEventDetail()">Cancel</button>'
+        '<button id="ev-save-btn" class="ev-save-btn" onclick="saveEventDetail()">Save Changes</button>'
+        "</div></div>"
+        "</div></div>"
         "<script>"
         "var _cs=getComputedStyle(document.documentElement);"
         "function cv(n){return _cs.getPropertyValue(n).trim();}"
+        "var _FNURL='" + function_url.rstrip("/") + "';"
+        "var _evModalEid='';"
+        "var _evModalCalType='';"
+        "var _evModalIsAllDay=false;"
+        "function openEventDetail(e,card){"
+        "if(e.target.closest('button')||e.target.closest('a'))return;"
+        "_evModalEid=card.getAttribute('data-eid');"
+        "_evModalCalType=card.getAttribute('data-cal-type');"
+        "_evModalIsAllDay=card.getAttribute('data-is-all-day')==='1';"
+        "var title=card.getAttribute('data-title')||'';"
+        "var start=card.getAttribute('data-start')||'';"
+        "var end=card.getAttribute('data-end')||'';"
+        "var loc=card.getAttribute('data-location')||'';"
+        "var desc=card.getAttribute('data-description')||'';"
+        "var gcal=card.getAttribute('data-gcal')||'';"
+        "document.getElementById('ev-edit-title').value=title;"
+        "document.getElementById('ev-edit-location').value=loc;"
+        "document.getElementById('ev-edit-description').value=desc;"
+        "var si=document.getElementById('ev-edit-start');"
+        "var ei=document.getElementById('ev-edit-end');"
+        "var elbl=document.getElementById('ev-end-label');"
+        "if(_evModalIsAllDay){"
+        "si.type='date';ei.type='date';"
+        "si.value=start?start.substring(0,10):'';"
+        # For all-day events, Google end is exclusive (next day) — subtract 1 for display
+        "if(end){"
+        "var ed=new Date(end.substring(0,10)+'T12:00:00');"
+        "ed.setDate(ed.getDate()-1);"
+        "ei.value=ed.getFullYear()+'-'+String(ed.getMonth()+1).padStart(2,'0')+'-'+String(ed.getDate()).padStart(2,'0');"
+        "}else{ei.value='';}"
+        "elbl.textContent='End (inclusive)';"
+        "}else{"
+        "si.type='datetime-local';ei.type='datetime-local';"
+        "si.value=start?start.substring(0,16):'';"
+        "ei.value=end?end.substring(0,16):'';"
+        "elbl.textContent='End';"
+        "}"
+        "var gl=document.getElementById('ev-gcal-link');"
+        "gl.href=gcal||'#';gl.style.display=gcal?'':'none';"
+        "var modal=document.getElementById('ev-modal');"
+        "modal.style.display='flex';"
+        "document.body.style.overflow='hidden';}"
+        "function closeEventDetail(){"
+        "document.getElementById('ev-modal').style.display='none';"
+        "document.body.style.overflow='';}"
+        "function saveEventDetail(){"
+        "var btn=document.getElementById('ev-save-btn');"
+        "btn.style.pointerEvents='none';btn.textContent='Saving\u2026';"
+        "var title=document.getElementById('ev-edit-title').value;"
+        "var startVal=document.getElementById('ev-edit-start').value;"
+        "var endVal=document.getElementById('ev-edit-end').value;"
+        "var loc=document.getElementById('ev-edit-location').value;"
+        "var desc=document.getElementById('ev-edit-description').value;"
+        # For all-day events, add 1 day to end to restore exclusive end for Google Calendar
+        "var endToSend=endVal;"
+        "if(_evModalIsAllDay&&endVal){"
+        "var ed=new Date(endVal+'T12:00:00');"
+        "ed.setDate(ed.getDate()+1);"
+        "endToSend=ed.getFullYear()+'-'+String(ed.getMonth()+1).padStart(2,'0')+'-'+String(ed.getDate()).padStart(2,'0');"
+        "}"
+        "fetch(_FNURL+'?action=calendar_update_event',{"
+        "method:'POST',"
+        "headers:{'Content-Type':'application/json'},"
+        "body:JSON.stringify({"
+        "event_id:_evModalEid,cal_type:_evModalCalType,"
+        "title:title,start:startVal,end:endToSend,location:loc,description:desc})})"
+        ".then(function(r){return r.json();})"
+        ".then(function(d){"
+        "if(d.ok){"
+        "btn.style.background=cv('--ok-bg');btn.style.color=cv('--ok');"
+        "btn.textContent='\u2713 Saved';"
+        "setTimeout(function(){closeEventDetail();window.location.reload();},800);"
+        "}else{"
+        "btn.textContent='Failed';btn.style.pointerEvents='auto';"
+        "setTimeout(function(){btn.textContent='Save Changes';},2500);}"
+        "}).catch(function(){"
+        "btn.textContent='Failed';btn.style.pointerEvents='auto';"
+        "setTimeout(function(){btn.textContent='Save Changes';},2500);});}"
         "function switchView(v){"
         "var evts=document.getElementById('view-events');"
         "var ym=document.getElementById('view-12month');"

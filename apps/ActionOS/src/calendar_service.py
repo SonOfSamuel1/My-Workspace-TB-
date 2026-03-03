@@ -383,6 +383,62 @@ class CalendarService:
         )
         return result.get("htmlLink", "")
 
+    def update_event(
+        self,
+        calendar_type: str,
+        event_id: str,
+        title: str = "",
+        start: str = "",
+        end: str = "",
+        location: str = "",
+        description: str = "",
+    ) -> Dict[str, Any]:
+        """Patch a Google Calendar event's fields.
+
+        start/end can be:
+          - ISO date string "YYYY-MM-DD" for all-day events
+          - ISO datetime string "YYYY-MM-DDTHH:MM" (no tz) for timed events,
+            which will be interpreted as America/New_York
+        """
+        from zoneinfo import ZoneInfo
+
+        cal_id = CALENDAR_IDS.get(calendar_type, "primary")
+        patch: Dict[str, Any] = {}
+
+        if title is not None:
+            patch["summary"] = title
+
+        if start:
+            is_all_day = "T" not in start
+            if is_all_day:
+                patch["start"] = {"date": start}
+            else:
+                dt = datetime.fromisoformat(start)
+                if dt.tzinfo is None:
+                    dt = dt.replace(tzinfo=_EASTERN_TZ)
+                patch["start"] = {"dateTime": dt.isoformat(), "timeZone": "America/New_York"}
+
+        if end:
+            is_all_day = "T" not in end
+            if is_all_day:
+                patch["end"] = {"date": end}
+            else:
+                dt = datetime.fromisoformat(end)
+                if dt.tzinfo is None:
+                    dt = dt.replace(tzinfo=_EASTERN_TZ)
+                patch["end"] = {"dateTime": dt.isoformat(), "timeZone": "America/New_York"}
+
+        patch["location"] = location or ""
+        patch["description"] = description or ""
+
+        result = (
+            self.service.events()
+            .patch(calendarId=cal_id, eventId=event_id, body=patch)
+            .execute()
+        )
+        logger.info(f"Updated event {event_id} in calendar '{calendar_type}'")
+        return result
+
     def get_upcoming_events_cached(self, days: int = 90) -> List[Dict[str, Any]]:
         """TTL-cached wrapper around get_upcoming_events (60s cache)."""
         now_ts = time.time()
