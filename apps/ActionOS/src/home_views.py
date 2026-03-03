@@ -1163,6 +1163,7 @@ def _build_section_html(
 # ---------------------------------------------------------------------------
 
 _HOME_NAV_CONFIG = [
+    ("godpower", "Use God Power", "var(--warn)", "var(--warn-bg)"),
     ("commit",   "@Commit",   "var(--accent)",  "var(--accent-bg)"),
     ("bestcase", "Best Case", "var(--purple)",  "var(--purple-bg)"),
     ("calendar", "Calendar",  "var(--warn)",    "var(--warn-bg)"),
@@ -1320,20 +1321,34 @@ def build_home_html(
     total_unreviewed = 0
     _nav_counts: Dict[str, int] = {}
 
+    # --- Use God Power (permanent section, always above commit) ---
+    _god_power_card = (
+        '<div class="gp-card">'
+        '<div class="gp-card-title">'
+        'Whatever I wish will be done for me, if it\u2019s aligned with Jesus\u2019 words and character, '
+        'and I ask the Father for it.'
+        '</div>'
+        '<div class="gp-card-ref">John 15:7</div>'
+        '<div class="gp-card-verse">'
+        '\u201c<sup>7</sup>If you abide in me, and my words abide in you, ask whatever you wish, '
+        'and it will be done for you.\u201d'
+        '</div>'
+        '</div>'
+    )
+    sections_html += _build_section_html(
+        "godpower",
+        "Use God Power",
+        _god_power_card,
+        0,
+        1,
+        collapsed=False,
+        border_color="var(--warn)",
+    )
+
     # --- commit ---
     cards, needs_review, total, label, border_color = _build_task_section(
         commit_tasks, "commit"
     )
-    _john_15_4 = (
-        '<div class="verse-card">'
-        '<div class="verse-label">John 15:4</div>'
-        '<div class="verse-text">'
-        '&#8220;Remain in me, as I also remain in you. No branch can bear fruit by itself; '
-        'it must remain in the vine. Neither can you bear fruit unless you remain in me.&#8221;'
-        '</div>'
-        '</div>'
-    )
-    cards = _john_15_4 + cards
     total_unreviewed += needs_review
     _nav_counts["commit"] = needs_review
     sections_html += _build_section_html(
@@ -1908,11 +1923,12 @@ def build_home_html(
         "::-webkit-scrollbar{width:6px;}"
         "::-webkit-scrollbar-track{background:transparent;}"
         "::-webkit-scrollbar-thumb{background:var(--scrollbar);border-radius:3px;}"
-        ".verse-card{background:var(--accent-bg);border:1px solid var(--accent-b);"
+        ".gp-card{background:var(--warn-bg);border:1px solid var(--warn-b);"
         "border-radius:8px;padding:14px 16px;margin-bottom:10px;}"
-        ".verse-label{font-size:11px;font-weight:700;color:var(--accent-l);"
-        "text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;}"
-        ".verse-text{font-size:14px;color:var(--text-1);line-height:1.6;font-style:italic;}"
+        ".gp-card-title{font-size:14px;font-weight:700;color:var(--text-1);line-height:1.5;margin-bottom:10px;}"
+        ".gp-card-ref{font-size:11px;font-weight:700;color:var(--warn);text-transform:uppercase;"
+        "letter-spacing:.5px;margin-bottom:6px;}"
+        ".gp-card-verse{font-size:13px;color:var(--text-2);line-height:1.6;font-style:italic;}"
         "</style></head><body>"
         + (
             ""
