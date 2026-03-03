@@ -32,6 +32,7 @@ _CAL_TYPE_LABELS = {
     "love_children": "Love Children",
     "love_friends_family": "Love Friends & Family",
     "fishing_for_men": "Fishing For Men",
+    "serve_least_of_these": "Serve Least of These",
 }
 
 _CAL_TYPE_COLORS = {
@@ -43,6 +44,7 @@ _CAL_TYPE_COLORS = {
     "love_children": "#a78bfa",
     "love_friends_family": "#ec4899",
     "fishing_for_men": "#06b6d4",
+    "serve_least_of_these": "#f97316",
 }
 
 

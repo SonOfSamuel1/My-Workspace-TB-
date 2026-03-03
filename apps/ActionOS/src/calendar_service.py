@@ -24,6 +24,8 @@ CALENDAR_IDS = {
     "love_children": "c_6155d15ab0546a6fd88727f0b2e8453352090a9f91e12ee134c7a0aa54f1dca4@group.calendar.google.com",
     "love_friends_family": "c_9183bb2ea0a3796318b63a580818ac22dcdf2a5c22bf770b430fc8bc83623d1e@group.calendar.google.com",
     "fishing_for_men": "c_0971bcbca44be72f8cbfb8cca0607ac51f73448726708bca096df5900e002d9d@group.calendar.google.com",
+    # serve_least_of_these ID is created on first use and stored in calendar state
+    "serve_least_of_these": "",
 }
 
 _CALENDAR_DAY_OVERRIDES = {
@@ -491,4 +493,89 @@ class CalendarService:
         _events_cache["data"] = events
         _events_cache["ts"] = now_ts
         logger.info(f"Fetched {len(events)} events (cached for {_EVENTS_TTL}s)")
+        return events
+
+    # ------------------------------------------------------------------
+    # Lay Life Down — fetch events for a specific subset of calendars
+    # ------------------------------------------------------------------
+
+    def create_calendar(self, summary: str) -> str:
+        """Create a new Google Calendar and return its ID."""
+        body = {"summary": summary}
+        created = self.service.calendars().insert(body=body).execute()
+        return created["id"]
+
+    def get_events_for_types(
+        self,
+        calendar_types: List[str],
+        days: int = 180,
+        extra_ids: Dict[str, str] = None,
+    ) -> List[Dict[str, Any]]:
+        """Fetch events for a specific subset of calendar types over the next N days.
+
+        Args:
+            calendar_types: List of calendar type keys to include.
+            days: How many days forward to fetch (default 180 = ~6 months).
+            extra_ids: Optional override mapping {cal_type: cal_id} (e.g. for
+                       newly created calendars whose IDs aren't in CALENDAR_IDS yet).
+        """
+        merged_ids = {**CALENDAR_IDS, **(extra_ids or {})}
+
+        now = datetime.now(timezone.utc)
+        local_now = now.astimezone(_EASTERN_TZ)
+        today_start = local_now.replace(hour=0, minute=0, second=0, microsecond=0)
+        time_min = today_start.isoformat()
+        time_max = (now + timedelta(days=days)).isoformat()
+
+        def _fetch_one(cal_type: str, cal_id: str) -> List[Dict[str, Any]]:
+            if not cal_id:
+                return []
+            try:
+                result = (
+                    self.service.events()
+                    .list(
+                        calendarId=cal_id,
+                        timeMin=time_min,
+                        timeMax=time_max,
+                        singleEvents=True,
+                        orderBy="startTime",
+                        maxResults=200,
+                    )
+                    .execute()
+                )
+            except Exception as e:
+                logger.warning(f"get_events_for_types: failed {cal_type}: {e}")
+                return []
+
+            cal_events = []
+            for item in result.get("items", []):
+                event_id = item.get("id", "")
+                if not event_id:
+                    continue
+                start = item.get("start", {})
+                end = item.get("end", {})
+                is_all_day = "date" in start and "dateTime" not in start
+                cal_events.append(
+                    {
+                        "id": event_id,
+                        "title": item.get("summary", "(No title)"),
+                        "start": start.get("dateTime") or start.get("date", ""),
+                        "end": end.get("dateTime") or end.get("date", ""),
+                        "is_all_day": is_all_day,
+                        "location": item.get("location", ""),
+                        "calendar_type": cal_type,
+                    }
+                )
+            return cal_events
+
+        seen_ids: set = set()
+        events: List[Dict[str, Any]] = []
+        for cal_type in calendar_types:
+            cal_id = merged_ids.get(cal_type, "")
+            for ev in _fetch_one(cal_type, cal_id):
+                if ev["id"] not in seen_ids:
+                    seen_ids.add(ev["id"])
+                    events.append(ev)
+
+        events.sort(key=lambda e: e.get("start", ""))
         return events

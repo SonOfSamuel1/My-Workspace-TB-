@@ -1695,6 +1695,55 @@ def handle_action(event: dict) -> dict:
                     "body": _error_page(f"Error: {e}"),
                 }
 
+        # -- Lay Life Down view --
+        elif view == "lay_life_down":
+            _cached = _get_view_cache("lay_life_down")
+            if _cached:
+                return {"statusCode": 200, "headers": _html_headers, "body": _cached}
+            try:
+                from calendar_service import CalendarService
+                from lay_life_down_views import LAY_LIFE_DOWN_CALENDARS, build_lay_life_down_html
+
+                cal = CalendarService(
+                    os.environ["CALENDAR_CREDENTIALS_JSON"],
+                    os.environ["CALENDAR_TOKEN_JSON"],
+                )
+
+                # Ensure "Serve Least of These" Google Calendar exists.
+                # Its ID is stored in calendar state so it survives deploys.
+                _lld_state = _load_calendar_state()
+                _slt_id = _lld_state.get("serve_least_of_these_calendar_id", "")
+                if not _slt_id:
+                    try:
+                        _slt_id = cal.create_calendar("Serve Least of These")
+                        _lld_state["serve_least_of_these_calendar_id"] = _slt_id
+                        _save_calendar_state(_lld_state)
+                        logger.info(f"Created 'Serve Least of These' calendar: {_slt_id}")
+                    except Exception as _create_err:
+                        logger.warning(f"Could not create Serve Least of These calendar: {_create_err}")
+
+                extra_ids = {}
+                if _slt_id:
+                    extra_ids["serve_least_of_these"] = _slt_id
+
+                events = cal.get_events_for_types(
+                    LAY_LIFE_DOWN_CALENDARS, days=180, extra_ids=extra_ids
+                )
+                body = build_lay_life_down_html(events, function_url, embed=True)
+                _set_view_cache("lay_life_down", body)
+                return {
+                    "statusCode": 200,
+                    "headers": _html_headers,
+                    "body": body,
+                }
+            except Exception as e:
+                logger.error(f"Lay Life Down view failed: {e}", exc_info=True)
+                return {
+                    "statusCode": 200,
+                    "headers": {"Content-Type": "text/html"},
+                    "body": _error_page(f"Error: {e}"),
+                }
+
         # -- Follow-up view --
         elif view == "followup":
             _cached = _get_view_cache("followup")
