@@ -1439,7 +1439,7 @@ def build_calendar_html(
         ".ev-save-btn:hover{opacity:0.88;}"
         "@media(max-width:768px){"
         ".task-actions{gap:6px;}"
-        ".action-select,.review-btn,.todoist-btn,.commit-btn,.schedule-prep-btn,.travel-time-btn,.timer-btn,.toggl-log-btn,.assign-cc-btn,.delete-event-btn,.ffm-meal-btn{font-size:11px;padding:4px 6px;}"
+        ".action-select,.review-btn,.todoist-btn,.commit-btn,.schedule-prep-btn,.travel-time-btn,.timer-btn,.toggl-log-btn,.assign-cc-btn,.delete-event-btn,.ffm-meal-btn{font-size:11px;padding:4px 6px;min-height:44px;}"
         ".ev-datetime-row{grid-template-columns:1fr;}"
         "}"
         "::-webkit-scrollbar{width:6px;}"
