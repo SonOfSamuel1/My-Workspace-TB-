@@ -450,7 +450,7 @@ def _build_event_card(
             f"https://app.todoist.com/app/task/{prep_task_id}" if prep_task_id else "#"
         )
         _prep_class = "prep-indicator prep-done" if prep_completed else "prep-indicator"
-        _prep_label = "Prep Complete" if prep_completed else "Prep Not Completed"
+        _prep_label = "Prep Completed" if prep_completed else "Prep Scheduled"
         prep_indicator = (
             f'<a class="{_prep_class}" href="{_prep_href}" target="_blank"'
             ' onclick="event.stopPropagation()">'
@@ -1308,7 +1308,7 @@ def build_calendar_html(
         "var card=btn.closest('.task-card');"
         "var br=card&&card.querySelector('.badge-row');"
         "if(br){var a=document.createElement('a');a.className='prep-indicator';"
-        "a.textContent='Prep Not Completed';a.target='_blank';"
+        "a.textContent='Prep Scheduled';a.target='_blank';"
         "a.href=d.task_id?'https://app.todoist.com/app/task/'+d.task_id:'#';"
         "a.onclick=function(e){e.stopPropagation();};br.appendChild(a);}}"
         "else{"

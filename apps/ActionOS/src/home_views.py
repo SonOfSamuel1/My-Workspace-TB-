@@ -152,7 +152,7 @@ _CC_ICON_SVG = (
     'style="vertical-align:-1px;">'
     '<rect x="9" y="9" width="13" height="13" rx="2"/>'
     '<path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>'
-    '</svg>'
+    "</svg>"
 )
 _CC_LABEL = _CC_ICON_SVG + " Claude"
 
@@ -391,7 +391,7 @@ def _build_task_card(
         '<button class="toggl-btn"'
         ' onclick="event.stopPropagation();doTogglStart(this)"'
         ' data-subject="' + safe_subj + '">'
-        'Track</button>'
+        "Track</button>"
     )
 
     # Total time tracked from Toggl
@@ -413,8 +413,7 @@ def _build_task_card(
                 '<polyline points="12 6 12 12 16 14"/></svg>'
             )
             time_tracked_html = (
-                f'<span class="time-tracked">'
-                f'{_clock_icon} {time_str}</span>'
+                f'<span class="time-tracked">' f"{_clock_icon} {time_str}</span>"
             )
     # Data attributes for detail pane
     gmail_link = _extract_gmail_link(description)
@@ -465,9 +464,9 @@ def _build_task_card(
         f'<div class="task-title">{title}{priority_badge}</div>'
         f'<div class="task-meta">{meta_line}</div>'
         f'<div class="task-actions">'
-        f'{review_btn}{move_select}{priority_select}{due_date_input}'
-        f'{complete_btn}{commit_btn}{bestcase_btn}{schedule_btn}{cc_btn}{toggl_select}{time_tracked_html}'
-        f'</div>'
+        f"{review_btn}{move_select}{priority_select}{due_date_input}"
+        f"{complete_btn}{commit_btn}{bestcase_btn}{schedule_btn}{cc_btn}{toggl_select}{time_tracked_html}"
+        f"</div>"
         f"</div></div>"
         f"</div>"
     )
@@ -761,7 +760,11 @@ def _build_calendar_card(
     # Badge-row indicators (appear under title)
     todoist_indicator = ""
     if has_todoist_action:
-        _td_href = f"https://app.todoist.com/app/task/{todoist_task_id}" if todoist_task_id else "#"
+        _td_href = (
+            f"https://app.todoist.com/app/task/{todoist_task_id}"
+            if todoist_task_id
+            else "#"
+        )
         todoist_indicator = (
             f'<a class="todoist-indicator" href="{_td_href}" target="_blank"'
             ' onclick="event.stopPropagation()">'
@@ -770,9 +773,11 @@ def _build_calendar_card(
 
     prep_indicator = ""
     if has_prep_action:
-        _prep_href = f"https://app.todoist.com/app/task/{prep_task_id}" if prep_task_id else "#"
+        _prep_href = (
+            f"https://app.todoist.com/app/task/{prep_task_id}" if prep_task_id else "#"
+        )
         _prep_class = "prep-indicator prep-done" if prep_completed else "prep-indicator"
-        _prep_label = "Prep Complete" if prep_completed else "Prep Not Completed"
+        _prep_label = "Prep Completed" if prep_completed else "Prep Scheduled"
         prep_indicator = (
             f'<a class="{_prep_class}" href="{_prep_href}" target="_blank"'
             ' onclick="event.stopPropagation()">'
@@ -823,13 +828,9 @@ def _build_calendar_card(
     # Schedule badges (last / next occurrence, shown with green event badge style)
     schedule_badges = ""
     if last_date:
-        schedule_badges += (
-            f'<span class="event-schedule-badge">Last: {html.escape(_format_short_date(last_date))}</span>'
-        )
+        schedule_badges += f'<span class="event-schedule-badge">Last: {html.escape(_format_short_date(last_date))}</span>'
     if next_date:
-        schedule_badges += (
-            f'<span class="event-schedule-badge">Next: {html.escape(_format_short_date(next_date))}</span>'
-        )
+        schedule_badges += f'<span class="event-schedule-badge">Next: {html.escape(_format_short_date(next_date))}</span>'
 
     # Meta line
     meta_parts = [date_display]
@@ -1024,9 +1025,7 @@ def _build_followup_email_card(
         )
 
     # Resolved button — always show regardless of review status
-    res_url = html.escape(
-        base_url + "?action=followup_resolved&thread_id=" + tid_enc
-    )
+    res_url = html.escape(base_url + "?action=followup_resolved&thread_id=" + tid_enc)
     resolve_btn = (
         f'<button class="resolve-btn" '
         f"onclick=\"event.stopPropagation();doResolve(this,'{tid_safe}','{res_url}')\">"
@@ -1040,7 +1039,9 @@ def _build_followup_email_card(
     if gmail_link:
         _gl_tid = gmail_link.split("#inbox/")[-1] if "#inbox/" in gmail_link else ""
         if _gl_tid:
-            _redir = base_url + "?action=gmail_open&thread_id=" + urllib.parse.quote(_gl_tid)
+            _redir = (
+                base_url + "?action=gmail_open&thread_id=" + urllib.parse.quote(_gl_tid)
+            )
             gmail_btn = (
                 f'<a href="{html.escape(_redir)}" target="_top" class="gcal-link" '
                 f'onclick="event.stopPropagation()">'
@@ -1055,7 +1056,9 @@ def _build_followup_email_card(
 
     # Claude button
     safe_subject = subject.replace("'", "\\'")
-    safe_sender = html.escape(email.get("sender", email.get("from", ""))).replace("'", "\\'")
+    safe_sender = html.escape(email.get("sender", email.get("from", ""))).replace(
+        "'", "\\'"
+    )
     safe_gmail = html.escape(gmail_link).replace("'", "\\'")
     cc_btn = (
         f'<button class="assign-cc-btn" title="Assign CC" '
@@ -1143,7 +1146,7 @@ def _build_section_html(
 
     return (
         f'<div class="section-hdr" style="color:{border_color};cursor:pointer;" '
-        f'onclick="var b=document.getElementById(\'body-{key}\'),'
+        f"onclick=\"var b=document.getElementById('body-{key}'),"
         f"c=this.querySelector('.chevron');"
         f"if(b.style.display==='none'){{b.style.display='block';c.textContent='\\u25BC';}}"
         f"else{{b.style.display='none';c.textContent='\\u25B6';}}"
@@ -1197,16 +1200,20 @@ def build_home_html(
         c = (t.get("content") or "").strip()
         _todoist_title_map.setdefault(c.lower(), t.get("id", ""))
         if c.lower().startswith("event prep: "):
-            event_key = c[len("Event Prep: "):].strip().lower()
+            event_key = c[len("Event Prep: ") :].strip().lower()
             _todoist_prep_map.setdefault(event_key, t.get("id", ""))
-            _todoist_prep_completed_map.setdefault(event_key, bool(t.get("checked", False)))
+            _todoist_prep_completed_map.setdefault(
+                event_key, bool(t.get("checked", False))
+            )
     home_state = home_state or {}
     cal_state = cal_state or {}
     followup_state = followup_state or {}
     followup_reviews = followup_state.get("reviews", {})
 
     # Build title → sorted start-date list for prev/next occurrence lookup.
-    _schedule_source = all_calendar_events if all_calendar_events is not None else calendar_events
+    _schedule_source = (
+        all_calendar_events if all_calendar_events is not None else calendar_events
+    )
     _title_dates: Dict[str, List[str]] = {}
     for ev in _schedule_source:
         t = (ev.get("title") or "").strip().lower()
@@ -1341,10 +1348,16 @@ def build_home_html(
         ev_title_lower = (event.get("title") or "").strip().lower()
         _todoist_tid = _todoist_title_map.get(ev_title_lower, "")
         _prep_tid = _todoist_prep_map.get(ev_title_lower, "")
-        last_date, next_date = _get_schedule(event.get("title", ""), event.get("start", ""))
+        last_date, next_date = _get_schedule(
+            event.get("title", ""), event.get("start", "")
+        )
         _prep_done = _todoist_prep_completed_map.get(ev_title_lower, False)
         card = _build_calendar_card(
-            event, rev, days_rem, function_url, idx,
+            event,
+            rev,
+            days_rem,
+            function_url,
+            idx,
             has_todoist_action=bool(_todoist_tid),
             todoist_task_id=_todoist_tid,
             has_prep_action=bool(_prep_tid),
@@ -1853,7 +1866,7 @@ def build_home_html(
         "</div>"
         '<div id="home-detail-content"></div>'
         '<iframe id="home-detail-frame" src="about:blank"></iframe>'
-        '</div>'
+        "</div>"
         # Schedule duration picker modal
         '<div id="schedule-overlay" onclick="if(event.target===this)closeScheduleModal()">'
         '<div id="schedule-modal">'
@@ -2164,7 +2177,7 @@ def build_home_html(
         "var card=btn.closest('.task-card');"
         "var br=card&&card.querySelector('.badge-row');"
         "if(br){var a=document.createElement('a');a.className='prep-indicator';"
-        "a.textContent='Prep Not Completed';a.target='_blank';"
+        "a.textContent='Prep Scheduled';a.target='_blank';"
         "a.href=d.task_id?'https://app.todoist.com/app/task/'+d.task_id:'#';"
         "a.onclick=function(e){e.stopPropagation();};br.appendChild(a);}}"
         "else{btn.textContent='Schedule Prep';btn.style.pointerEvents='auto';}"
