@@ -195,6 +195,33 @@ If the user approves:
 If the user does **not** approve, leave the task open and inform the user that
 the task remains in "In Progress" status on Todoist.
 
+## 15. Clean Up the Worktree
+
+After the push succeeds, **always** remove the worktree and its branch. Run
+these commands from the **outer repo root** (not the submodule):
+
+```bash
+cd "/Users/terrancebrandon/Desktop/Code Projects (Official)/My Workspace/My-Workspace-TB-"
+git worktree remove --force .claude/worktrees/<WORKTREE-NAME>
+git branch -d worktree-<WORKTREE-NAME>
+```
+
+Where `<WORKTREE-NAME>` is the slug recorded in Step 5 (e.g.
+`fix-login-bug-on-mobile`).
+
+> **Why this matters:** If the worktree directory is deleted by Claude Code
+> session cleanup before you explicitly remove it, the Bash tool's stored CWD
+> becomes invalid and all subsequent shell commands in the session will fail
+> with "Working directory no longer exists." Running this step immediately
+> after the push prevents that breakage.
+
+If `git branch -d` fails because the branch was already merged, use `-D` to
+force-delete:
+
+```bash
+git branch -D worktree-<WORKTREE-NAME>
+```
+
 ## API Reference
 
 | Endpoint                    | Method | Purpose                        |
