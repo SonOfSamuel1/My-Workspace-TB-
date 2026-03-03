@@ -1232,6 +1232,7 @@ def handle_action(event: dict) -> dict:
             "calendar_commit",
             "calendar_create_sms_reminder",
             "calendar_update_event",
+            "calendar_delete_event",
             "ffm_outreach",
             "toggl_start",
             "toggl_stop",
@@ -3025,6 +3026,37 @@ def handle_action(event: dict) -> dict:
             return _ok_json()
         except Exception as e:
             logger.error(f"calendar_update_event failed: {e}", exc_info=True)
+            return _error_json(str(e))
+
+    # -----------------------------------------------------------------------
+    # Delete calendar event
+    # -----------------------------------------------------------------------
+    elif action == "calendar_delete_event":
+        try:
+            event_id = params.get("event_id", "")
+            calendar_type = params.get("calendar_type", "family")
+
+            if not event_id:
+                return _error_json("Missing event_id")
+
+            from calendar_service import CalendarService
+
+            cal = CalendarService(
+                os.environ["CALENDAR_CREDENTIALS_JSON"],
+                os.environ["CALENDAR_TOKEN_JSON"],
+            )
+            cal.delete_event(event_id, calendar_type)
+
+            # Remove from reviewed state if present
+            state = _load_calendar_state()
+            if event_id in state.get("reviews", {}):
+                del state["reviews"][event_id]
+                _save_calendar_state(state)
+
+            logger.info(f"Deleted calendar event {event_id!r} ({calendar_type})")
+            return _ok_json({})
+        except Exception as e:
+            logger.error(f"calendar_delete_event failed: {e}", exc_info=True)
             return _error_json(str(e))
 
     # -----------------------------------------------------------------------
