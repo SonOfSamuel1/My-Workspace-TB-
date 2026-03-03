@@ -5,7 +5,6 @@ Medical Appointments, Travel, Birthdays & Anniversaries, Everything Else.
 Cards styled consistently with the other ActionOS views.
 """
 
-import calendar
 import html
 import logging
 import urllib.parse
@@ -619,85 +618,93 @@ def _build_event_card(
     )
 
 
-def _build_12month_html(events: List[Dict[str, Any]]) -> str:
-    """Build a 12-month mini-calendar grid with colored event dots."""
+def _build_next7days_html(events: List[Dict[str, Any]]) -> str:
+    """Build a next-7-days event list grouped by date."""
     now = datetime.now(_EASTERN)
     today = now.date()
 
-    # Group events by date → list of calendar types
-    events_by_date: Dict[str, List[str]] = {}
+    # Build 7-day date buckets
+    day_index = {today + timedelta(days=i): i for i in range(7)}
+    buckets: List[List[Dict[str, Any]]] = [[] for _ in range(7)]
+
     for ev in events:
         start = ev.get("start", "")[:10]
         if not start:
             continue
-        cal_type = ev.get("calendar_type", "family")
-        events_by_date.setdefault(start, []).append(cal_type)
+        try:
+            ev_date = datetime.strptime(start, "%Y-%m-%d").date()
+        except Exception:
+            continue
+        if ev_date in day_index:
+            buckets[day_index[ev_date]].append(ev)
 
-    months_html = ""
-    for offset in range(12):
-        month = ((now.month - 1 + offset) % 12) + 1
-        year = now.year + ((now.month - 1 + offset) // 12)
-        month_name = calendar.month_abbr[month]
+    # Sort events within each day by start time
+    for bucket in buckets:
+        bucket.sort(key=lambda e: e.get("start", ""))
 
-        # Build weekday headers
-        hdr = ""
-        for d in ("S", "M", "T", "W", "T", "F", "S"):
-            hdr += f'<span class="ym-hdr">{d}</span>'
+    rows_html = ""
+    for i in range(7):
+        d = today + timedelta(days=i)
+        evs = buckets[i]
 
-        # Build day cells
-        cal_obj = calendar.Calendar(firstweekday=6)  # Sunday start
-        days_html = ""
-        for dt in cal_obj.itermonthdates(year, month):
-            if dt.month != month:
-                days_html += '<span class="ym-day ym-other"></span>'
-                continue
+        if i == 0:
+            day_label = "Today"
+            full_date = d.strftime("%A, %B %-d")
+        elif i == 1:
+            day_label = "Tomorrow"
+            full_date = d.strftime("%A, %B %-d")
+        else:
+            day_label = d.strftime("%a")
+            full_date = d.strftime("%B %-d")
 
-            date_str = dt.strftime("%Y-%m-%d")
-            cal_types = events_by_date.get(date_str, [])
-
-            is_today = dt == today
-            today_cls = " ym-today" if is_today else ""
-
-            if cal_types:
-                # Show up to 3 colored dots
-                dots = ""
-                seen = []
-                for ct in cal_types:
-                    if ct not in seen:
-                        seen.append(ct)
-                    if len(seen) >= 3:
-                        break
-                for ct in seen:
-                    c = _CAL_TYPE_COLORS.get(ct, "#5f6368")
-                    dots += f'<span class="ym-dot" style="background:{c}"></span>'
-                days_html += (
-                    f'<span class="ym-day ym-has{today_cls}" title="{len(cal_types)} event(s)">'
-                    f'{dt.day}<span class="ym-dots">{dots}</span></span>'
-                )
-            else:
-                days_html += f'<span class="ym-day{today_cls}">{dt.day}</span>'
-
-        months_html += (
-            f'<div class="ym-month">'
-            f'<div class="ym-month-title">{month_name} {year}</div>'
-            f'<div class="ym-grid">{hdr}{days_html}</div>'
+        count_badge = f'<span class="sd-event-count">{len(evs)}</span>' if evs else ""
+        rows_html += (
+            f'<div class="sd-day">'
+            f'<div class="sd-day-hdr">'
+            f'<span class="sd-day-label">{html.escape(day_label)}</span>'
+            f'<span class="sd-day-full">{html.escape(full_date)}</span>'
+            f"{count_badge}"
             f"</div>"
         )
 
-    # Build legend
-    legend = ""
-    for cal_type, label in _CAL_TYPE_LABELS.items():
-        color = _CAL_TYPE_COLORS.get(cal_type, "#5f6368")
-        legend += (
-            f'<span class="ym-legend-item">'
-            f'<span class="ym-dot" style="background:{color}"></span>'
-            f"{html.escape(label)}</span>"
-        )
+        if not evs:
+            rows_html += '<div class="sd-no-events">No events</div>'
+        else:
+            for ev in evs:
+                title = html.escape(ev.get("title", "(No title)"))
+                cal_type = ev.get("calendar_type", "family")
+                cal_color = _CAL_TYPE_COLORS.get(cal_type, "#5f6368")
+                ev_html_link = ev.get("html_link", "")
 
-    return (
-        f'<div class="ym-legend">{legend}</div>'
-        f'<div class="ym-container">{months_html}</div>'
-    )
+                if ev.get("is_all_day", False):
+                    time_str = "All Day"
+                    time_cls = "sd-allday"
+                else:
+                    start_iso = ev.get("start", "")
+                    try:
+                        dt_s = datetime.fromisoformat(start_iso).astimezone(_EASTERN)
+                        time_str = dt_s.strftime("%-I:%M %p")
+                    except Exception:
+                        time_str = start_iso[11:16] if len(start_iso) > 10 else ""
+                    time_cls = "sd-time"
+
+                title_html = (
+                    f'<a class="sd-title" href="{html.escape(ev_html_link)}" target="_blank">{title}</a>'
+                    if ev_html_link
+                    else f'<span class="sd-title">{title}</span>'
+                )
+
+                rows_html += (
+                    f'<div class="sd-event">'
+                    f'<span class="{time_cls}">{html.escape(time_str)}</span>'
+                    f'<span class="sd-cal-dot" style="background:{cal_color}"></span>'
+                    f"{title_html}"
+                    f"</div>"
+                )
+
+        rows_html += "</div>"
+
+    return f'<div class="sd-container">{rows_html}</div>'
 
 
 def _is_birthday_event(event: Dict[str, Any]) -> bool:
@@ -950,7 +957,7 @@ def build_calendar_html(
             f"</div>" + checklist_html + extra_html + cards
         )
 
-    twelve_month_html = _build_12month_html(events)
+    seven_day_html = _build_next7days_html(events)
 
     embed_css = ".top-bar{display:none;}" if embed else ""
     page_height = "100vh" if embed else "calc(100vh - 57px)"
@@ -1151,32 +1158,35 @@ def build_calendar_html(
         "background:var(--bg-s1);color:var(--text-2);cursor:pointer;transition:all .15s;}"
         ".view-toggle-btn:hover{background:var(--bg-s2);color:var(--text-1);}"
         ".view-toggle-btn.active{background:var(--accent);color:#fff;border-color:var(--accent);}"
-        "#view-events{display:block;}#view-12month{display:none;}"
-        # 12-month grid styles
-        ".ym-container{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;"
-        "max-width:700px;margin:0 auto;padding:8px 16px 24px;}"
-        ".ym-month{background:var(--bg-s1);border:1px solid var(--border);border-radius:8px;padding:10px;}"
-        ".ym-month-title{font-size:13px;font-weight:700;color:var(--text-1);text-align:center;"
-        "margin-bottom:6px;}"
-        ".ym-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;text-align:center;}"
-        ".ym-hdr{font-size:9px;font-weight:600;color:var(--text-3);padding:2px 0;}"
-        ".ym-day{font-size:11px;color:var(--text-2);padding:3px 0;position:relative;"
-        "display:flex;flex-direction:column;align-items:center;min-height:24px;justify-content:center;}"
-        ".ym-day.ym-other{visibility:hidden;}"
-        ".ym-day.ym-today{color:var(--accent-l);font-weight:700;}"
-        ".ym-day.ym-has{color:var(--text-1);font-weight:600;cursor:default;}"
-        ".ym-dots{display:flex;gap:2px;justify-content:center;margin-top:1px;}"
-        ".ym-dot{width:5px;height:5px;border-radius:50%;display:inline-block;flex-shrink:0;}"
-        ".ym-legend{display:flex;flex-wrap:wrap;gap:10px;max-width:700px;margin:0 auto;"
-        "padding:12px 16px 4px;}"
-        ".ym-legend-item{display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text-2);}"
+        "#view-events{display:block;}#view-7days{display:none;}"
+        # Next-7-days list styles
+        ".sd-container{max-width:700px;margin:0 auto;padding:8px 16px 24px;}"
+        ".sd-day{margin-bottom:4px;}"
+        ".sd-day-hdr{display:flex;align-items:center;gap:8px;padding:10px 0 6px;"
+        "border-bottom:1px solid var(--border);margin-bottom:6px;"
+        "position:sticky;top:44px;z-index:10;background:var(--bg-base);}"
+        ".sd-day-label{font-size:13px;font-weight:700;color:var(--text-1);min-width:72px;}"
+        ".sd-day-full{font-size:12px;color:var(--text-2);}"
+        ".sd-event-count{margin-left:auto;font-size:11px;font-weight:700;"
+        "color:var(--text-2);background:var(--border);padding:2px 7px;border-radius:8px;}"
+        ".sd-no-events{font-size:13px;color:var(--text-3);padding:8px 0 10px;}"
+        ".sd-event{display:flex;align-items:center;gap:8px;padding:8px 0;"
+        "border-bottom:1px solid var(--border);}"
+        ".sd-event:last-child{border-bottom:none;}"
+        ".sd-time{font-size:12px;font-weight:600;color:var(--text-2);"
+        "min-width:72px;flex-shrink:0;white-space:nowrap;}"
+        ".sd-allday{font-size:11px;font-weight:600;color:var(--accent-l);"
+        "background:var(--accent-bg);padding:2px 7px;border-radius:5px;"
+        "flex-shrink:0;white-space:nowrap;min-width:72px;text-align:center;}"
+        ".sd-cal-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}"
+        ".sd-title{font-size:14px;font-weight:500;color:var(--text-1);"
+        "text-decoration:none;flex:1;min-width:0;overflow:hidden;"
+        "text-overflow:ellipsis;white-space:nowrap;}"
+        "a.sd-title:hover{color:var(--accent-l);text-decoration:underline;}"
         "@media(max-width:768px){"
-        ".ym-container{grid-template-columns:repeat(2,1fr);gap:8px;padding:8px 8px 24px;}"
-        ".ym-month{padding:8px;}"
-        ".ym-day{font-size:10px;min-height:20px;padding:2px 0;}"
-        ".ym-hdr{font-size:8px;}"
-        ".ym-dot{width:4px;height:4px;}"
-        ".ym-legend{padding:8px 8px 4px;gap:8px;}"
+        ".sd-container{padding:8px 8px 24px;}"
+        ".sd-time,.sd-allday{min-width:58px;font-size:11px;}"
+        ".sd-title{font-size:13px;}"
         ".view-toggle{padding:8px 8px;}"
         "}"
         "</style></head><body>"
@@ -1192,7 +1202,7 @@ def build_calendar_html(
         # View toggle bar
         '<div class="view-toggle">'
         '<button class="view-toggle-btn active" id="btn-events" onclick="switchView(\'events\')">Events</button>'
-        '<button class="view-toggle-btn" id="btn-12month" onclick="switchView(\'12month\')">12 Month</button>'
+        '<button class="view-toggle-btn" id="btn-7days" onclick="switchView(\'7days\')">Next 7 Days</button>'
         "</div>"
         # Events view (default)
         '<div id="view-events"><div class="task-list">'
@@ -1212,23 +1222,23 @@ def build_calendar_html(
         )
         # Categorized reviewed sections
         + reviewed_sections_html + "</div></div>"
-        # 12-month view (hidden by default)
-        '<div id="view-12month">' + twelve_month_html + "</div>"
+        # Next-7-days view (hidden by default)
+        '<div id="view-7days">' + seven_day_html + "</div>"
         "</div>"
         "<script>"
         "var _cs=getComputedStyle(document.documentElement);"
         "function cv(n){return _cs.getPropertyValue(n).trim();}"
         "function switchView(v){"
         "var evts=document.getElementById('view-events');"
-        "var ym=document.getElementById('view-12month');"
+        "var sd=document.getElementById('view-7days');"
         "var be=document.getElementById('btn-events');"
-        "var bm=document.getElementById('btn-12month');"
-        "if(v==='12month'){"
-        "evts.style.display='none';ym.style.display='block';"
-        "be.classList.remove('active');bm.classList.add('active');"
+        "var bs=document.getElementById('btn-7days');"
+        "if(v==='7days'){"
+        "evts.style.display='none';sd.style.display='block';"
+        "be.classList.remove('active');bs.classList.add('active');"
         "}else{"
-        "evts.style.display='block';ym.style.display='none';"
-        "be.classList.add('active');bm.classList.remove('active');"
+        "evts.style.display='block';sd.style.display='none';"
+        "be.classList.add('active');bs.classList.remove('active');"
         "}}" + post_message_js + "function doReview(btn,eid,url){"
         "btn.style.pointerEvents='none';btn.textContent='Reviewing\u2026';"
         "fetch(url).then(function(r){return r.json();}).then(function(d){"
