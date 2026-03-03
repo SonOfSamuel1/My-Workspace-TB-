@@ -37,6 +37,7 @@ def build_shell_html(
     # All others load on first switchTab() call.
     tabs: List[Tuple[str, str, str, bool]] = [
         ("home", "Home", f"{base}?action=web&view=home&embed=1", True),
+        ("godpower", "God Power", f"{base}?action=web&view=godpower&embed=1", False),
         ("commit", "@commit", f"{base}?action=web&view=commit&embed=1", False),
         ("starred", "Starred", f"{base}?action=web&view=starred&embed=1", False),
         ("unread", "Unread", f"{base}?action=web&view=unread&embed=1", False),
@@ -920,6 +921,7 @@ def build_shell_html(
         "if(sf&&sf.src&&!sf.hasAttribute('srcdoc'))sf.contentWindow.location.reload();"
         "}"
         "if(e.data&&e.data.type==='viewer-open'){closeSectionPicker();}"
+        "if(e.data&&e.data.type==='switchTab'){switchTab(e.data.tab);}"
         "},{passive:true});"
         # Drag-and-drop tab reordering
         "function initDragDrop(){"

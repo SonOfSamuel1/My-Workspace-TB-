@@ -1395,21 +1395,23 @@ def build_home_html(
         )
     _god_power_cards = (
         '<div class="gp-card">'
+        '<div class="gp-card-ref">Always Remember</div>'
         '<div class="gp-card-title">'
         'Whatever I wish will be done for me, if it\u2019s aligned with Jesus\u2019 words and character, '
         'and I ask the Father for it.'
         '</div>'
-        '<div class="gp-card-ref">John 15:7</div>'
+        '<div class="gp-card-scripture-ref">John 15:7</div>'
         '<div class="gp-card-verse">'
         '\u201cIf you abide in me, and my words abide in you, ask whatever you wish, '
         'and it will be done for you.\u201d'
         '</div>'
         '</div>'
         '<div class="gp-card">'
+        '<div class="gp-card-ref">Always Remember</div>'
         '<div class="gp-card-title">'
         'If I verbally command any mountain, barrier or challenge to be moved it will move.'
         '</div>'
-        '<div class="gp-card-ref">Matthew 17:20</div>'
+        '<div class="gp-card-scripture-ref">Matthew 17:20</div>'
         '<div class="gp-card-verse">'
         '\u201cHe said to them, \u201cBecause of your little faith. For truly, I say to you, '
         'if you have faith like a grain of mustard seed, you will say to this mountain, '
@@ -1417,10 +1419,16 @@ def build_home_html(
         '</div>'
         '</div>'
     )
+    _view_all_card = (
+        '<div class="gp-view-all-card" onclick="window.parent.postMessage({type:\'switchTab\',tab:\'godpower\'},\'*\')">'
+        '<span>View all Power Scriptures &amp; Activities</span>'
+        '<span class="gp-view-all-arrow">\u2192</span>'
+        '</div>'
+    )
     sections_html += _build_section_html(
         "godpower",
         "Use God Power",
-        _god_power_cards + _activity_card_html,
+        _god_power_cards + _activity_card_html + _view_all_card,
         0,
         2 + (0 if _activity_done else 1),
         collapsed=False,
@@ -2005,16 +2013,22 @@ def build_home_html(
         "::-webkit-scrollbar{width:6px;}"
         "::-webkit-scrollbar-track{background:transparent;}"
         "::-webkit-scrollbar-thumb{background:var(--scrollbar);border-radius:3px;}"
-        ".gp-card{background:var(--warn-bg);border:1px solid var(--warn-b);"
+        ".gp-card,.gp-activity-card{background:var(--bg-s1);border:1px solid var(--warn-b);"
         "border-radius:8px;padding:14px 16px;margin-bottom:10px;}"
-        ".gp-card-title{font-size:14px;font-weight:700;color:var(--text-1);line-height:1.5;margin-bottom:10px;}"
+        ".gp-card-title{font-size:14px;font-weight:700;color:var(--text-1);line-height:1.5;margin-bottom:8px;}"
         ".gp-card-ref{font-size:11px;font-weight:700;color:var(--warn);text-transform:uppercase;"
         "letter-spacing:.5px;margin-bottom:6px;}"
+        ".gp-card-scripture-ref{font-size:11px;font-weight:700;color:var(--text-2);text-transform:uppercase;"
+        "letter-spacing:.5px;margin-bottom:6px;}"
         ".gp-card-verse{font-size:13px;color:var(--text-2);line-height:1.6;font-style:italic;}"
-        ".gp-activity-card{background:var(--bg-s1);border:1px solid var(--warn-b);"
-        "border-radius:8px;padding:14px 16px;margin-bottom:10px;}"
         ".gp-activity-title{font-size:14px;font-weight:700;color:var(--text-1);line-height:1.4;margin-bottom:8px;}"
         ".gp-activity-desc{font-size:13px;color:var(--text-2);line-height:1.6;}"
+        ".gp-view-all-card{background:var(--bg-s1);border:1px solid var(--border-h);"
+        "border-radius:8px;padding:14px 16px;margin-bottom:10px;cursor:pointer;"
+        "display:flex;align-items:center;justify-content:space-between;"
+        "font-size:14px;font-weight:600;color:var(--accent-l);transition:background .15s;}"
+        ".gp-view-all-card:hover{background:var(--bg-s2);}"
+        ".gp-view-all-arrow{font-size:18px;}"
         "</style></head><body>"
         + (
             ""
@@ -2722,6 +2736,223 @@ def build_home_html(
         "setTimeout(function(){btn.textContent='Schedule';},2000);"
         "});"
         "});"
+        "</script>"
+        "</body></html>"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Dedicated God Power tab view
+# ---------------------------------------------------------------------------
+
+_GP_SCRIPTURES = [
+    (
+        "Whatever I wish will be done for me, if it\u2019s aligned with Jesus\u2019 words and character, "
+        "and I ask the Father for it.",
+        "John 15:7",
+        "\u201cIf you abide in me, and my words abide in you, ask whatever you wish, "
+        "and it will be done for you.\u201d",
+    ),
+    (
+        "If I verbally command any mountain, barrier or challenge to be moved it will move.",
+        "Matthew 17:20",
+        "\u201cHe said to them, \u201cBecause of your little faith. For truly, I say to you, "
+        "if you have faith like a grain of mustard seed, you will say to this mountain, "
+        "\u2018Move from here to there,\u2019 and it will move, and nothing will be impossible for you.\u201d",
+    ),
+]
+
+
+def build_godpower_view_html(function_url: str, godpower_state: dict = None) -> str:
+    """Build the standalone God Power tab view."""
+    godpower_state = godpower_state or {}
+    today_str = datetime.now().strftime("%Y-%m-%d")
+    activity_done = godpower_state.get("completed_date") == today_str
+    day_idx = (datetime.now().timetuple().tm_yday - 1) % len(_GP_ACTIVITIES)
+    base_url = function_url.rstrip("/")
+
+    scripture_cards = ""
+    for title, ref, verse in _GP_SCRIPTURES:
+        scripture_cards += (
+            '<div class="gp-card">'
+            '<div class="gp-card-ref">Always Remember</div>'
+            f'<div class="gp-card-title">{html.escape(title)}</div>'
+            f'<div class="gp-card-scripture-ref">{html.escape(ref)}</div>'
+            f'<div class="gp-card-verse">{verse}</div>'
+            '</div>'
+        )
+
+    activities_html = ""
+    for i, (act_name, act_desc) in enumerate(_GP_ACTIVITIES):
+        is_today = (i == day_idx)
+        safe_name = act_name.replace("'", "\\'").replace('"', "&quot;")
+        today_label = " \u2022 Today" if is_today else ""
+        card_cls = "gp-activity-card" if is_today else "gp-activity-card gp-activity-other"
+        card_id = ' id="gp-activity-card"' if (is_today and not activity_done) else ""
+        if is_today and not activity_done:
+            btn_row = (
+                '<div class="task-actions" style="margin-top:12px;">'
+                '<button class="complete-btn" onclick="doGpActivityComplete(this)">Complete</button>'
+                f'<button class="schedule-btn" onclick="openScheduleModal(\'gp_activity\',\'{safe_name}\')">'
+                '<svg class="schedule-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" '
+                'stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+                '<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/>'
+                '<line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>'
+                '<path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01M16 18h.01"/></svg>'
+                f' Schedule Work</button>'
+                f'<button class="toggl-btn" onclick="doTogglStart(this)" data-subject="{safe_name}">Track</button>'
+                '</div>'
+            )
+        elif is_today and activity_done:
+            btn_row = '<div style="margin-top:10px;font-size:12px;color:var(--ok);">\u2713 Completed today</div>'
+        else:
+            btn_row = ""
+        activities_html += (
+            f'<div class="{card_cls}"{card_id}>'
+            f'<div class="gp-card-ref">Activity{html.escape(today_label)}</div>'
+            f'<div class="gp-activity-title">{html.escape(act_name)}</div>'
+            f'<div class="gp-activity-desc">{html.escape(act_desc)}</div>'
+            + btn_row +
+            '</div>'
+        )
+
+    schedule_url = base_url + "?action=schedule_action"
+    complete_url = base_url + "?action=godpower_complete"
+
+    return (
+        "<!DOCTYPE html><html><head>"
+        '<meta charset="utf-8">'
+        '<meta name="viewport" content="width=device-width,initial-scale=1">'
+        '<link rel="preconnect" href="https://fonts.googleapis.com">'
+        '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>'
+        '<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">'
+        "<title>God Power</title><style>"
+        ":root{--bg-base:#1a1a1a;--bg-s1:#252528;--bg-s2:#2c2c2e;"
+        "--text-1:#fff;--text-2:#8e8e93;--border:rgba(255,255,255,0.08);--border-h:rgba(255,255,255,0.12);"
+        "--accent:#6366f1;--accent-l:#818cf8;"
+        "--ok:#22c55e;--ok-bg:rgba(34,197,94,0.10);--ok-b:rgba(34,197,94,0.20);"
+        "--warn:#eab308;--warn-b:rgba(234,179,8,0.20);color-scheme:dark;}"
+        "@media(prefers-color-scheme:light){:root{"
+        "--bg-base:#eeeef0;--bg-s1:#fff;--bg-s2:#f5f5f7;"
+        "--text-1:#202124;--text-2:#5f6368;--border:rgba(0,0,0,0.08);"
+        "--ok:#188038;--warn:#e37400;--warn-b:rgba(227,116,0,.20);color-scheme:light;}}"
+        f"*{{box-sizing:border-box;margin:0;padding:0;}}"
+        f"body{{font-family:{_FONT};background:var(--bg-base);color:var(--text-1);-webkit-font-smoothing:antialiased;}}"
+        ".page{max-width:700px;margin:0 auto;padding:16px;}"
+        ".sec-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;"
+        "color:var(--warn);padding:16px 0 8px;border-bottom:1px solid var(--border);margin-bottom:12px;}"
+        ".gp-card,.gp-activity-card{background:var(--bg-s1);border:1px solid var(--warn-b);"
+        "border-radius:8px;padding:14px 16px;margin-bottom:10px;}"
+        ".gp-activity-other{opacity:.65;}"
+        ".gp-card-ref{font-size:11px;font-weight:700;color:var(--warn);text-transform:uppercase;"
+        "letter-spacing:.5px;margin-bottom:6px;}"
+        ".gp-card-scripture-ref{font-size:11px;font-weight:700;color:var(--text-2);text-transform:uppercase;"
+        "letter-spacing:.5px;margin-bottom:6px;}"
+        ".gp-card-title{font-size:14px;font-weight:700;color:var(--text-1);line-height:1.5;margin-bottom:8px;}"
+        ".gp-card-verse{font-size:13px;color:var(--text-2);line-height:1.6;font-style:italic;}"
+        ".gp-activity-title{font-size:14px;font-weight:700;color:var(--text-1);line-height:1.4;margin-bottom:8px;}"
+        ".gp-activity-desc{font-size:13px;color:var(--text-2);line-height:1.6;}"
+        ".task-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}"
+        ".complete-btn{font-family:inherit;font-size:12px;font-weight:600;padding:5px 14px;border-radius:6px;"
+        "background:var(--ok-bg);color:var(--ok);border:1px solid var(--ok-b);cursor:pointer;}"
+        ".schedule-btn{font-family:inherit;font-size:12px;font-weight:600;padding:5px 14px;border-radius:6px;"
+        "background:var(--bg-s2);color:var(--text-2);border:1px solid var(--border);cursor:pointer;"
+        "display:inline-flex;align-items:center;gap:4px;}"
+        ".toggl-btn{font-family:inherit;font-size:12px;font-weight:600;padding:5px 14px;border-radius:6px;"
+        "background:var(--bg-s2);color:var(--text-2);border:1px solid var(--border);cursor:pointer;}"
+        "#schedule-overlay{display:none;position:fixed;inset:0;z-index:2000;"
+        "background:rgba(0,0,0,.6);align-items:center;justify-content:center;}"
+        "#schedule-overlay.open{display:flex;}"
+        "#schedule-modal{background:var(--bg-s1);border:1px solid var(--border);border-radius:14px;"
+        "padding:24px;width:320px;max-width:90vw;}"
+        "#schedule-modal h3{font-size:16px;font-weight:700;margin-bottom:4px;}"
+        "#schedule-modal p{font-size:13px;color:var(--text-2);margin-bottom:16px;}"
+        ".duration-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px;}"
+        ".duration-opt{font-family:inherit;font-size:14px;font-weight:600;padding:12px 8px;"
+        "border-radius:8px;border:1px solid var(--border);background:var(--bg-s2);"
+        "color:var(--text-1);cursor:pointer;text-align:center;}"
+        ".duration-opt.selected{border-color:#38bdf8;background:rgba(56,189,248,.15);color:#38bdf8;}"
+        "#schedule-confirm{width:100%;font-family:inherit;font-size:14px;font-weight:700;"
+        "padding:12px;border-radius:8px;border:none;cursor:pointer;background:#38bdf8;color:#0e0e10;}"
+        "#schedule-confirm:disabled{opacity:.4;cursor:default;}"
+        "#schedule-cancel{width:100%;font-family:inherit;font-size:13px;padding:8px;"
+        "border-radius:8px;border:none;cursor:pointer;margin-top:8px;background:transparent;color:var(--text-2);}"
+        "::-webkit-scrollbar{width:6px;}"
+        "::-webkit-scrollbar-thumb{background:rgba(255,255,255,.10);border-radius:3px;}"
+        "</style></head><body>"
+        '<div class="page">'
+        '<div class="sec-label">Power Scriptures</div>'
+        + scripture_cards +
+        '<div class="sec-label" style="margin-top:8px;">Daily Activities</div>'
+        + activities_html +
+        '</div>'
+        '<div id="schedule-overlay" onclick="if(event.target===this)closeScheduleModal()">'
+        '<div id="schedule-modal">'
+        '<h3>Schedule Work</h3>'
+        '<p id="sched-title-p"></p>'
+        '<div class="duration-grid">'
+        '<button class="duration-opt" data-mins="30">30 min</button>'
+        '<button class="duration-opt" data-mins="60">1 hour</button>'
+        '<button class="duration-opt" data-mins="90">1.5 hours</button>'
+        '<button class="duration-opt" data-mins="120">2 hours</button>'
+        '</div>'
+        '<button id="schedule-confirm" disabled>Schedule</button>'
+        '<button id="schedule-cancel" onclick="closeScheduleModal()">Cancel</button>'
+        '</div></div>'
+        '<script>'
+        "var _schedTaskId=null,_schedMins=0,_schedTitle='';"
+        "function openScheduleModal(taskId,title){"
+        "_schedTaskId=taskId;_schedMins=0;_schedTitle=title||'';"
+        "document.querySelectorAll('.duration-opt').forEach(function(b){b.classList.remove('selected');});"
+        "var btn=document.getElementById('schedule-confirm');"
+        "btn.disabled=true;btn.textContent='Schedule';"
+        "var p=document.getElementById('sched-title-p');if(p)p.textContent=title||'';"
+        "document.getElementById('schedule-overlay').classList.add('open');}"
+        "function closeScheduleModal(){"
+        "document.getElementById('schedule-overlay').classList.remove('open');}"
+        "document.querySelectorAll('.duration-opt').forEach(function(b){"
+        "b.addEventListener('click',function(){"
+        "document.querySelectorAll('.duration-opt').forEach(function(x){x.classList.remove('selected');});"
+        "b.classList.add('selected');_schedMins=parseInt(b.getAttribute('data-mins'));"
+        "var n=Math.max(1,Math.floor(_schedMins/30));"
+        "document.getElementById('schedule-confirm').disabled=false;"
+        "document.getElementById('schedule-confirm').textContent='Schedule '+n+' event'+(n>1?'s':'');});});"
+        "document.getElementById('schedule-confirm').addEventListener('click',function(){"
+        "if(!_schedTaskId||!_schedMins)return;"
+        "var btn=this;btn.disabled=true;btn.textContent='Creating...';"
+        f"fetch('{schedule_url}&task_id='+_schedTaskId+'&duration='+_schedMins+(_schedTitle?'&task_title='+encodeURIComponent(_schedTitle):''))"
+        ".then(function(r){return r.json();})"
+        ".then(function(d){if(d.ok){"
+        "btn.textContent='\u2713 '+d.events_created+' events created!';"
+        "btn.style.background='#22c55e';"
+        "setTimeout(function(){closeScheduleModal();btn.style.background='';},1500);"
+        "}else{btn.textContent='Error';btn.style.background='#ef4444';"
+        "setTimeout(function(){btn.style.background='';btn.textContent='Schedule';},2000);}})"
+        ".catch(function(){btn.textContent='Failed';"
+        "setTimeout(function(){btn.textContent='Schedule';},2000);});});"
+        "function doGpActivityComplete(btn){"
+        "btn.style.pointerEvents='none';btn.textContent='Completing\u2026';"
+        f"fetch('{complete_url}',{{method:'POST'}})"
+        ".then(function(r){return r.json();}).then(function(d){"
+        "if(d.ok){"
+        "btn.textContent='\u2713 Done';"
+        "var card=document.getElementById('gp-activity-card');"
+        "if(card){"
+        "card.style.transition='opacity .3s';card.style.opacity='0';"
+        "setTimeout(function(){"
+        "while(card.firstChild)card.removeChild(card.firstChild);"
+        "var msg=document.createElement('div');msg.className='gp-card-ref';"
+        "msg.style.color='var(--ok)';msg.textContent='\u2713 Completed today';"
+        "card.appendChild(msg);card.style.opacity='1';},300);}}"
+        "else{btn.textContent='Complete';btn.style.pointerEvents='auto';}"
+        "}).catch(function(){btn.textContent='Complete';btn.style.pointerEvents='auto';});}"
+        "function doTogglStart(btn){"
+        "var subj=btn.getAttribute('data-subject');"
+        f"fetch('{base_url}?action=toggl_start',{{method:'POST',"
+        "headers:{'Content-Type':'application/json'},"
+        "body:JSON.stringify({subject:subj})}})"
+        ".then(function(r){return r.json();}).then(function(d){"
+        "if(d.ok){btn.textContent='\u25a0 Stop';btn.classList.add('toggl-running');}}).catch(function(){});}"
         "</script>"
         "</body></html>"
     )

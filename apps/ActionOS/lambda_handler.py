@@ -1566,6 +1566,18 @@ def handle_action(event: dict) -> dict:
                     "body": _error_page(f"Error: {e}"),
                 }
 
+        # -- God Power dedicated view --
+        elif view == "godpower":
+            try:
+                from home_views import build_godpower_view_html
+                godpower_state = _load_godpower_state()
+                body = build_godpower_view_html(function_url, godpower_state=godpower_state)
+                return {"statusCode": 200, "headers": _html_headers, "body": body}
+            except Exception as e:
+                logger.error(f"godpower view failed: {e}", exc_info=True)
+                return {"statusCode": 200, "headers": {"Content-Type": "text/html"},
+                        "body": _error_page(f"Error: {e}")}
+
         # -- Code Projects view --
         elif view == "code":
             _cached = _get_view_cache("code")
