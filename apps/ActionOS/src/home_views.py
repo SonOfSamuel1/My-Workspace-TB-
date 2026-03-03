@@ -1322,7 +1322,7 @@ def build_home_html(
     _nav_counts: Dict[str, int] = {}
 
     # --- Use God Power (permanent section, always above commit) ---
-    _god_power_card = (
+    _god_power_cards = (
         '<div class="gp-card">'
         '<div class="gp-card-title">'
         'Whatever I wish will be done for me, if it\u2019s aligned with Jesus\u2019 words and character, '
@@ -1334,13 +1334,24 @@ def build_home_html(
         'and it will be done for you.\u201d'
         '</div>'
         '</div>'
+        '<div class="gp-card">'
+        '<div class="gp-card-title">'
+        'If I verbally command any mountain, barrier or challenge to be moved it will move.'
+        '</div>'
+        '<div class="gp-card-ref">Matthew 17:20</div>'
+        '<div class="gp-card-verse">'
+        '\u201c<sup>20</sup>He said to them, \u201cBecause of your little faith. For truly, I say to you, '
+        'if you have faith like a grain of mustard seed, you will say to this mountain, '
+        '\u2018Move from here to there,\u2019 and it will move, and nothing will be impossible for you.\u201d'
+        '</div>'
+        '</div>'
     )
     sections_html += _build_section_html(
         "godpower",
         "Use God Power",
-        _god_power_card,
+        _god_power_cards,
         0,
-        1,
+        2,
         collapsed=False,
         border_color="var(--warn)",
     )
