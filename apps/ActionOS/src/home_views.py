@@ -1797,7 +1797,7 @@ def build_home_html(
         ".markread-btn:hover{background:var(--border-h);color:var(--text-1);}"
         # Complete button
         ".complete-btn{font-family:inherit;font-size:12px;font-weight:600;"
-        "padding:4px 12px;border-radius:6px;"
+        "padding:4px 12px;min-height:44px;border-radius:6px;"
         "background:var(--ok-bg);color:var(--ok);border:1px solid var(--ok-b);"
         "cursor:pointer;transition:background .15s;}"
         ".complete-btn:hover{background:var(--ok-b);}"
@@ -1818,7 +1818,7 @@ def build_home_html(
         ".bestcase-btn.remove{background:var(--border);color:var(--text-2);border-color:var(--border);}"
         # Schedule button
         ".schedule-btn{font-family:inherit;font-size:12px;font-weight:600;"
-        "padding:4px 12px;border-radius:6px;"
+        "padding:4px 12px;min-height:44px;border-radius:6px;"
         "background:var(--border);color:var(--text-2);border:1px solid var(--border);"
         "cursor:pointer;transition:background .15s;display:inline-flex;align-items:center;gap:4px;}"
         ".schedule-btn:hover{background:var(--border-h);}"
