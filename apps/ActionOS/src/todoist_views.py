@@ -1055,17 +1055,18 @@ def build_view_html(
         "input.disabled=false;"
         "input.style.borderColor='rgba(34,197,94,0.5)';"
         "setTimeout(function(){input.style.borderColor='';},1500);"
-        # Commit view: auto-remove card when date pushed to future
+        # Commit view: mark reviewed + show undo bar when date pushed to future
         "if(viewName==='commit'&&dateValue){"
         "var today=new Date().toISOString().slice(0,10);"
         "if(dateValue>today){"
+        f'fetch("{base_action_url}?action=home_reviewed&section=commit&item_id="+taskId);'
         "showUndo(taskId,'Moved to '+dateValue+'.',function(){"
         f'fetch("{base_action_url}?action=due_date&task_id="+taskId+"&date="+encodeURIComponent(today))'
         ".then(function(r2){return r2.json();})"
         ".then(function(d2){if(d2.ok){input.disabled=false;input.value=today;"
         "restoreCard(taskId);}else{removeCard(taskId);}})"
         ".catch(function(){removeCard(taskId);});});"
-        "updateCount();}}"
+        "}}"
         "}else{"
         'input.disabled=false;alert("Due date update failed");}})'
         '.catch(function(){input.disabled=false;alert("Due date update failed");});'
