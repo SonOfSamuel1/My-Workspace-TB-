@@ -1259,6 +1259,7 @@ def build_home_html(
     email_actions_url: str = "",
     email_actions_token: str = "",
     toggl_time_totals=None,
+    toggl_daily_total_secs: int = 0,
     todoist_tasks: List[Dict[str, Any]] = None,
     all_calendar_events: List[Dict[str, Any]] = None,
     godpower_state: dict = None,
@@ -1657,6 +1658,33 @@ def build_home_html(
     )
 
     # -----------------------------------------------------------------------
+    # Toggl daily progress widget
+    # -----------------------------------------------------------------------
+    _TOGGL_GOAL_SECS = 6 * 3600  # 6 hours
+    _tdw_hours = toggl_daily_total_secs // 3600
+    _tdw_mins = (toggl_daily_total_secs % 3600) // 60
+    _tdw_pct = min(100, round(toggl_daily_total_secs / _TOGGL_GOAL_SECS * 100))
+    _tdw_goal_met = toggl_daily_total_secs >= _TOGGL_GOAL_SECS
+    _tdw_time_str = f"{_tdw_hours}h {_tdw_mins:02d}m"
+    _tdw_time_cls = " goal-met" if _tdw_goal_met else ""
+    _tdw_fill_cls = " goal-met" if _tdw_goal_met else ""
+    _toggl_daily_widget_html = (
+        '<div class="tdw">'
+        '<div class="tdw-header">'
+        '<span class="tdw-label">Today\'s Focus</span>'
+        f'<span class="tdw-time{_tdw_time_cls}">{_tdw_time_str} / 6h</span>'
+        '</div>'
+        '<div class="tdw-bar-track">'
+        f'<div class="tdw-bar-fill{_tdw_fill_cls}" style="width:{_tdw_pct}%"></div>'
+        '</div>'
+        '<div class="tdw-footer">'
+        f'<span class="tdw-pct">{_tdw_pct}% of daily goal</span>'
+        f'<span class="tdw-goal">{"Goal reached!" if _tdw_goal_met else "Goal: 6h"}</span>'
+        '</div>'
+        '</div>'
+    )
+
+    # -----------------------------------------------------------------------
     # Page assembly
     # -----------------------------------------------------------------------
     embed_css = ".top-bar{display:none;}" if embed else ""
@@ -1833,17 +1861,17 @@ def build_home_html(
         "#schedule-modal p{font-size:13px;color:var(--text-2);margin-bottom:16px;}"
         ".duration-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:16px;}"
         ".duration-opt{font-family:inherit;font-size:13px;font-weight:600;"
-        "padding:10px;min-height:44px;border-radius:8px;border:1px solid var(--border);"
+        "padding:10px;border-radius:8px;border:1px solid var(--border);"
         "background:var(--bg-s0);color:var(--text-1);cursor:pointer;transition:all .15s;}"
         ".duration-opt:hover{border-color:var(--accent-l);}"
         ".duration-opt.selected{background:rgba(56,189,248,0.15);border-color:#38bdf8;color:#38bdf8;}"
         "#schedule-confirm{width:100%;font-family:inherit;font-size:14px;font-weight:700;"
-        "padding:12px;min-height:44px;border:none;border-radius:8px;background:#38bdf8;color:#fff;"
+        "padding:12px;border:none;border-radius:8px;background:#38bdf8;color:#fff;"
         "cursor:pointer;margin-bottom:8px;}"
         "#schedule-confirm:hover{opacity:0.85;}"
         "#schedule-confirm:disabled{opacity:0.4;cursor:default;}"
         "#schedule-cancel{width:100%;font-family:inherit;font-size:13px;font-weight:600;"
-        "padding:8px;min-height:44px;border:none;border-radius:8px;background:var(--bg-s0);"
+        "padding:8px;border:none;border-radius:8px;background:var(--bg-s0);"
         "color:var(--text-2);cursor:pointer;}"
         "#schedule-cancel:hover{color:var(--text-1);}"
         # Todoist button
@@ -1930,18 +1958,18 @@ def build_home_html(
         "#schedule-modal p{font-size:13px;color:var(--text-2);margin-bottom:16px;}"
         ".duration-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px;}"
         ".duration-opt{font-family:inherit;font-size:14px;font-weight:600;"
-        "padding:12px 8px;min-height:44px;border-radius:8px;border:1px solid var(--border);"
+        "padding:12px 8px;border-radius:8px;border:1px solid var(--border);"
         "background:var(--bg-s2);color:var(--text-1);cursor:pointer;"
         "transition:all .15s;text-align:center;}"
         ".duration-opt:hover{border-color:rgba(56,189,248,0.4);background:rgba(56,189,248,0.08);color:#38bdf8;}"
         ".duration-opt.selected{border-color:#38bdf8;background:rgba(56,189,248,0.15);color:#38bdf8;}"
         "#schedule-confirm{width:100%;font-family:inherit;font-size:14px;font-weight:700;"
-        "padding:12px;min-height:44px;border-radius:8px;border:none;cursor:pointer;"
+        "padding:12px;border-radius:8px;border:none;cursor:pointer;"
         "background:#38bdf8;color:#0e0e10;transition:opacity .15s;}"
         "#schedule-confirm:hover{opacity:0.85;}"
         "#schedule-confirm:disabled{opacity:0.4;cursor:default;}"
         "#schedule-cancel{width:100%;font-family:inherit;font-size:13px;font-weight:600;"
-        "padding:8px;min-height:44px;border-radius:8px;border:none;cursor:pointer;margin-top:8px;"
+        "padding:8px;border-radius:8px;border:none;cursor:pointer;margin-top:8px;"
         "background:transparent;color:var(--text-2);}"
         "#schedule-cancel:hover{color:var(--text-1);}"
         # Toggl timer button
@@ -2033,6 +2061,24 @@ def build_home_html(
         "font-size:14px;font-weight:600;color:var(--accent-l);transition:background .15s;}"
         ".gp-view-all-card:hover{background:var(--bg-s2);}"
         ".gp-view-all-arrow{font-size:18px;}"
+        # Toggl daily progress widget
+        ".tdw{background:var(--bg-s1);border:1px solid var(--border);"
+        "border-radius:10px;padding:12px 14px;margin-bottom:12px;}"
+        ".tdw-header{display:flex;align-items:center;justify-content:space-between;"
+        "margin-bottom:8px;}"
+        ".tdw-label{font-size:11px;font-weight:700;text-transform:uppercase;"
+        "letter-spacing:0.6px;color:var(--text-2);}"
+        ".tdw-time{font-size:13px;font-weight:700;color:var(--text-1);}"
+        ".tdw-time.goal-met{color:var(--ok);}"
+        ".tdw-bar-track{height:6px;background:var(--bg-s2);"
+        "border-radius:3px;overflow:hidden;}"
+        ".tdw-bar-fill{height:100%;border-radius:3px;"
+        "background:var(--accent);transition:width .4s ease;}"
+        ".tdw-bar-fill.goal-met{background:var(--ok);}"
+        ".tdw-footer{display:flex;align-items:center;justify-content:space-between;"
+        "margin-top:6px;}"
+        ".tdw-pct{font-size:11px;font-weight:600;color:var(--text-2);}"
+        ".tdw-goal{font-size:11px;font-weight:600;color:var(--text-3);}"
         "</style></head><body>"
         + (
             ""
@@ -2044,6 +2090,7 @@ def build_home_html(
         )
         + '<div class="scroll-area"><div class="home-list">'
         + _build_home_nav_bar(_nav_counts)
+        + _toggl_daily_widget_html
         + sections_html
         + "</div></div>"
         # Detail pane (mobile fullscreen overlay)
@@ -2860,9 +2907,9 @@ def build_godpower_view_html(function_url: str, godpower_state: dict = None) -> 
         "{min-height:44px;padding:10px 14px;}"
         ".task-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}"
         ".complete-btn{font-family:inherit;font-size:12px;font-weight:600;padding:5px 14px;border-radius:6px;"
-        "min-height:44px;background:var(--ok-bg);color:var(--ok);border:1px solid var(--ok-b);cursor:pointer;}"
+        "background:var(--ok-bg);color:var(--ok);border:1px solid var(--ok-b);cursor:pointer;}"
         ".schedule-btn{font-family:inherit;font-size:12px;font-weight:600;padding:5px 14px;border-radius:6px;"
-        "min-height:44px;background:var(--bg-s2);color:var(--text-2);border:1px solid var(--border);cursor:pointer;"
+        "background:var(--bg-s2);color:var(--text-2);border:1px solid var(--border);cursor:pointer;"
         "display:inline-flex;align-items:center;gap:4px;}"
         ".toggl-btn{font-family:inherit;font-size:12px;font-weight:600;padding:5px 14px;border-radius:6px;"
         "background:var(--bg-s2);color:var(--text-2);border:1px solid var(--border);cursor:pointer;}"
@@ -2875,14 +2922,14 @@ def build_godpower_view_html(function_url: str, godpower_state: dict = None) -> 
         "#schedule-modal p{font-size:13px;color:var(--text-2);margin-bottom:16px;}"
         ".duration-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px;}"
         ".duration-opt{font-family:inherit;font-size:14px;font-weight:600;padding:12px 8px;"
-        "min-height:44px;border-radius:8px;border:1px solid var(--border);background:var(--bg-s2);"
+        "border-radius:8px;border:1px solid var(--border);background:var(--bg-s2);"
         "color:var(--text-1);cursor:pointer;text-align:center;}"
         ".duration-opt.selected{border-color:#38bdf8;background:rgba(56,189,248,.15);color:#38bdf8;}"
         "#schedule-confirm{width:100%;font-family:inherit;font-size:14px;font-weight:700;"
-        "padding:12px;min-height:44px;border-radius:8px;border:none;cursor:pointer;background:#38bdf8;color:#0e0e10;}"
+        "padding:12px;border-radius:8px;border:none;cursor:pointer;background:#38bdf8;color:#0e0e10;}"
         "#schedule-confirm:disabled{opacity:.4;cursor:default;}"
         "#schedule-cancel{width:100%;font-family:inherit;font-size:13px;padding:8px;"
-        "min-height:44px;border-radius:8px;border:none;cursor:pointer;margin-top:8px;background:transparent;color:var(--text-2);}"
+        "border-radius:8px;border:none;cursor:pointer;margin-top:8px;background:transparent;color:var(--text-2);}"
         "::-webkit-scrollbar{width:6px;}"
         "::-webkit-scrollbar-thumb{background:rgba(255,255,255,.10);border-radius:3px;}"
         "</style></head><body>"
@@ -2956,7 +3003,7 @@ def build_godpower_view_html(function_url: str, godpower_state: dict = None) -> 
         "var subj=btn.getAttribute('data-subject');"
         f"fetch('{base_url}?action=toggl_start',{{method:'POST',"
         "headers:{'Content-Type':'application/json'},"
-        "body:JSON.stringify({subject:subj})})"
+        "body:JSON.stringify({subject:subj})}})"
         ".then(function(r){return r.json();}).then(function(d){"
         "if(d.ok){btn.textContent='\u25a0 Stop';btn.classList.add('toggl-running');}}).catch(function(){});}"
         "</script>"
