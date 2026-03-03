@@ -94,6 +94,9 @@ _threading.Thread(target=_warm_caches, daemon=True).start()
 
 app = Flask(__name__)
 
+from flask_compress import Compress
+Compress(app)
+
 
 # ---------------------------------------------------------------------------
 # Section B: request adapter  (Flask → Lambda event shape)
