@@ -8,7 +8,6 @@ import json
 import logging
 import time
 import zoneinfo
-
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List
 
@@ -62,7 +61,9 @@ class CalendarService:
 
         self.service = build("calendar", "v3", credentials=creds, cache_discovery=False)
 
-    def get_upcoming_events(self, days: int = 90, lookback_days: int = 0) -> List[Dict[str, Any]]:
+    def get_upcoming_events(
+        self, days: int = 90, lookback_days: int = 0
+    ) -> List[Dict[str, Any]]:
         """Fetch from all calendars in parallel, deduplicate by event ID, sort by start time.
 
         Args:
@@ -224,18 +225,48 @@ class CalendarService:
             logger.warning(f"FFM sync: failed to fetch family events: {e}")
             return {"synced": 0, "skipped": 0}
 
-        existing_keys = set()
+        # Group existing [FFM] family events by (title, start) — delete extras
+        # to clean up any duplicates created by prior eventual-consistency races.
+        existing_keys: set = set()
+        seen: Dict[tuple, str] = {}  # (title, start) -> first event_id to keep
+        deleted = 0
         for ev in family_result.get("items", []):
             title = ev.get("summary", "")
-            if title.startswith(self._FFM_SYNC_PREFIX):
-                start = ev.get("start", {}).get("dateTime") or ev.get("start", {}).get("date", "")
-                existing_keys.add((title, start))
+            if not title.startswith(self._FFM_SYNC_PREFIX):
+                continue
+            start = ev.get("start", {}).get("dateTime") or ev.get("start", {}).get(
+                "date", ""
+            )
+            key = (title, start)
+            ev_id = ev.get("id", "")
+            if key not in seen:
+                seen[key] = ev_id
+                existing_keys.add(key)
+            else:
+                # Duplicate — delete it
+                try:
+                    self.service.events().delete(
+                        calendarId=family_id, eventId=ev_id
+                    ).execute()
+                    deleted += 1
+                    logger.info(f"FFM sync: deleted duplicate '{title}' @ {start}")
+                except Exception as e:
+                    logger.warning(
+                        f"FFM sync: failed to delete duplicate '{title}': {e}"
+                    )
+
+        if deleted:
+            logger.info(
+                f"FFM sync: removed {deleted} duplicate(s) from Family calendar"
+            )
 
         synced = 0
         skipped = 0
         for ev in ffm_events:
             new_title = self._FFM_SYNC_PREFIX + ev.get("summary", "")
-            start = ev.get("start", {}).get("dateTime") or ev.get("start", {}).get("date", "")
+            start = ev.get("start", {}).get("dateTime") or ev.get("start", {}).get(
+                "date", ""
+            )
             if (new_title, start) in existing_keys:
                 skipped += 1
                 continue
@@ -254,8 +285,10 @@ class CalendarService:
             except Exception as e:
                 logger.warning(f"FFM sync: failed to create '{new_title}': {e}")
 
-        logger.info(f"FFM sync complete: {synced} synced, {skipped} skipped")
-        return {"synced": synced, "skipped": skipped}
+        logger.info(
+            f"FFM sync complete: {synced} synced, {skipped} skipped, {deleted} duplicates removed"
+        )
+        return {"synced": synced, "skipped": skipped, "deleted": deleted}
 
     def create_schedule_events(
         self,
@@ -268,8 +301,6 @@ class CalendarService:
         Events are placed sequentially starting from the next half-hour slot.
         Returns a list of created event dicts.
         """
-        from datetime import date as _date
-
         num_events = max(1, duration_minutes // 30)
         now = datetime.now(timezone.utc)
 
@@ -375,7 +406,9 @@ class CalendarService:
             },
             "colorId": "2",  # sage green
         }
-        result = self.service.events().insert(calendarId=calendar_id, body=body).execute()
+        result = (
+            self.service.events().insert(calendarId=calendar_id, body=body).execute()
+        )
         logger.info(
             f"Created travel time event for '{title}': "
             f"{travel_start.strftime('%H:%M')} – {travel_end.strftime('%H:%M')}"
@@ -390,9 +423,7 @@ class CalendarService:
             _events_cache["data"] is not None
             and (now_ts - _events_cache["ts"]) < _EVENTS_TTL
         ):
-            logger.info(
-                f"Using cached events ({len(_events_cache['data'])} events)"
-            )
+            logger.info(f"Using cached events ({len(_events_cache['data'])} events)")
             return _events_cache["data"]
         events = self.get_upcoming_events(days)
         _events_cache["data"] = events

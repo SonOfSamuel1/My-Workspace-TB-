@@ -838,7 +838,8 @@ def _build_home_html_uncached(
         bestcase_tasks = _due_today(f_bestcase.result())
         p1_tasks = _due_today(f_p1.result())
         inbox_tasks = [
-            t for t in f_inbox.result()
+            t
+            for t in f_inbox.result()
             if "Commit" not in t.get("labels", [])
             and "Best Case" not in t.get("labels", [])
         ]
@@ -1301,7 +1302,9 @@ def handle_action(event: dict) -> dict:
             try:
                 from dashboard_shell import build_shell_html
 
-                projects, starred_count, vapid_public_key = _get_shell_data(todoist_token)
+                projects, starred_count, vapid_public_key = _get_shell_data(
+                    todoist_token
+                )
 
                 body = build_shell_html(
                     function_url=function_url,
@@ -1630,9 +1633,25 @@ def handle_action(event: dict) -> dict:
                     os.environ["CALENDAR_TOKEN_JSON"],
                 )
                 svc = TodoistService(todoist_token)
-                # Auto-sync FFM events to Family calendar
+                # Auto-sync FFM events to Family calendar (rate-limited to once per 30 min
+                # to prevent duplicates from Google Calendar's eventual-consistency lag)
                 try:
-                    cal.sync_ffm_to_family()
+                    _sync_state = _load_calendar_state()
+                    _last_sync = _sync_state.get("ffm_last_sync", "")
+                    _run_sync = True
+                    if _last_sync:
+                        _last_dt = datetime.fromisoformat(_last_sync)
+                        if datetime.now(timezone.utc) - _last_dt < timedelta(
+                            minutes=30
+                        ):
+                            _run_sync = False
+                            logger.info("FFM sync: skipping — ran less than 30 min ago")
+                    if _run_sync:
+                        cal.sync_ffm_to_family()
+                        _sync_state["ffm_last_sync"] = datetime.now(
+                            timezone.utc
+                        ).isoformat()
+                        _save_calendar_state(_sync_state)
                 except Exception as sync_err:
                     logger.warning(f"FFM auto-sync failed: {sync_err}")
                 events = cal.get_upcoming_events(days=90)
@@ -2738,6 +2757,7 @@ def handle_action(event: dict) -> dict:
     elif action == "calendar_create_sms_reminder":
         try:
             import re
+
             import requests as _req
 
             event_title = params.get("event_title", "")
@@ -2879,7 +2899,9 @@ def handle_action(event: dict) -> dict:
             event_location = params.get("event_location", "")
 
             if not event_location:
-                return _error_json("Event has no location — cannot calculate travel time")
+                return _error_json(
+                    "Event has no location — cannot calculate travel time"
+                )
             if not event_start:
                 return _error_json(
                     "Event has no start time — cannot add travel time to all-day event"
@@ -2947,7 +2969,10 @@ def handle_action(event: dict) -> dict:
                 f"{travel_minutes} min, link={travel_event_link}"
             )
             return _ok_json(
-                {"travel_event_link": travel_event_link, "travel_minutes": travel_minutes}
+                {
+                    "travel_event_link": travel_event_link,
+                    "travel_minutes": travel_minutes,
+                }
             )
         except Exception as e:
             logger.error(f"calendar_travel_time failed: {e}", exc_info=True)
