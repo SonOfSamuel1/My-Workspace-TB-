@@ -1998,6 +1998,17 @@ def handle_action(event: dict) -> dict:
                 calendar_id="primary",
             )
             num = len(created)
+            # Mark commit tasks as scheduled in home state so the badge tracks scheduling
+            try:
+                task_labels = (task.get("labels") or []) if task else []
+                if "Commit" in task_labels:
+                    _home_st = _load_home_reviewed_state()
+                    if "commit" not in _home_st:
+                        _home_st["commit"] = {}
+                    _home_st["commit"][task_id] = datetime.now(timezone.utc).isoformat()
+                    _save_home_reviewed_state(_home_st)
+            except Exception:
+                pass
             return {
                 "statusCode": 200,
                 "headers": {

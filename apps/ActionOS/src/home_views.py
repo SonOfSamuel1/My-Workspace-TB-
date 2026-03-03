@@ -508,10 +508,10 @@ def _build_task_card(
         f'<div class="task-title">{title}{priority_badge}</div>'
         f'<div class="task-meta">{meta_line}</div>'
         f'<div class="task-actions">'
-        f"{review_btn}"
         + (move_select + priority_select if section not in ("commit", "bestcase") else "")
-        + f"{due_date_input}"
-        f"{complete_btn}{commit_btn}{bestcase_btn}{schedule_btn}{cc_btn}{toggl_select}{time_tracked_html}"
+        + f"{due_date_input}{complete_btn}"
+        + (review_btn if section != "commit" else "")
+        + f"{commit_btn}{bestcase_btn}{schedule_btn}{cc_btn}{toggl_select}{time_tracked_html}"
         f"</div>"
         f"</div></div>"
         f"</div>"
@@ -1168,13 +1168,14 @@ def _build_section_html(
     total: int,
     collapsed: bool,
     border_color: str,
+    badge_label: str = "NEEDS REVIEW",
 ) -> str:
     """Build a flat section with sticky header (calendar style)."""
-    # Badge: "N NEEDS REVIEW" (warn) only — hide when fully reviewed
+    # Badge: "N <badge_label>" (warn) only — hide when fully reviewed
     if needs_review_count > 0:
         badge_html = (
             f'<span class="section-badge section-needs-badge" id="sbadge-{key}">'
-            f"{needs_review_count} NEEDS REVIEW</span>"
+            f"{needs_review_count} {badge_label}</span>"
         )
     else:
         badge_html = f'<span class="section-badge section-needs-badge" id="sbadge-{key}" style="display:none;"></span>'
@@ -1449,6 +1450,7 @@ def build_home_html(
         total,
         collapsed=False,  # commit section never collapses
         border_color=border_color,
+        badge_label="NEEDS SCHEDULING",
     )
 
     # --- bestcase ---
