@@ -16,6 +16,7 @@ _EASTERN_TZ = zoneinfo.ZoneInfo("America/New_York")
 logger = logging.getLogger(__name__)
 
 CALENDAR_IDS = {
+    "primary": "primary",
     "family": "e8b8ac59c51a37cace65afd1eb320b01080d6eda9a67f8437c9360ad6d575a57@group.calendar.google.com",
     "medical": "b7a90e6b97885cfa08b5d3964631dc4a7e880f0c12fff722c503447faab3f4fc@group.calendar.google.com",
     "birthdays": "33c41f9c4db1bb4a5132d46ed878d0e9ee287b4a7967714be4bb4cb0d6693802@group.calendar.google.com",
