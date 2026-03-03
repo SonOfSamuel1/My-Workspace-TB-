@@ -1202,6 +1202,7 @@ def build_calendar_html(
         ".action-select,.review-btn,.todoist-btn,.commit-btn,.schedule-prep-btn,.timer-btn,.toggl-log-btn,.assign-cc-btn,.delete-event-btn,.ffm-meal-btn{font-size:11px;padding:4px 6px;}"
         ".todoist-btn{min-height:44px;}"
         ".travel-time-btn{min-height:44px;font-size:12px;padding:10px 14px;}"
+        ".delete-event-btn{min-height:44px;}"
         "}"
         "::-webkit-scrollbar{width:6px;}"
         "::-webkit-scrollbar-track{background:transparent;}"
