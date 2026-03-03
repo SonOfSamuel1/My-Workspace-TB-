@@ -366,10 +366,10 @@ class GmailService:
             from_lower = headers["from"].lower()
             is_calendar_invite = (
                 "calendar-notification@google.com" in from_lower
-                or subject_lower.startswith("invitation:")
-                or subject_lower.startswith("updated invitation:")
-                or subject_lower.startswith("accepted:")
-                or subject_lower.startswith("declined:")
+                and (
+                    subject_lower.startswith("invitation:")
+                    or subject_lower.startswith("updated invitation:")
+                )
             )
             return {
                 "id": message_id,

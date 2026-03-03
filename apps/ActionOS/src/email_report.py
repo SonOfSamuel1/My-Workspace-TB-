@@ -454,7 +454,7 @@ def build_cards_html(
                     + msg_id
                     + "','accept')\" "
                     'class="action-pill rsvp-accept-btn" data-label="Accept" '
-                    'style="color:var(--ok);background:var(--ok-bg);border:1px solid var(--ok-b);">'
+                    'style="color:var(--ok);background:var(--ok-bg);border:1px solid var(--ok-b);min-height:44px;font-size:14px;padding:10px 12px;">'
                     + _SVG_CALENDAR_ACCEPT
                     + " Accept</button>"
                 ),
@@ -463,7 +463,7 @@ def build_cards_html(
                     + msg_id
                     + "','decline')\" "
                     'class="action-pill rsvp-decline-btn" data-label="Decline" '
-                    'style="color:var(--err);background:var(--err-bg);border:1px solid var(--err-b);">'
+                    'style="color:var(--err);background:var(--err-bg);border:1px solid var(--err-b);min-height:44px;font-size:14px;padding:10px 12px;">'
                     "Decline</button>"
                 ),
                 (
@@ -471,7 +471,7 @@ def build_cards_html(
                     + msg_id
                     + "','maybe')\" "
                     'class="action-pill rsvp-maybe-btn" data-label="Maybe" '
-                    'style="color:var(--warn);background:var(--warn-bg);border:1px solid var(--warn-b);">'
+                    'style="color:var(--warn);background:var(--warn-bg);border:1px solid var(--warn-b);min-height:44px;font-size:14px;padding:10px 12px;">'
                     "Maybe</button>"
                 ),
             ]
