@@ -74,7 +74,7 @@ _GP_ACTIVITIES = [
 
 # Section display config: key -> (label, left-border color, cycle_days)
 _SECTION_CONFIG = {
-    "commit": ("@Commit", "#6366f1", 1),
+    "commit": ("Commit", "#6366f1", 1),
     "bestcase": ("Best Case", "#a78bfa", 1),
     "calendar": ("Calendar", "#eab308", 7),
     "p1": ("P1", "#ef4444", 7),
@@ -508,10 +508,10 @@ def _build_task_card(
         f'<div class="task-title">{title}{priority_badge}</div>'
         f'<div class="task-meta">{meta_line}</div>'
         f'<div class="task-actions">'
-        f"{review_btn}"
         + (move_select + priority_select if section not in ("commit", "bestcase") else "")
-        + f"{due_date_input}"
-        f"{complete_btn}{commit_btn}{bestcase_btn}{schedule_btn}{cc_btn}{toggl_select}{time_tracked_html}"
+        + f"{due_date_input}{complete_btn}"
+        + (review_btn if section != "commit" else "")
+        + f"{commit_btn}{bestcase_btn}{schedule_btn}{cc_btn}{toggl_select}{time_tracked_html}"
         f"</div>"
         f"</div></div>"
         f"</div>"
@@ -1168,13 +1168,14 @@ def _build_section_html(
     total: int,
     collapsed: bool,
     border_color: str,
+    badge_label: str = "NEEDS REVIEW",
 ) -> str:
     """Build a flat section with sticky header (calendar style)."""
-    # Badge: "N NEEDS REVIEW" (warn) only — hide when fully reviewed
+    # Badge: "N <badge_label>" (warn) only — hide when fully reviewed
     if needs_review_count > 0:
         badge_html = (
             f'<span class="section-badge section-needs-badge" id="sbadge-{key}">'
-            f"{needs_review_count} NEEDS REVIEW</span>"
+            f"{needs_review_count} {badge_label}</span>"
         )
     else:
         badge_html = f'<span class="section-badge section-needs-badge" id="sbadge-{key}" style="display:none;"></span>'
@@ -1208,7 +1209,7 @@ def _build_section_html(
 
 _HOME_NAV_CONFIG = [
     ("godpower", "Use God Power", "var(--warn)", "var(--warn-bg)"),
-    ("commit",   "@Commit",   "var(--accent)",  "var(--accent-bg)"),
+    ("commit",   "Commit",    "var(--accent)",  "var(--accent-bg)"),
     ("bestcase", "Best Case", "var(--purple)",  "var(--purple-bg)"),
     ("calendar", "Calendar",  "var(--warn)",    "var(--warn-bg)"),
     ("p1",       "P1",        "var(--err)",     "var(--err-bg)"),
@@ -1449,6 +1450,7 @@ def build_home_html(
         total,
         collapsed=False,  # commit section never collapses
         border_color=border_color,
+        badge_label="NEEDS SCHEDULING",
     )
 
     # --- bestcase ---
@@ -2662,7 +2664,7 @@ def build_home_html(
         ".then(function(d){if(d.ok){"
         "btn.textContent='\\u2713 '+d.events_created+' events created!';"
         "btn.style.background='#22c55e';"
-        "setTimeout(function(){closeScheduleModal();btn.style.background='';},1500);"
+        "setTimeout(function(){closeScheduleModal();btn.style.background='';window.location.href='googlecalendar://';},1500);"
         "}else{"
         "btn.textContent='Error: '+(d.error||'unknown');"
         "btn.style.background='#ef4444';"
@@ -2726,7 +2728,7 @@ def build_home_html(
         "if(d.ok){"
         "btn.textContent='\\u2713 '+d.events_created+' events created!';"
         "btn.style.background='#22c55e';"
-        "setTimeout(function(){closeScheduleModal();btn.style.background='';},1500);"
+        "setTimeout(function(){closeScheduleModal();btn.style.background='';window.location.href='googlecalendar://';},1500);"
         "}else{"
         "btn.textContent='Failed: '+(d.error||'Unknown error');"
         "btn.disabled=false;btn.style.background='#ef4444';"
@@ -2929,7 +2931,7 @@ def build_godpower_view_html(function_url: str, godpower_state: dict = None) -> 
         ".then(function(d){if(d.ok){"
         "btn.textContent='\u2713 '+d.events_created+' events created!';"
         "btn.style.background='#22c55e';"
-        "setTimeout(function(){closeScheduleModal();btn.style.background='';},1500);"
+        "setTimeout(function(){closeScheduleModal();btn.style.background='';window.location.href='googlecalendar://';},1500);"
         "}else{btn.textContent='Error';btn.style.background='#ef4444';"
         "setTimeout(function(){btn.style.background='';btn.textContent='Schedule';},2000);}})"
         ".catch(function(){btn.textContent='Failed';"

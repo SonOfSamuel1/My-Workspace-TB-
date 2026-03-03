@@ -114,6 +114,11 @@ class CalendarService:
                 if not event_id:
                     continue
 
+                # Skip events created by the Schedule Work button
+                _private = item.get("extendedProperties", {}).get("private", {})
+                if _private.get("actionos_source") == "scheduled_work":
+                    continue
+
                 start = item.get("start", {})
                 end = item.get("end", {})
 
@@ -385,6 +390,11 @@ class CalendarService:
                 minute=0, second=0, microsecond=0
             )
 
+        # Enforce minimum 30-minute buffer from now
+        min_start = local_now + timedelta(minutes=30)
+        while start < min_start:
+            start += timedelta(minutes=30)
+
         created = []
         for i in range(num_events):
             ev_start = start + timedelta(minutes=30 * i)
@@ -398,6 +408,9 @@ class CalendarService:
                 "end": {
                     "dateTime": ev_end.isoformat(),
                     "timeZone": tz_name,
+                },
+                "extendedProperties": {
+                    "private": {"actionos_source": "scheduled_work"}
                 },
             }
             try:
@@ -553,15 +566,20 @@ class CalendarService:
         logger.info(f"Fetched {len(events)} events (cached for {_EVENTS_TTL}s)")
         return events
 
+    def set_calendar_color(self, cal_id: str, color_id: str) -> None:
+        """Set the background color of a calendar in the user's calendar list.
+
+        color_id values (Google Calendar palette):
+          "11" = Tomato (red), "9" = Blueberry, "6" = Sage, "3" = Grape, etc.
+        """
+        self.service.calendarList().patch(
+            calendarId=cal_id, body={"colorId": color_id}
+        ).execute()
+        logger.info(f"Set color {color_id!r} on calendar {cal_id!r}")
+
     # ------------------------------------------------------------------
     # Lay Life Down — fetch events for a specific subset of calendars
     # ------------------------------------------------------------------
-
-    def create_calendar(self, summary: str) -> str:
-        """Create a new Google Calendar and return its ID."""
-        body = {"summary": summary}
-        created = self.service.calendars().insert(body=body).execute()
-        return created["id"]
 
     def get_events_for_types(
         self,

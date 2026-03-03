@@ -38,7 +38,7 @@ def build_shell_html(
     tabs: List[Tuple[str, str, str, bool]] = [
         ("home", "Home", f"{base}?action=web&view=home&embed=1", True),
         ("godpower", "God Power", f"{base}?action=web&view=godpower&embed=1", False),
-        ("commit", "@commit", f"{base}?action=web&view=commit&embed=1", False),
+        ("commit", "Commit", f"{base}?action=web&view=commit&embed=1", False),
         ("starred", "Starred", f"{base}?action=web&view=starred&embed=1", False),
         ("unread", "Unread", f"{base}?action=web&view=unread&embed=1", False),
         ("inbox", "Inbox", f"{base}?action=web&view=inbox&embed=1", False),

@@ -1987,17 +1987,41 @@ def handle_action(event: dict) -> dict:
             task = service.get_task(task_id)
             task_title = (task.get("content") if task else None) or task_title_param or "Action"
 
-            # Create calendar events
+            # Create calendar events in the "Committed action" calendar (red)
             cal = CalendarService(
                 os.environ["CALENDAR_CREDENTIALS_JSON"],
                 os.environ["CALENDAR_TOKEN_JSON"],
             )
+            # Ensure the "Committed action" calendar exists
+            _ca_state = _load_calendar_state()
+            _ca_id = _ca_state.get("committed_action_calendar_id", "")
+            if not _ca_id:
+                try:
+                    _ca_id = cal.create_calendar("Committed action")
+                    cal.set_calendar_color(_ca_id, "11")  # Tomato (red)
+                    _ca_state["committed_action_calendar_id"] = _ca_id
+                    _save_calendar_state(_ca_state)
+                    logger.info(f"Created 'Committed action' calendar: {_ca_id}")
+                except Exception as _ca_err:
+                    logger.warning(f"Could not create Committed action calendar: {_ca_err}")
+                    _ca_id = "primary"
             created = cal.create_schedule_events(
                 title=task_title,
                 duration_minutes=duration_minutes,
-                calendar_id="primary",
+                calendar_id=_ca_id,
             )
             num = len(created)
+            # Mark commit tasks as scheduled in home state so the badge tracks scheduling
+            try:
+                task_labels = (task.get("labels") or []) if task else []
+                if "Commit" in task_labels:
+                    _home_st = _load_home_reviewed_state()
+                    if "commit" not in _home_st:
+                        _home_st["commit"] = {}
+                    _home_st["commit"][task_id] = datetime.now(timezone.utc).isoformat()
+                    _save_home_reviewed_state(_home_st)
+            except Exception:
+                pass
             return {
                 "statusCode": 200,
                 "headers": {

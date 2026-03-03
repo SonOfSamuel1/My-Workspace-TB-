@@ -656,7 +656,9 @@ def _build_event_card(
     )
 
 
-def _build_next7days_html(events: List[Dict[str, Any]]) -> str:
+def _build_next7days_html(
+    events: List[Dict[str, Any]], build_section_cards=None
+) -> str:
     """Build a next-7-days event list grouped by date."""
     now = datetime.now(_EASTERN)
     today = now.date()
@@ -707,6 +709,8 @@ def _build_next7days_html(events: List[Dict[str, Any]]) -> str:
 
         if not evs:
             rows_html += '<div class="sd-no-events">No events</div>'
+        elif build_section_cards is not None:
+            rows_html += build_section_cards(evs)
         else:
             for ev in evs:
                 title = html.escape(ev.get("title", "(No title)"))
@@ -1203,7 +1207,7 @@ def build_calendar_html(
     for key, *_ in _REVIEWED_SECTIONS:
         _cal_nav_counts[key] = len(reviewed_buckets[key])
 
-    seven_day_html = _build_next7days_html(events)
+    seven_day_html = _build_next7days_html(events, _build_section_cards)
     lld_html = _build_lay_life_down_view(events)
 
     embed_css = ".top-bar{display:none;}" if embed else ""
@@ -1270,6 +1274,11 @@ def build_calendar_html(
         ".refresh-btn{margin-left:auto;background:var(--border);border:1px solid var(--border);"
         "color:var(--text-1);font-size:13px;font-weight:600;padding:6px 14px;border-radius:6px;cursor:pointer;}"
         ".refresh-btn:hover{background:var(--border-h);}"
+        ".add-event-btn{flex:0 0 auto;margin-left:auto;background:#16a34a;border:1px solid #15803d;"
+        "color:#fff;font-size:12px;font-weight:600;padding:5px 10px;border-radius:6px;"
+        "cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;"
+        "white-space:nowrap;min-height:30px;}"
+        ".add-event-btn:hover{background:#15803d;}"
         ".scroll-area{height:"
         + page_height
         + ";overflow-y:auto;overflow-x:hidden;background:var(--bg-base);}"
@@ -1431,7 +1440,7 @@ def build_calendar_html(
         ".ev-save-btn:hover{opacity:0.88;}"
         "@media(max-width:768px){"
         ".task-actions{gap:6px;}"
-        ".action-select,.review-btn,.todoist-btn,.commit-btn,.schedule-prep-btn,.travel-time-btn,.timer-btn,.toggl-log-btn,.assign-cc-btn,.delete-event-btn,.ffm-meal-btn{font-size:11px;padding:4px 6px;}"
+        ".action-select,.review-btn,.todoist-btn,.commit-btn,.schedule-prep-btn,.travel-time-btn,.timer-btn,.toggl-log-btn,.assign-cc-btn,.delete-event-btn,.ffm-meal-btn{font-size:11px;padding:4px 6px;min-height:44px;}"
         ".ev-datetime-row{grid-template-columns:1fr;}"
         "}"
         "::-webkit-scrollbar{width:6px;}"
@@ -1536,6 +1545,7 @@ def build_calendar_html(
         '<button class="view-toggle-btn active" id="btn-events" onclick="switchView(\'events\')">Events</button>'
         '<button class="view-toggle-btn" id="btn-7days" onclick="switchView(\'7days\')">Next 7 Days</button>'
         '<button class="view-toggle-btn" id="btn-lay-life-down" onclick="switchView(\'lay-life-down\')">Lay Life Down</button>'
+        '<a class="add-event-btn" href="x-fantastical3://add">+ Add</a>'
         "</div>"
         + _build_cal_nav_bar(_cal_nav_counts)
         + "</div>"
