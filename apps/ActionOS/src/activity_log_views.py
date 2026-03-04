@@ -1,7 +1,7 @@
 """ActionOS Activity Log — persistent archive of all Toggl time entries."""
 import json
 from collections import defaultdict
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 _FONT = (
     "'Inter','SF Pro Display',-apple-system,BlinkMacSystemFont,"
@@ -51,12 +51,29 @@ def _friendly_date(date_str: str) -> str:
         today = datetime.now(eastern).date()
         if d == today:
             return "Today"
-        from datetime import timedelta
         if d == today - timedelta(days=1):
             return "Yesterday"
         return d.strftime("%a, %b %-d")
     except Exception:
         return date_str
+
+
+def _get_today_str() -> str:
+    try:
+        from zoneinfo import ZoneInfo
+        return datetime.now(ZoneInfo("America/New_York")).date().isoformat()
+    except Exception:
+        return datetime.now(timezone.utc).date().isoformat()
+
+
+def _get_week_cutoff_str() -> str:
+    try:
+        from zoneinfo import ZoneInfo
+        today = datetime.now(ZoneInfo("America/New_York")).date()
+        return (today - timedelta(days=6)).isoformat()
+    except Exception:
+        today = datetime.now(timezone.utc).date()
+        return (today - timedelta(days=6)).isoformat()
 
 
 def fetch_toggl_entries(toggl_token: str) -> list:
@@ -73,12 +90,11 @@ def fetch_toggl_entries(toggl_token: str) -> list:
         )
         resp.raise_for_status()
         entries = resp.json()
-        # Normalize each entry to a compact dict
         result = []
         for e in entries:
             dur = e.get("duration", 0)
             if dur <= 0:
-                continue  # skip running timers
+                continue
             result.append({
                 "id": e.get("id"),
                 "description": e.get("description") or "Untitled",
@@ -103,34 +119,14 @@ def merge_entries(saved: list, fresh: list) -> list:
     for entry in fresh:
         eid = entry.get("id")
         if eid:
-            by_id[eid] = entry  # fresh overrides saved
-    # Sort by start time descending (newest first)
+            by_id[eid] = entry
     entries = list(by_id.values())
     entries.sort(key=lambda e: e.get("start", ""), reverse=True)
     return entries
 
 
-def build_activity_log_html(entries: list, last_synced: str = "") -> str:
-    """Build the Activity Log HTML from a list of time entries."""
-    # Group entries by Eastern date
-    by_date = defaultdict(list)
-    for e in entries:
-        d = _eastern_date(e.get("start", ""))
-        if d:
-            by_date[d].append(e)
-
-    # Sort dates descending
-    sorted_dates = sorted(by_date.keys(), reverse=True)
-
-    # Overall stats
-    total_entries = len(entries)
-    total_secs = sum(e.get("duration", 0) for e in entries)
-    total_days = len(sorted_dates)
-
-    # Sync info
-    sync_text = f"Last synced: {last_synced}" if last_synced else "Not yet synced"
-
-    # Build day sections
+def _build_day_sections(by_date: dict, sorted_dates: list) -> str:
+    """Build HTML for day sections from grouped entries."""
     day_sections = ""
     for date_str in sorted_dates:
         day_entries = by_date[date_str]
@@ -166,9 +162,69 @@ def build_activity_log_html(entries: list, last_synced: str = "") -> str:
             f'{rows}'
             '</div>'
         )
+    return day_sections
 
-    if not day_sections:
-        day_sections = '<div class="al-empty">No entries found. Entries will appear here after syncing with Toggl.</div>'
+
+def _build_stats_html(entries: list, days_count: int, stat_id_prefix: str) -> str:
+    """Build the 3-stat row HTML."""
+    total_entries = len(entries)
+    total_secs = sum(e.get("duration", 0) for e in entries)
+    return (
+        f'<div class="al-stats" id="stats-{stat_id_prefix}">'
+        '<div class="al-stat">'
+        f'<div class="al-stat-val">{total_entries}</div>'
+        '<div class="al-stat-lbl">Entries</div>'
+        '</div>'
+        '<div class="al-stat">'
+        f'<div class="al-stat-val">{_fmt_secs(total_secs)}</div>'
+        '<div class="al-stat-lbl">Total Time</div>'
+        '</div>'
+        '<div class="al-stat">'
+        f'<div class="al-stat-val">{days_count}</div>'
+        '<div class="al-stat-lbl">Days</div>'
+        '</div>'
+        '</div>'
+    )
+
+
+def build_activity_log_html(entries: list, last_synced: str = "") -> str:
+    """Build the Activity Log HTML with Today / Past 7 Days tabs."""
+    today_str = _get_today_str()
+    week_cutoff = _get_week_cutoff_str()
+
+    # Group all entries by Eastern date
+    by_date = defaultdict(list)
+    for e in entries:
+        d = _eastern_date(e.get("start", ""))
+        if d:
+            by_date[d].append(e)
+
+    # Split into today vs past 7 days
+    today_dates = [d for d in sorted(by_date.keys(), reverse=True) if d == today_str]
+    week_dates = [d for d in sorted(by_date.keys(), reverse=True) if week_cutoff <= d <= today_str]
+
+    today_entries = []
+    for d in today_dates:
+        today_entries.extend(by_date[d])
+
+    week_entries = []
+    for d in week_dates:
+        week_entries.extend(by_date[d])
+
+    # Build day sections for each tab
+    today_sections = _build_day_sections(by_date, today_dates)
+    if not today_sections:
+        today_sections = '<div class="al-empty">No entries yet today. Start a timer from the Home tab.</div>'
+
+    week_sections = _build_day_sections(by_date, week_dates)
+    if not week_sections:
+        week_sections = '<div class="al-empty">No entries in the past 7 days.</div>'
+
+    # Stats for each tab
+    today_stats = _build_stats_html(today_entries, len(today_dates), "today")
+    week_stats = _build_stats_html(week_entries, len(week_dates), "week")
+
+    sync_text = f"Last synced: {last_synced}" if last_synced else "Not yet synced"
 
     return (
         "<!DOCTYPE html><html><head>"
@@ -192,12 +248,23 @@ def build_activity_log_html(entries: list, last_synced: str = "") -> str:
         "*{box-sizing:border-box;margin:0;padding:0;}"
         f"body{{font-family:{_FONT};background:var(--bg-base);color:var(--text-1);"
         "-webkit-font-smoothing:antialiased;padding:20px 16px 40px;max-width:600px;margin:0 auto;}"
-        # Header area
-        ".al-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;}"
+        # Header
+        ".al-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;}"
         ".al-title{font-size:20px;font-weight:800;letter-spacing:-0.5px;}"
         ".al-sync-info{font-size:11px;color:var(--text-2);}"
+        # Tab bar
+        ".al-tabs{display:flex;gap:0;margin-bottom:16px;background:var(--bg-s1);"
+        "border:1px solid var(--border);border-radius:10px;padding:3px;}"
+        ".al-tab{flex:1;padding:10px 0;font-size:13px;font-weight:600;text-align:center;"
+        "border-radius:8px;cursor:pointer;transition:all .15s;color:var(--text-2);"
+        "min-height:44px;display:flex;align-items:center;justify-content:center;}"
+        ".al-tab.active{background:var(--accent);color:#fff;}"
+        ".al-tab:not(.active):hover{color:var(--text-1);}"
+        # Tab panels
+        ".al-panel{display:none;}"
+        ".al-panel.active{display:block;}"
         # Stats row
-        ".al-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:24px;}"
+        ".al-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px;}"
         ".al-stat{background:var(--bg-s1);border:1px solid var(--border);border-radius:10px;"
         "padding:12px;text-align:center;}"
         ".al-stat-val{font-size:20px;font-weight:700;color:var(--text-1);}"
@@ -233,31 +300,37 @@ def build_activity_log_html(entries: list, last_synced: str = "") -> str:
         '<span class="al-title">Activity Log</span>'
         f'<span class="al-sync-info">{sync_text}</span>'
         '</div>'
-        # Stats
-        '<div class="al-stats">'
-        '<div class="al-stat">'
-        f'<div class="al-stat-val">{total_entries}</div>'
-        '<div class="al-stat-lbl">Entries</div>'
+        # Tab bar
+        '<div class="al-tabs">'
+        '<div class="al-tab active" id="tab-today" onclick="switchAlTab(\'today\')">Today</div>'
+        '<div class="al-tab" id="tab-week" onclick="switchAlTab(\'week\')">Past 7 Days</div>'
         '</div>'
-        '<div class="al-stat">'
-        f'<div class="al-stat-val">{_fmt_secs(total_secs)}</div>'
-        '<div class="al-stat-lbl">Total Time</div>'
+        # Today panel
+        '<div class="al-panel active" id="panel-today">'
+        f'{today_stats}'
+        '<input class="al-search" type="text" placeholder="Search today..." '
+        'oninput="filterEntries(this.value,\'panel-today\')">'
+        f'<div class="al-days">{today_sections}</div>'
         '</div>'
-        '<div class="al-stat">'
-        f'<div class="al-stat-val">{total_days}</div>'
-        '<div class="al-stat-lbl">Days</div>'
+        # Week panel
+        '<div class="al-panel" id="panel-week">'
+        f'{week_stats}'
+        '<input class="al-search" type="text" placeholder="Search past 7 days..." '
+        'oninput="filterEntries(this.value,\'panel-week\')">'
+        f'<div class="al-days">{week_sections}</div>'
         '</div>'
-        '</div>'
-        # Search
-        '<input class="al-search" type="text" placeholder="Search entries..." '
-        'id="al-search" oninput="filterEntries(this.value)">'
-        # Day sections
-        f'<div id="al-days">{day_sections}</div>'
-        # Filter JS
+        # JS
         "<script>"
-        "function filterEntries(q){"
+        "function switchAlTab(tab){"
+        "document.querySelectorAll('.al-tab').forEach(function(t){t.classList.remove('active')});"
+        "document.querySelectorAll('.al-panel').forEach(function(p){p.classList.remove('active')});"
+        "document.getElementById('tab-'+tab).classList.add('active');"
+        "document.getElementById('panel-'+tab).classList.add('active');"
+        "}"
+        "function filterEntries(q,panelId){"
         "q=q.toLowerCase();"
-        "document.querySelectorAll('.al-day').forEach(function(day){"
+        "var panel=document.getElementById(panelId);"
+        "panel.querySelectorAll('.al-day').forEach(function(day){"
         "var entries=day.querySelectorAll('.al-entry');"
         "var anyVisible=false;"
         "entries.forEach(function(e){"
