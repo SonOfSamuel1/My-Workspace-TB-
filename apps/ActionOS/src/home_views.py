@@ -1674,6 +1674,32 @@ def build_home_html(
             "postHomeCount();"
         )
 
+    # --- Toggl Daily Progress Widget ---
+    _DAILY_GOAL_SECS = 6 * 3600  # 6-hour daily goal
+    _tdw_secs = max(0, int(toggl_daily_total_secs or 0))
+    _tdw_pct = min(100, round(_tdw_secs / _DAILY_GOAL_SECS * 100)) if _DAILY_GOAL_SECS else 0
+    _tdw_h = _tdw_secs // 3600
+    _tdw_m = (_tdw_secs % 3600) // 60
+    _tdw_time_str = f"{_tdw_h}h {_tdw_m:02d}m / 6h"
+    _tdw_goal_str = "Goal reached!" if _tdw_secs >= _DAILY_GOAL_SECS else "Goal: 6h"
+    _tdw_pct_str = f"{_tdw_pct}% of daily goal"
+    _tdw_fill_width = f"{_tdw_pct}%"
+    _toggl_daily_widget_html = (
+        '<div class="tdw">'
+        '<div class="tdw-header">'
+        '<span class="tdw-label">Today\'s Focus</span>'
+        '<span class="tdw-time">' + _tdw_time_str + '</span>'
+        '</div>'
+        '<div class="tdw-bar-track">'
+        '<div class="tdw-bar-fill" data-pct="' + str(_tdw_pct) + '" style="width:' + _tdw_fill_width + '"></div>'
+        '</div>'
+        '<div class="tdw-footer">'
+        '<span class="tdw-pct">' + _tdw_pct_str + '</span>'
+        '<span class="tdw-goal">' + _tdw_goal_str + '</span>'
+        '</div>'
+        '</div>'
+    )
+
     return (
         "<!DOCTYPE html><html><head>"
         '<meta charset="utf-8">'
@@ -2034,6 +2060,19 @@ def build_home_html(
         "font-size:14px;font-weight:600;color:var(--accent-l);transition:background .15s;}"
         ".gp-view-all-card:hover{background:var(--bg-s2);}"
         ".gp-view-all-arrow{font-size:18px;}"
+        # Toggl Daily Widget
+        ".tdw{background:var(--bg-s1);border:1px solid var(--border);border-radius:10px;"
+        "padding:12px 14px;margin-bottom:14px;}"
+        ".tdw-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}"
+        ".tdw-label{font-size:11px;font-weight:700;color:var(--text-2);text-transform:uppercase;"
+        "letter-spacing:0.6px;}"
+        ".tdw-time{font-size:13px;font-weight:600;color:var(--text-1);}"
+        ".tdw-bar-track{width:100%;height:6px;background:var(--bg-s2);border-radius:3px;overflow:hidden;"
+        "margin-bottom:8px;}"
+        ".tdw-bar-fill{height:100%;border-radius:3px;background:var(--accent);transition:width .4s ease;}"
+        ".tdw-footer{display:flex;justify-content:space-between;align-items:center;}"
+        ".tdw-pct{font-size:11px;color:var(--text-2);}"
+        ".tdw-goal{font-size:11px;color:var(--text-2);}"
         "</style></head><body>"
         + (
             ""
@@ -2045,6 +2084,7 @@ def build_home_html(
         )
         + '<div class="scroll-area"><div class="home-list">'
         + _build_home_nav_bar(_nav_counts)
+        + _toggl_daily_widget_html
         + sections_html
         + "</div></div>"
         # Detail pane (mobile fullscreen overlay)
