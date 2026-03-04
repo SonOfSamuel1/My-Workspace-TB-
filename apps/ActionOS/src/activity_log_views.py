@@ -222,7 +222,7 @@ def build_activity_log_html(entries: list, last_synced: str = "") -> str:
         ".al-dur{font-size:14px;font-weight:700;color:var(--accent);flex-shrink:0;font-variant-numeric:tabular-nums;}"
         ".al-empty{font-size:14px;color:var(--text-2);text-align:center;padding:32px 0;}"
         # Search
-        ".al-search{width:100%;padding:10px 12px;font-size:13px;font-family:inherit;"
+        ".al-search{width:100%;padding:12px 12px;font-size:14px;min-height:44px;font-family:inherit;"
         "background:var(--bg-s1);color:var(--text-1);border:1px solid var(--border);"
         "border-radius:10px;outline:none;margin-bottom:16px;}"
         ".al-search:focus{border-color:var(--accent);}"
