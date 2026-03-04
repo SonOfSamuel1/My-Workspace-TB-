@@ -1919,10 +1919,10 @@ def build_home_html(
         # Timer button
         ".timer-btn{font-family:inherit;font-size:12px;font-weight:600;"
         "padding:5px 14px;min-height:44px;border-radius:8px;"
-        "background:var(--purple-bg);color:var(--purple);border:1px solid var(--purple-b);"
+        "background:var(--bg-s2);color:var(--text-2);border:1px solid var(--border);"
         "cursor:pointer;transition:background .15s;"
         "display:inline-flex;align-items:center;gap:5px;}"
-        ".timer-btn:hover{background:var(--purple-b);}"
+        ".timer-btn:hover{background:var(--border-h);color:var(--text-1);}"
         ".timer-btn.expired{opacity:0.4;cursor:default;pointer-events:none;}"
         ".timer-icon{flex-shrink:0;vertical-align:middle;}"
         # GCal link
@@ -2106,7 +2106,6 @@ def build_home_html(
         )
         + '<div class="scroll-area"><div class="home-list">'
         + '<div class="dash-sticky">'
-        + _build_home_nav_bar(_nav_counts)
         + _toggl_daily_widget_html
         + '</div>'
         + sections_html
