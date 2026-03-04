@@ -117,25 +117,25 @@ def build_focus_html(toggl_local: dict) -> str:
         f"body{{font-family:{_FONT};background:var(--bg-base);color:var(--text-1);"
         "-webkit-font-smoothing:antialiased;padding:20px 16px 40px;max-width:520px;margin:0 auto;}"
         # Header
-        ".fs-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;"
+        ".fs-label{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;"
         "color:var(--text-2);margin-bottom:4px;}"
         # Big timer
         ".fs-hero{text-align:center;padding:24px 0 20px;}"
         ".fs-total{font-size:52px;font-weight:800;letter-spacing:-2px;line-height:1;"
         "color:var(--text-1);font-variant-numeric:tabular-nums;}"
-        ".fs-goal-text{font-size:13px;color:var(--text-2);margin-top:6px;}"
+        ".fs-goal-text{font-size:14px;color:var(--text-2);margin-top:6px;}"
         # Progress ring area — linear bar
         ".fs-bar-wrap{margin:0 0 24px;}"
         ".fs-bar-track{width:100%;height:8px;background:var(--bg-s2);border-radius:4px;overflow:hidden;}"
         f".fs-bar-fill{{height:100%;border-radius:4px;background:{fill_color};"
         "transition:width .6s ease;}"
-        ".fs-bar-footer{display:flex;justify-content:space-between;margin-top:6px;font-size:11px;color:var(--text-2);}"
+        ".fs-bar-footer{display:flex;justify-content:space-between;margin-top:6px;font-size:12px;color:var(--text-2);}"
         # Stats row
         ".fs-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:24px;}"
         ".fs-stat{background:var(--bg-s1);border:1px solid var(--border);border-radius:10px;"
         "padding:12px;text-align:center;}"
         ".fs-stat-val{font-size:20px;font-weight:700;color:var(--text-1);}"
-        ".fs-stat-lbl{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;"
+        ".fs-stat-lbl{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;"
         "color:var(--text-2);margin-top:3px;}"
         # Active timer card
         ".fs-active-card{background:var(--ok-bg);border:1px solid var(--ok-b);border-radius:12px;"
@@ -150,7 +150,7 @@ def build_focus_html(toggl_local: dict) -> str:
         "flex-shrink:0;font-variant-numeric:tabular-nums;}"
         # Sessions list
         ".fs-sessions-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}"
-        ".fs-sessions-count{font-size:11px;color:var(--text-2);}"
+        ".fs-sessions-count{font-size:12px;color:var(--text-2);}"
         ".fsr{display:flex;justify-content:space-between;align-items:center;"
         "padding:10px 12px;background:var(--bg-s1);border:1px solid var(--border);"
         "border-radius:10px;margin-bottom:6px;}"
@@ -165,7 +165,7 @@ def build_focus_html(toggl_local: dict) -> str:
         ".fsr-dur{font-size:14px;font-weight:700;color:var(--accent);"
         "flex-shrink:0;font-variant-numeric:tabular-nums;}"
         ".fsr-active .fsr-dur{color:var(--ok);}"
-        ".fs-empty{font-size:13px;color:var(--text-2);text-align:center;padding:32px 0;}"
+        ".fs-empty{font-size:14px;color:var(--text-2);text-align:center;padding:32px 0;}"
         "</style></head><body>"
         # Hero
         '<div class="fs-hero">'
