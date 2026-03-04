@@ -43,6 +43,9 @@ const TIMEZONE = 'America/New_York';
 // MEDICAL KEYWORDS - Edit this list to customize medical appointment detection
 // ============================================================================
 
+// Event titles to exclude from all calendar review cards (case-insensitive)
+const EXCLUDED_EVENT_TITLES = ['home', 'lunch break'];
+
 const MEDICAL_KEYWORDS = [
   'dentist', 'dental', 'doctor', 'appointment', 'appt', 'PCP',
   'pediatric', 'pediatrics', 'well visit', 'cleaning', 'ortho', 'orthodontist',
@@ -268,7 +271,10 @@ function getEventsFromCalendar(calendarId, startDate, endDate) {
       location: event.getLocation(),
       description: event.getDescription(),
       id: event.getId()
-    }));
+    })).filter(event => {
+      const titleLower = event.title.toLowerCase();
+      return !EXCLUDED_EVENT_TITLES.some(excluded => titleLower === excluded);
+    });
 
   } catch (error) {
     Logger.log(`Error accessing calendar ${calendarId}: ${error.message}`);

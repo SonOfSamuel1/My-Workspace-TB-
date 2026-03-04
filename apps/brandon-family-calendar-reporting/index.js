@@ -35,6 +35,9 @@ const CONFIG = {
   AWS_REGION: process.env.AWS_REGION || 'us-east-1'
 };
 
+// Event titles to exclude from all calendar review cards (case-insensitive)
+const EXCLUDED_EVENT_TITLES = ['home', 'lunch break'];
+
 // Medical keywords for detection
 const MEDICAL_KEYWORDS = [
   'dentist', 'dental', 'doctor', 'appointment', 'appt', 'PCP',
@@ -231,6 +234,9 @@ async function getEventsFromCalendar(calendar, calendarId, startDate, endDate) {
         id: event.id,
         htmlLink: event.htmlLink || ''
       };
+    }).filter(event => {
+      const titleLower = event.title.toLowerCase();
+      return !EXCLUDED_EVENT_TITLES.some(excluded => titleLower === excluded);
     });
 
   } catch (error) {
