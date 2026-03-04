@@ -2606,8 +2606,12 @@ def handle_action(event: dict) -> dict:
                 _tl_st = _load_home_reviewed_state()
                 _tl = _tl_st.get("toggl_local") or {}
                 if _tl.get("date") != _today_et:
-                    _tl = {"date": _today_et, "completed_secs": 0, "active_start_iso": None}
-                _tl["active_start_iso"] = datetime.now(timezone.utc).isoformat()
+                    _tl = {"date": _today_et, "completed_secs": 0, "active_start_iso": None, "sessions": []}
+                _tl.setdefault("sessions", [])
+                _now_iso = datetime.now(timezone.utc).isoformat()
+                _tl["active_start_iso"] = _now_iso
+                _tl["sessions"].append({"description": ts_subject, "start_iso": _now_iso, "duration_secs": None})
+                _tl["sessions"] = _tl["sessions"][-20:]
                 _tl_st["toggl_local"] = _tl
                 _save_home_reviewed_state(_tl_st)
             except Exception as _e:
@@ -2621,8 +2625,12 @@ def handle_action(event: dict) -> dict:
                 _tl_st = _load_home_reviewed_state()
                 _tl = _tl_st.get("toggl_local") or {}
                 if _tl.get("date") != _today_et:
-                    _tl = {"date": _today_et, "completed_secs": 0, "active_start_iso": None}
-                _tl["active_start_iso"] = datetime.now(timezone.utc).isoformat()
+                    _tl = {"date": _today_et, "completed_secs": 0, "active_start_iso": None, "sessions": []}
+                _tl.setdefault("sessions", [])
+                _now_iso = datetime.now(timezone.utc).isoformat()
+                _tl["active_start_iso"] = _now_iso
+                _tl["sessions"].append({"description": ts_subject, "start_iso": _now_iso, "duration_secs": None})
+                _tl["sessions"] = _tl["sessions"][-20:]
                 _tl_st["toggl_local"] = _tl
                 _save_home_reviewed_state(_tl_st)
             except Exception as _e2:
@@ -2670,7 +2678,12 @@ def handle_action(event: dict) -> dict:
                 if _tl.get("date") == _today_et:
                     _tl["completed_secs"] = (_tl.get("completed_secs") or 0) + max(0, duration)
                 else:
-                    _tl = {"date": _today_et, "completed_secs": max(0, duration), "active_start_iso": None}
+                    _tl = {"date": _today_et, "completed_secs": max(0, duration), "active_start_iso": None, "sessions": []}
+                _tl.setdefault("sessions", [])
+                for _s in reversed(_tl["sessions"]):
+                    if _s.get("duration_secs") is None:
+                        _s["duration_secs"] = max(0, duration)
+                        break
                 _tl["active_start_iso"] = None
                 _tl_st["toggl_local"] = _tl
                 _save_home_reviewed_state(_tl_st)
@@ -2694,7 +2707,12 @@ def handle_action(event: dict) -> dict:
                         local_duration = max(0, int((datetime.now(timezone.utc) - _start_dt).total_seconds()))
                         _tl["completed_secs"] = (_tl.get("completed_secs") or 0) + local_duration
                 else:
-                    _tl = {"date": _today_et, "completed_secs": 0, "active_start_iso": None}
+                    _tl = {"date": _today_et, "completed_secs": 0, "active_start_iso": None, "sessions": []}
+                _tl.setdefault("sessions", [])
+                for _s in reversed(_tl["sessions"]):
+                    if _s.get("duration_secs") is None:
+                        _s["duration_secs"] = max(0, local_duration)
+                        break
                 _tl["active_start_iso"] = None
                 _tl_st["toggl_local"] = _tl
                 _save_home_reviewed_state(_tl_st)
