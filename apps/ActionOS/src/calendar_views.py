@@ -22,6 +22,45 @@ _CC_LABEL = "Claude"
 # Calendar events excluded from review cards (exact title match, case-insensitive)
 _EXCLUDED_EVENT_TITLES = {"home", "lunch break"}
 
+# Calendar that is exempt from the daily/weekly recurrence filter
+_HABITS_BUILDING_CAL = "my_habits_building"
+
+
+def _daily_weekly_recurring_ids(events: List[Dict[str, Any]]) -> set:
+    """Return the set of recurring_event_ids whose occurrences repeat daily or weekly.
+
+    Groups events by their recurring_event_id, then computes the minimum gap
+    between consecutive occurrences. Any series with a min gap <= 7 days is
+    considered daily or weekly.
+    """
+    from collections import defaultdict
+
+    groups: dict = defaultdict(list)
+    for ev in events:
+        rid = ev.get("recurring_event_id", "")
+        if not rid:
+            continue
+        start_str = ev.get("start", "")
+        try:
+            # Parse ISO datetime or date string
+            if "T" in start_str:
+                dt = datetime.fromisoformat(start_str.replace("Z", "+00:00"))
+            else:
+                dt = datetime.fromisoformat(start_str).replace(tzinfo=timezone.utc)
+            groups[rid].append(dt)
+        except Exception:
+            pass
+
+    daily_weekly: set = set()
+    for rid, starts in groups.items():
+        if len(starts) < 2:
+            continue
+        starts.sort()
+        min_gap = min((b - a).days for a, b in zip(starts, starts[1:]))
+        if min_gap <= 7:
+            daily_weekly.add(rid)
+    return daily_weekly
+
 _FONT = (
     "'Inter','SF Pro Display',-apple-system,BlinkMacSystemFont,"
     "'Segoe UI',Roboto,sans-serif"
@@ -1103,11 +1142,21 @@ def build_calendar_html(
                 event_key, bool(t.get("checked", False))
             )
 
-    # Filter out birthday/anniversary events beyond 90 days and excluded titles
+    # Build set of recurring_event_ids with daily/weekly frequency
+    _daily_weekly_ids = _daily_weekly_recurring_ids(events)
+
+    # Filter out:
+    #   - birthday/anniversary events beyond 90 days
+    #   - explicitly excluded titles (Home, Lunch Break)
+    #   - daily/weekly recurring events (unless on the habits-building calendar)
     filtered_events = [
         ev for ev in events
         if (not _is_birthday_event(ev) or _is_within_days(ev, 90))
         and (ev.get("title") or "").strip().lower() not in _EXCLUDED_EVENT_TITLES
+        and (
+            ev.get("calendar_type") == _HABITS_BUILDING_CAL
+            or ev.get("recurring_event_id", "") not in _daily_weekly_ids
+        )
     ]
 
     # Split events: unreviewed vs reviewed

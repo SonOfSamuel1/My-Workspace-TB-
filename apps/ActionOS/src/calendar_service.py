@@ -141,6 +141,7 @@ class CalendarService:
                         "description": item.get("description", ""),
                         "html_link": item.get("htmlLink", ""),
                         "calendar_type": cal_type,
+                        "recurring_event_id": item.get("recurringEventId", ""),
                     }
                 )
             return cal_events

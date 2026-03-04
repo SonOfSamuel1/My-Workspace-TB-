@@ -18,6 +18,9 @@ _EASTERN = ZoneInfo("America/New_York")
 # Calendar events excluded from review cards (exact title match, case-insensitive)
 _EXCLUDED_EVENT_TITLES = {"home", "lunch break"}
 
+# Calendar that is exempt from the daily/weekly recurrence filter
+_HABITS_BUILDING_CAL = "my_habits_building"
+
 # Priority display: API value -> (label, color)
 PRIORITY_MAP = {
     4: ("P1", "#ef4444"),
@@ -1552,8 +1555,35 @@ def build_home_html(
     cards = ""
     needs_review = 0
     reviewed_cards = ""
+
+    # Build set of recurring_event_ids with daily/weekly frequency (min gap <= 7 days)
+    _all_cal = all_calendar_events if all_calendar_events is not None else calendar_events
+    _rid_starts: Dict[str, list] = {}
+    for _ev in _all_cal:
+        _rid = _ev.get("recurring_event_id", "")
+        if not _rid:
+            continue
+        _s = _ev.get("start", "")
+        try:
+            _dt = datetime.fromisoformat(_s.replace("Z", "+00:00") if "T" in _s else _s).replace(tzinfo=timezone.utc) if "T" in _s else datetime.fromisoformat(_s).replace(tzinfo=timezone.utc)
+            _rid_starts.setdefault(_rid, []).append(_dt)
+        except Exception:
+            pass
+    _daily_weekly_ids: set = set()
+    for _rid, _starts in _rid_starts.items():
+        if len(_starts) < 2:
+            continue
+        _starts.sort()
+        if min((_b - _a).days for _a, _b in zip(_starts, _starts[1:])) <= 7:
+            _daily_weekly_ids.add(_rid)
+
     for event in calendar_events:
         if (event.get("title") or "").strip().lower() in _EXCLUDED_EVENT_TITLES:
+            continue
+        if (
+            event.get("calendar_type") != _HABITS_BUILDING_CAL
+            and event.get("recurring_event_id", "") in _daily_weekly_ids
+        ):
             continue
         eid = str(event.get("id", ""))
         # Check cal_state directly (same pattern as calendar_views._is_event_reviewed)
