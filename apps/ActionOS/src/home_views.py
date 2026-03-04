@@ -258,6 +258,7 @@ def _build_task_card(
     email_actions_url: str = "",
     email_actions_token: str = "",
     toggl_time_totals=None,
+    work_scheduled: bool = None,
 ) -> str:
     """Build a task card with full action buttons for Home view."""
     task_id = html.escape(str(task.get("id", "")))
@@ -300,13 +301,12 @@ def _build_task_card(
         '<line x1="3" y1="10" x2="21" y2="10"/></svg>'
     )
     meta_parts.append(
-        f'<span class="meta-date-btn" style="color:{due_color};" '
-        f"onclick=\"event.stopPropagation();var i=this.querySelector('input');i.showPicker?i.showPicker():i.focus()\">"
+        f'<span class="meta-date-btn" style="color:{due_color};position:relative;overflow:hidden;" '
+        f'onclick="event.stopPropagation()">'
         + _cal_icon_sm
         + f'<span class="meta-date-text">{html.escape(due_text)}</span>'
         + f'<input type="date" class="meta-date-input" value="{html.escape(due_date)}" '
-        f'tabindex="-1" style="position:absolute;opacity:0;pointer-events:none;width:0;height:0;" '
-        f'onclick="event.stopPropagation()" '
+        f'tabindex="-1" style="position:absolute;opacity:0;top:0;left:0;width:100%;height:100%;cursor:pointer;" '
         f"onchange=\"event.stopPropagation();doSetDueDateMeta('{task_id}',this.value,this)\">"
         f"</span>"
     )
@@ -516,13 +516,35 @@ def _build_task_card(
     card_class = "task-card reviewed-card" if show_reviewed_style else "task-card"
     opacity = ' style="opacity:0.65;"' if show_reviewed_style else ""
 
+    # Work scheduled badge (commit/bestcase sections only)
+    schedule_badge_html = ""
+    if work_scheduled is True:
+        schedule_badge_html = (
+            '<span class="work-schedule-badge scheduled">'
+            '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" '
+            'stroke-width="3" stroke-linecap="round" stroke-linejoin="round">'
+            '<polyline points="20 6 9 17 4 12"/></svg>'
+            " Work Scheduled</span>"
+        )
+    elif work_scheduled is False:
+        schedule_badge_html = (
+            '<span class="work-schedule-badge not-scheduled">'
+            '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" '
+            'stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">'
+            '<circle cx="12" cy="12" r="10"/>'
+            '<line x1="12" y1="8" x2="12" y2="12"/>'
+            '<line x1="12" y1="16" x2="12.01" y2="16"/></svg>'
+            " Work Not Scheduled</span>"
+        )
+
     return (
         f'<div class="{card_class}" id="hcard-{idx}"{opacity}{data_attrs}'
         f' onclick="openHomeDetail(this)">'
         f'<div class="card-row">'
         f'<div class="card-content">'
         f'<div class="task-title">{title}{priority_badge}</div>'
-        f'<div class="task-meta">{meta_line}</div>'
+        + (f'<div class="task-schedule-badge">{schedule_badge_html}</div>' if schedule_badge_html else "")
+        + f'<div class="task-meta">{meta_line}</div>'
         f'<div class="task-actions">'
         + (move_select + priority_select if section not in ("commit", "bestcase") else "")
         + f"{complete_btn}"
@@ -1279,6 +1301,7 @@ def build_home_html(
     todoist_tasks: List[Dict[str, Any]] = None,
     all_calendar_events: List[Dict[str, Any]] = None,
     godpower_state: dict = None,
+    committed_action_titles: set = None,
 ) -> str:
     """Build the Home aggregated view HTML."""
     projects_by_id = _build_projects_by_id(projects)
@@ -1358,6 +1381,11 @@ def build_home_html(
                 rev = True
             tr = _time_until_review_reset(tid, key, home_state, cycle_days)
             idx = next_idx()
+            # Compute work-scheduled badge for commit/bestcase sections
+            _work_scheduled = None
+            if key in ("commit", "bestcase") and committed_action_titles is not None:
+                _task_title_key = (task.get("content") or "").strip().lower()
+                _work_scheduled = _task_title_key in committed_action_titles
             card = _build_task_card(
                 task,
                 key,
@@ -1369,6 +1397,7 @@ def build_home_html(
                 email_actions_url=email_actions_url,
                 email_actions_token=email_actions_token,
                 toggl_time_totals=toggl_time_totals,
+                work_scheduled=_work_scheduled,
             )
             if rev:
                 reviewed_cards += card
@@ -1391,14 +1420,39 @@ def build_home_html(
     _day_idx = (datetime.now().timetuple().tm_yday - 1) % len(_GP_ACTIVITIES)
     _act_name, _act_desc = _GP_ACTIVITIES[_day_idx]
     _safe_act_name = _act_name.replace("'", "\\'").replace('"', "&quot;")
+    _gp_work_scheduled = (
+        committed_action_titles is not None
+        and _act_name.strip().lower() in committed_action_titles
+    )
+    if _gp_work_scheduled:
+        _gp_badge_html = (
+            '<div class="task-schedule-badge">'
+            '<span class="work-schedule-badge scheduled">'
+            '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" '
+            'stroke-width="3" stroke-linecap="round" stroke-linejoin="round">'
+            '<polyline points="20 6 9 17 4 12"/></svg>'
+            ' Work Scheduled</span></div>'
+        )
+    else:
+        _gp_badge_html = (
+            '<div class="task-schedule-badge">'
+            '<span class="work-schedule-badge not-scheduled">'
+            '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" '
+            'stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">'
+            '<circle cx="12" cy="12" r="10"/>'
+            '<line x1="12" y1="8" x2="12" y2="12"/>'
+            '<line x1="12" y1="16" x2="12.01" y2="16"/></svg>'
+            ' Work Not Scheduled</span></div>'
+        )
     if _activity_done:
         _activity_card_html = ""
     else:
         _activity_card_html = (
-            '<div class="gp-activity-card" id="gp-activity-card">'
+            '<div class="gp-activity-card" id="gp-activity-card" data-task-id="gp_activity">'
             '<div class="gp-card-ref">Activity</div>'
             '<div class="gp-activity-title">' + html.escape(_act_name) + '</div>'
-            '<div class="gp-activity-desc">' + html.escape(_act_desc) + '</div>'
+            + _gp_badge_html
+            + '<div class="gp-activity-desc">' + html.escape(_act_desc) + '</div>'
             '<div class="task-actions" style="margin-top:12px;">'
             '<button class="complete-btn" onclick="doGpActivityComplete(this)">Complete</button>'
             '<button class="schedule-btn" onclick="openScheduleModal(\'gp_activity\',\'' + _safe_act_name + '\')">'
@@ -1847,6 +1901,12 @@ def build_home_html(
         "padding:2px 7px;border-radius:6px;white-space:nowrap;}"
         ".pri-badge{font-size:10px;font-weight:700;"
         "padding:2px 6px;border-radius:5px;white-space:nowrap;flex-shrink:0;}"
+        ".task-schedule-badge{margin:4px 0 6px;}"
+        ".work-schedule-badge{display:inline-flex;align-items:center;gap:4px;"
+        "font-size:10px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;"
+        "padding:2px 8px;border-radius:4px;white-space:nowrap;}"
+        ".work-schedule-badge.scheduled{background:#22c55e22;color:#22c55e;border:1px solid #22c55e44;}"
+        ".work-schedule-badge.not-scheduled{background:#f9731622;color:#f97316;border:1px solid #f9731644;}"
         ".task-meta{font-size:12px;color:var(--text-2);margin-bottom:10px;line-height:1.5;"
         "word-break:break-word;overflow-wrap:break-word;}"
         ".task-snippet{font-size:12px;color:var(--text-3);margin-bottom:8px;"
@@ -2252,6 +2312,13 @@ def build_home_html(
         "card.dataset.dueDate=date;"
         "var label=input.parentNode.querySelector('.meta-date-text');"
         "if(label){label.textContent=date?date:'No date';}"
+        "var today=new Date();today.setHours(0,0,0,0);"
+        "var picked=date?new Date(date+'T00:00:00'):null;"
+        "var sec=card.dataset.section;"
+        "if((sec==='commit'||sec==='bestcase')&&picked&&picked>today){"
+        "card.style.transition='opacity 0.3s';card.style.opacity='0';"
+        "setTimeout(function(){card.remove();},320);"
+        "}"
         "}"
         "}).catch(function(){});}"
         # --- Complete task ---
@@ -2769,7 +2836,30 @@ def build_home_html(
         "_schedMins=mins;"
         "fetch(_homeUrl+'?action=schedule_action&task_id='+_schedTaskId+'&duration='+mins+(_schedTitle?'&task_title='+encodeURIComponent(_schedTitle):''))"
         ".then(function(r){return r.json();})"
-        ".then(function(d){setTimeout(function(){closeScheduleModal();},800);})"
+        ".then(function(d){"
+        "setTimeout(function(){closeScheduleModal();},800);"
+        "if(d.ok&&_schedTaskId){"
+        "var card=document.querySelector('[data-task-id=\"'+_schedTaskId+'\"]');"
+        "if(card){"
+        "var wrap=card.querySelector('.task-schedule-badge');"
+        "if(!wrap){wrap=document.createElement('div');wrap.className='task-schedule-badge';"
+        "var titleEl=card.querySelector('.task-title')||card.querySelector('.gp-activity-title');"
+        "if(titleEl)titleEl.insertAdjacentElement('afterend',wrap);}"
+        "while(wrap.firstChild)wrap.removeChild(wrap.firstChild);"
+        "var badge=document.createElement('span');badge.className='work-schedule-badge scheduled';"
+        "var svg=document.createElementNS('http://www.w3.org/2000/svg','svg');"
+        "svg.setAttribute('width','10');svg.setAttribute('height','10');"
+        "svg.setAttribute('viewBox','0 0 24 24');svg.setAttribute('fill','none');"
+        "svg.setAttribute('stroke','currentColor');svg.setAttribute('stroke-width','3');"
+        "svg.setAttribute('stroke-linecap','round');svg.setAttribute('stroke-linejoin','round');"
+        "var poly=document.createElementNS('http://www.w3.org/2000/svg','polyline');"
+        "poly.setAttribute('points','20 6 9 17 4 12');svg.appendChild(poly);"
+        "badge.appendChild(svg);"
+        "badge.appendChild(document.createTextNode(' Work Scheduled'));"
+        "wrap.appendChild(badge);"
+        "}"
+        "}"
+        "})"
         ".catch(function(){setTimeout(function(){closeScheduleModal();},800);});"
         "});});"
         "</script>"

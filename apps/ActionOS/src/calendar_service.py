@@ -575,6 +575,52 @@ class CalendarService:
         self.service.events().delete(calendarId=cal_id, eventId=event_id).execute()
         logger.info(f"Deleted event {event_id!r} from calendar {calendar_type!r}")
 
+    def get_today_future_events_from_calendar(
+        self, calendar_id: str
+    ) -> List[Dict[str, Any]]:
+        """Fetch timed events from a specific calendar starting from now through end of today.
+
+        Unlike get_upcoming_events, this includes events with actionos_source='scheduled_work'.
+        Returns a list of dicts: {id, title, start, end}
+        """
+        now = datetime.now(timezone.utc)
+        local_now = now.astimezone(_EASTERN_TZ)
+        today_end = local_now.replace(hour=23, minute=59, second=59, microsecond=0)
+        try:
+            result = (
+                self.service.events()
+                .list(
+                    calendarId=calendar_id,
+                    timeMin=now.isoformat(),
+                    timeMax=today_end.isoformat(),
+                    singleEvents=True,
+                    orderBy="startTime",
+                    maxResults=50,
+                )
+                .execute()
+            )
+        except Exception as e:
+            logger.warning(f"Failed to fetch committed action calendar {calendar_id}: {e}")
+            return []
+        events = []
+        for item in result.get("items", []):
+            start = item.get("start", {})
+            is_all_day = "date" in start and "dateTime" not in start
+            if is_all_day:
+                continue
+            start_val = start.get("dateTime") or start.get("date", "")
+            end = item.get("end", {})
+            end_val = end.get("dateTime") or end.get("date", "")
+            events.append(
+                {
+                    "id": item.get("id", ""),
+                    "title": item.get("summary", "(No title)"),
+                    "start": start_val,
+                    "end": end_val,
+                }
+            )
+        return events
+
     def get_upcoming_events_cached(self, days: int = 90) -> List[Dict[str, Any]]:
         """TTL-cached wrapper around get_upcoming_events (60s cache)."""
         now_ts = time.time()

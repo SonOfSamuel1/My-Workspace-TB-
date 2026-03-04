@@ -837,7 +837,7 @@ def _build_home_html_uncached(
             ]
 
         commit_tasks = _due_today_or_undated(f_commit.result())
-        bestcase_tasks = _due_today(f_bestcase.result())
+        bestcase_tasks = _due_today_or_undated(f_bestcase.result())
         p1_tasks = _due_today(f_p1.result())
         inbox_tasks = [
             t
@@ -870,6 +870,38 @@ def _build_home_html_uncached(
     home_state = _load_home_reviewed_state()
     cal_state = _load_calendar_state()
     godpower_state = _load_godpower_state()
+
+    # Build set of task titles already scheduled for later today in "Committed action" calendar
+    committed_action_titles: set = set()
+    _ca_cal_id = cal_state.get("committed_action_calendar_id", "")
+    if _ca_cal_id:
+        try:
+            _ca_events = cal.get_today_future_events_from_calendar(_ca_cal_id)
+            for _ev in _ca_events:
+                _t = _ev.get("title", "")
+                if _t.upper().startswith("COMMIT:"):
+                    committed_action_titles.add(_t[_t.index(":") + 1 :].strip().lower())
+        except Exception:
+            pass
+
+    # Auto-mark tasks as reviewed if they have work scheduled for later today
+    if committed_action_titles:
+        try:
+            _now_iso = datetime.now(timezone.utc).isoformat()
+            _state_changed = False
+            for _section, _tasks in (("commit", commit_tasks), ("bestcase", bestcase_tasks)):
+                for _t in _tasks:
+                    _tid = str(_t.get("id", ""))
+                    _title_key = (_t.get("content") or "").strip().lower()
+                    if _title_key in committed_action_titles:
+                        # Only write if not already reviewed (avoids unnecessary S3 writes)
+                        if not home_state.get(_section, {}).get(_tid):
+                            home_state.setdefault(_section, {})[_tid] = _now_iso
+                            _state_changed = True
+            if _state_changed:
+                _save_home_reviewed_state(home_state)
+        except Exception:
+            pass
 
     _toggl_tok = _os.environ.get("TOGGL_API_TOKEN", "")
     toggl_time_totals = _fetch_toggl_time_entries(_toggl_tok) if _toggl_tok else {}
@@ -921,6 +953,7 @@ def _build_home_html_uncached(
         toggl_daily_total_secs=toggl_daily_total_secs,
         todoist_tasks=all_todoist_tasks,
         godpower_state=godpower_state,
+        committed_action_titles=committed_action_titles,
     )
 
 
@@ -1651,7 +1684,8 @@ def handle_action(event: dict) -> dict:
                     tasks = [
                         t
                         for t in all_bestcase
-                        if t.get("due") and t["due"].get("date", "")[:10] <= today_str
+                        if not t.get("due")
+                        or t["due"].get("date", "")[:10] <= today_str
                     ]
                 elif view == "sabbath":
                     tasks, projects = service.get_sabbath_tasks()
@@ -2217,14 +2251,19 @@ def handle_action(event: dict) -> dict:
                 calendar_id=_ca_id,
             )
             num = len(created)
-            # Mark commit tasks as scheduled in home state so the badge tracks scheduling
+            # Mark task as reviewed in home state for commit and/or bestcase sections
             try:
                 task_labels = (task.get("labels") or []) if task else []
+                _home_st = _load_home_reviewed_state()
+                _now_iso = datetime.now(timezone.utc).isoformat()
+                _changed = False
                 if "Commit" in task_labels:
-                    _home_st = _load_home_reviewed_state()
-                    if "commit" not in _home_st:
-                        _home_st["commit"] = {}
-                    _home_st["commit"][task_id] = datetime.now(timezone.utc).isoformat()
+                    _home_st.setdefault("commit", {})[task_id] = _now_iso
+                    _changed = True
+                if "Best Case" in task_labels:
+                    _home_st.setdefault("bestcase", {})[task_id] = _now_iso
+                    _changed = True
+                if _changed:
                     _save_home_reviewed_state(_home_st)
             except Exception:
                 pass
