@@ -723,9 +723,11 @@ def _build_event_card(
         )
 
     # Always show all buttons regardless of review status
+    _rid_attr = _rid.replace('"', "&quot;") if _rid else ""
     return (
         f'<div class="task-card{card_extra}" id="card-{idx}" onclick="openEventDetail(event,this)"'
         f' data-eid="{eid_safe}"'
+        f' data-rid="{_rid_attr}"'
         f' data-cal-type="{_cal_type_attr}"'
         f' data-title="{_title_attr}"'
         f' data-start="{_start_attr}"'
@@ -1838,20 +1840,28 @@ def build_calendar_html(
         "}else{"
         "evts.style.display='block';be.classList.add('active');"
         "if(sn)sn.style.display='';"
-        "}}" + post_message_js + "function doReview(btn,eid,url){"
+        "}}" + post_message_js + "function _fadeRemoveCard(c){"
+        "c.style.transition='opacity 0.3s ease';"
+        "c.style.opacity='0';"
+        "setTimeout(function(){c.remove();},300);}"
+        "function doReview(btn,eid,url){"
         "btn.style.pointerEvents='none';btn.textContent='Reviewing\u2026';"
         "fetch(url).then(function(r){return r.json();}).then(function(d){"
         "if(d.ok){"
-        "if(typeof calendarCount!=='undefined'){calendarCount=Math.max(0,calendarCount-1);"
-        "if(typeof postCount==='function')postCount();}"
-        "var b=document.getElementById('unrev-badge');"
-        "if(b&&typeof calendarCount!=='undefined')b.textContent=calendarCount;"
         "var card=btn.closest('.task-card');"
-        "if(card&&card.classList.contains('unreviewed-card')){"
-        "card.style.transition='opacity 0.3s ease';"
-        "card.style.opacity='0';"
-        "setTimeout(function(){card.remove();},300);"
-        "}else if(card){"
+        "var rid=card?card.getAttribute('data-rid'):'';"
+        "var removed=0;"
+        "if(rid){"
+        "document.querySelectorAll('.unreviewed-card[data-rid=\"'+rid+'\"]').forEach(function(c){"
+        "_fadeRemoveCard(c);removed++;});}"
+        "if(!removed&&card&&card.classList.contains('unreviewed-card')){"
+        "_fadeRemoveCard(card);removed=1;}"
+        "if(removed&&typeof calendarCount!=='undefined'){"
+        "calendarCount=Math.max(0,calendarCount-removed);"
+        "if(typeof postCount==='function')postCount();"
+        "var b=document.getElementById('unrev-badge');"
+        "if(b)b.textContent=calendarCount;}"
+        "if(!removed&&card){"
         "btn.className='review-btn reviewed';btn.textContent='\u2713 Reviewed (7d)';"
         "btn.style.cursor='default';btn.style.pointerEvents='auto';"
         "card.classList.remove('unreviewed-card');card.classList.add('reviewed-card');}"
