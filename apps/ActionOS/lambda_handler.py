@@ -1516,6 +1516,25 @@ def handle_action(event: dict) -> dict:
                     "body": _error_page(f"Error: {e}"),
                 }
 
+        elif view == "focus":
+            try:
+                from focus_views import build_focus_html
+                _tl_state = _load_home_reviewed_state()
+                _tl_data = _tl_state.get("toggl_local") or {}
+                body = build_focus_html(_tl_data)
+                return {
+                    "statusCode": 200,
+                    "headers": _html_headers,
+                    "body": body,
+                }
+            except Exception as e:
+                logger.error(f"Focus view failed: {e}", exc_info=True)
+                return {
+                    "statusCode": 200,
+                    "headers": {"Content-Type": "text/html"},
+                    "body": _error_page(f"Error: {e}"),
+                }
+
         elif view == "home":
             try:
                 body = _get_home_html(function_url, expected, todoist_token)

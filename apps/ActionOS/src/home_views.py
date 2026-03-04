@@ -1684,12 +1684,8 @@ def build_home_html(
     _tdw_goal_str = "Goal reached!" if _tdw_secs >= _DAILY_GOAL_SECS else "Goal: 6h"
     _tdw_pct_str = f"{_tdw_pct}% of daily goal"
     _tdw_fill_width = f"{_tdw_pct}%"
-    import json as _json
-    _tl_data = (home_state or {}).get("toggl_local") or {}
-    _tl_sessions_json = _json.dumps(_tl_data.get("sessions") or [])
-    _tl_active_iso_json = _json.dumps(_tl_data.get("active_start_iso"))
     _toggl_daily_widget_html = (
-        '<div class="tdw" onclick="openTogglDetail()" style="cursor:pointer;">'
+        '<div class="tdw" onclick="window.parent.postMessage({type:\'switchTab\',tab:\'focus\'},\'*\')" style="cursor:pointer;">'
         '<div class="tdw-header">'
         '<span class="tdw-label">Today\'s Focus</span>'
         '<span class="tdw-time">' + _tdw_time_str + '</span>'
@@ -2078,28 +2074,6 @@ def build_home_html(
         ".tdw-footer{display:flex;justify-content:space-between;align-items:center;}"
         ".tdw-pct{font-size:11px;color:var(--text-2);}"
         ".tdw-goal{font-size:11px;color:var(--text-2);}"
-        # Toggl Detail Modal
-        "#toggl-detail-overlay{display:none;position:fixed;inset:0;z-index:2000;"
-        "background:rgba(0,0,0,0.6);align-items:center;justify-content:center;}"
-        "#toggl-detail-overlay.open{display:flex;}"
-        "#toggl-detail-modal{background:var(--bg-s1);border:1px solid var(--border);"
-        "border-radius:14px;padding:20px;width:340px;max-width:92vw;max-height:80vh;"
-        "display:flex;flex-direction:column;gap:12px;"
-        "box-shadow:0 8px 32px rgba(0,0,0,0.4);overflow:hidden;}"
-        ".tdm-hdr{display:flex;justify-content:space-between;align-items:center;}"
-        ".tdm-title{font-size:12px;font-weight:700;text-transform:uppercase;"
-        "letter-spacing:0.6px;color:var(--text-2);}"
-        ".tdm-close{background:none;border:none;color:var(--text-2);font-size:18px;"
-        "cursor:pointer;padding:0 2px;line-height:1;}"
-        ".tdm-total{font-size:24px;font-weight:700;color:var(--text-1);text-align:center;padding:4px 0;}"
-        ".tdm-list{overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:6px;}"
-        ".tdm-row{display:flex;justify-content:space-between;align-items:center;"
-        "padding:8px 10px;background:var(--bg-s2);border-radius:8px;}"
-        ".tdm-desc{font-size:12px;color:var(--text-1);flex:1;margin-right:8px;"
-        "white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}"
-        ".tdm-dur{font-size:12px;font-weight:600;color:var(--accent);flex-shrink:0;}"
-        ".tdm-dur.running{color:var(--text-2);font-style:italic;}"
-        ".tdm-empty{font-size:12px;color:var(--text-2);text-align:center;}"
         "</style></head><body>"
         + (
             ""
@@ -2810,64 +2784,7 @@ def build_home_html(
         "setTimeout(function(){btn.textContent='Schedule';},2000);"
         "});"
         "});"
-        # Toggl detail modal JS
-        "var _tlSessions=" + _tl_sessions_json + ";"
-        "var _tlActiveIso=" + _tl_active_iso_json + ";"
-        "function openTogglDetail(){"
-        "var overlay=document.getElementById('toggl-detail-overlay');"
-        "var list=document.getElementById('tdm-list');"
-        "var empty=document.getElementById('tdm-empty');"
-        "var totalEl=document.getElementById('tdm-total');"
-        "while(list.firstChild)list.removeChild(list.firstChild);"
-        "var sessions=(_tlSessions||[]).slice().reverse();"
-        "var totalSecs=0;"
-        "sessions.forEach(function(s){"
-        "var dur=s.duration_secs;"
-        "var active=(dur===null||dur===undefined);"
-        "if(active&&_tlActiveIso){"
-        "var elapsed=Math.max(0,Math.floor((Date.now()-new Date(_tlActiveIso).getTime())/1000));"
-        "dur=Math.min(elapsed,28800);"
-        "}"
-        "totalSecs+=(dur||0);"
-        "var row=document.createElement('div');"
-        "row.className='tdm-row';"
-        "var desc=document.createElement('span');"
-        "desc.className='tdm-desc';"
-        "desc.textContent=s.description||'Untitled';"
-        "var durSpan=document.createElement('span');"
-        "durSpan.className='tdm-dur'+(active?' running':'');"
-        "durSpan.textContent=_fmtSecs(dur||0)+(active?' \u25b6':'');"
-        "row.appendChild(desc);"
-        "row.appendChild(durSpan);"
-        "list.appendChild(row);"
-        "});"
-        "totalEl.textContent=_fmtSecs(totalSecs);"
-        "var has=sessions.length>0;"
-        "list.style.display=has?'flex':'none';"
-        "empty.style.display=has?'none':'block';"
-        "overlay.classList.add('open');"
-        "document.body.style.overflow='hidden';"
-        "}"
-        "function closeTogglDetail(){"
-        "document.getElementById('toggl-detail-overlay').classList.remove('open');"
-        "document.body.style.overflow='';"
-        "}"
-        "function _fmtSecs(s){"
-        "var h=Math.floor(s/3600),m=Math.floor((s%3600)/60);"
-        "return h>0?h+'h '+String(m).padStart(2,'0')+'m':m+'m';"
-        "}"
         "</script>"
-        '<div id="toggl-detail-overlay" onclick="if(event.target===this)closeTogglDetail()">'
-        '<div id="toggl-detail-modal">'
-        '<div class="tdm-hdr">'
-        '<span class="tdm-title">Today\'s Focus</span>'
-        '<button class="tdm-close" onclick="closeTogglDetail()">&#x2715;</button>'
-        '</div>'
-        '<div class="tdm-total" id="tdm-total"></div>'
-        '<div class="tdm-list" id="tdm-list"></div>'
-        '<div class="tdm-empty" id="tdm-empty">No sessions tracked yet today.</div>'
-        '</div>'
-        '</div>'
         "</body></html>"
     )
 
