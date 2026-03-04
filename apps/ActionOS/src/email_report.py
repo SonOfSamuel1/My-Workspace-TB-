@@ -1297,7 +1297,7 @@ def build_web_html(
         "b.addEventListener('click',function(){"
         "if(!_schedTaskId)return;"
         "var self=this;"
-        "window.location.href='googlecalendar://';"
+        "(window.top||window).location.href='googlecalendar://';"
         "self.disabled=true;self.textContent='\\u2713';"
         "var mins=parseInt(self.getAttribute('data-mins'));"
         "_schedMins=mins;"

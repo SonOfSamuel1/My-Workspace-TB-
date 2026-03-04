@@ -912,7 +912,7 @@ def build_code_projects_html(
         "if(d.ok){"
         "btn.textContent='\\u2713 '+d.events_created+' events created!';"
         "btn.style.background='#22c55e';"
-        "setTimeout(function(){closeScheduleModal();btn.style.background='';window.location.href='googlecalendar://';},1500);"
+        "setTimeout(function(){closeScheduleModal();btn.style.background='';(window.top||window).location.href='googlecalendar://';},1500);"
         "}else{"
         "btn.textContent='Failed: '+(d.error||'Unknown error');"
         "btn.disabled=false;btn.style.background='#ef4444';"
