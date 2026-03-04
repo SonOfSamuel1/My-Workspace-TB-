@@ -1259,6 +1259,7 @@ def build_home_html(
     email_actions_url: str = "",
     email_actions_token: str = "",
     toggl_time_totals=None,
+    toggl_daily_total_secs: int = 0,
     todoist_tasks: List[Dict[str, Any]] = None,
     all_calendar_events: List[Dict[str, Any]] = None,
     godpower_state: dict = None,

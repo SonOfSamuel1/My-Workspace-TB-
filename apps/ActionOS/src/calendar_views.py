@@ -3,6 +3,7 @@
 Renders sections: Not Reviewed, Today's Events, Love Brittany / Love Children,
 Medical Appointments, Travel, Birthdays & Anniversaries, Everything Else.
 Cards styled consistently with the other ActionOS views.
+Add Event button (x-fantastical3://add) lives in the view-toggle bar.
 """
 
 import html

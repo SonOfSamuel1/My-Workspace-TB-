@@ -872,6 +872,9 @@ def _build_home_html_uncached(
 
     _toggl_tok = _os.environ.get("TOGGL_API_TOKEN", "")
     toggl_time_totals = _fetch_toggl_time_entries(_toggl_tok) if _toggl_tok else {}
+    toggl_daily_total_secs = (
+        _fetch_toggl_daily_total_seconds(_toggl_tok) if _toggl_tok else 0
+    )
 
     return build_home_html(
         commit_tasks=commit_tasks,
@@ -890,6 +893,7 @@ def _build_home_html_uncached(
         action_token=action_token,
         embed=True,
         toggl_time_totals=toggl_time_totals,
+        toggl_daily_total_secs=toggl_daily_total_secs,
         todoist_tasks=all_todoist_tasks,
         godpower_state=godpower_state,
     )
@@ -1069,6 +1073,54 @@ def _fetch_toggl_time_entries(toggl_token: str) -> dict:
     except Exception as e:
         logger.warning(f"Could not fetch Toggl time entries: {e}")
         return {}
+
+
+def _fetch_toggl_daily_total_seconds(toggl_token: str) -> int:
+    """Fetch total seconds tracked in Toggl today (Eastern time).
+
+    Uses the same no-param /me/time_entries endpoint as _fetch_toggl_time_entries
+    (which works on all plans), then filters to today's entries in Python.
+    """
+    try:
+        import base64 as _b64
+        import time as _time
+
+        import requests as _req
+        from zoneinfo import ZoneInfo
+
+        _eastern = ZoneInfo("America/New_York")
+        _today_str = datetime.now(_eastern).date().isoformat()
+        _auth = _b64.b64encode(f"{toggl_token}:api_token".encode()).decode()
+        _th = {"Authorization": f"Basic {_auth}", "Content-Type": "application/json"}
+        _mr = _req.get(
+            "https://api.track.toggl.com/api/v9/me/time_entries",
+            headers=_th,
+        )
+        _mr.raise_for_status()
+        entries = _mr.json()
+        now_ts = _time.time()
+        total = 0
+        for entry in entries:
+            # Filter to entries that started today (Eastern)
+            start = entry.get("start", "")
+            if not start:
+                continue
+            try:
+                start_dt = datetime.fromisoformat(start.replace("Z", "+00:00"))
+                if start_dt.astimezone(_eastern).date().isoformat() != _today_str:
+                    continue
+            except Exception:
+                continue
+            dur = entry.get("duration", 0)
+            if dur < 0:
+                # Currently running timer: duration is -(unix start ts)
+                total += max(0, int(now_ts + dur))
+            elif dur > 0:
+                total += dur
+        return total
+    except Exception as e:
+        logger.warning(f"Could not fetch Toggl daily total: {e}")
+        return 0
 
 
 # ---------------------------------------------------------------------------
