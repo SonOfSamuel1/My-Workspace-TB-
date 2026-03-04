@@ -1194,6 +1194,8 @@ _DILIGENT_PROJECT_NAMES = {
     "Scheduled Best Case",
     "Unscheduled Urgent",
     "Unscheduled Good Samaritan",
+    "Life Group Meeting",
+    "Life Group Prep",
 }
 
 
@@ -3044,6 +3046,7 @@ def handle_action(event: dict) -> dict:
             post_data = {}
 
         ts_subject = post_data.get("subject", "Email task")
+        ts_project_name = post_data.get("project", "")
 
         try:
             import base64 as _b64
@@ -3072,6 +3075,16 @@ def handle_action(event: dict) -> dict:
                 "duration": -1,
                 "created_with": "actionos",
             }
+            # Assign Toggl project if specified
+            if ts_project_name:
+                try:
+                    _projs = _fetch_toggl_projects(toggl_token)
+                    for _p in _projs:
+                        if _p.get("name", "").lower() == ts_project_name.lower():
+                            timer_body["project_id"] = _p["id"]
+                            break
+                except Exception:
+                    pass
             _r = _req.post(
                 f"https://api.track.toggl.com/api/v9/workspaces/{ts_workspace_id}/time_entries",
                 headers=_th,
@@ -3234,6 +3247,7 @@ def handle_action(event: dict) -> dict:
         event_title = params.get("event_title", "Calendar Event")
         event_start = params.get("event_start", "")
         event_end = params.get("event_end", "")
+        log_project_name = params.get("project_name", "")
         if not event_start or not event_end:
             return _error_json("Missing event_start or event_end")
         try:
@@ -3272,6 +3286,15 @@ def handle_action(event: dict) -> dict:
                 "duration": duration_secs,
                 "created_with": "actionos",
             }
+            if log_project_name:
+                try:
+                    _projs = _fetch_toggl_projects(toggl_token)
+                    for _p in _projs:
+                        if _p.get("name", "").lower() == log_project_name.lower():
+                            entry_body["project_id"] = _p["id"]
+                            break
+                except Exception:
+                    pass
             _r = _req.post(
                 f"https://api.track.toggl.com/api/v9/workspaces/{ws_id}/time_entries",
                 headers=_th,

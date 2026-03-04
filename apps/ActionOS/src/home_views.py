@@ -445,12 +445,18 @@ def _build_task_card(
         " Schedule Work</button>"
     )
 
-    # Toggl timer button
+    # Toggl timer button — auto-assign project based on task label
     safe_subj = raw_content.replace("'", "\\'").replace('"', "&quot;")
+    _toggl_project = (
+        "Scheduled Committed" if is_committed
+        else "Scheduled Best Case" if is_bestcase
+        else ""
+    )
     toggl_select = (
         '<button class="toggl-btn"'
         ' onclick="event.stopPropagation();doTogglStart(this)"'
-        ' data-subject="' + safe_subj + '">'
+        ' data-subject="' + safe_subj + '"'
+        ' data-toggl-project="' + _toggl_project + '">'
         "Track</button>"
     )
 
@@ -2425,9 +2431,10 @@ def build_home_html(
         # --- Toggl timer ---
         "function doTogglStart(btn){"
         "var subject=btn.getAttribute('data-subject')||'';"
+        "var project=btn.getAttribute('data-toggl-project')||'';"
         "btn.disabled=true;btn.textContent='Starting\u2026';"
         "fetch(_homeUrl+'?action=toggl_start',{method:'POST',headers:{'Content-Type':'application/json'},"
-        "body:JSON.stringify({subject:subject})})"
+        "body:JSON.stringify({subject:subject,project:project})})"
         ".then(function(r){return r.json();})"
         ".then(function(d){"
         "if(d.ok){"
@@ -3140,9 +3147,10 @@ def build_godpower_view_html(function_url: str, godpower_state: dict = None) -> 
         "}).catch(function(){btn.textContent='Complete';btn.style.pointerEvents='auto';});}"
         "function doTogglStart(btn){"
         "var subj=btn.getAttribute('data-subject');"
+        "var proj=btn.getAttribute('data-toggl-project')||'';"
         f"fetch('{base_url}?action=toggl_start',{{method:'POST',"
         "headers:{'Content-Type':'application/json'},"
-        "body:JSON.stringify({subject:subj})}})"
+        "body:JSON.stringify({subject:subj,project:proj})}})"
         ".then(function(r){return r.json();}).then(function(d){"
         "if(d.ok){btn.textContent='\u25a0 Stop';btn.classList.add('toggl-running');}}).catch(function(){});}"
         "</script>"

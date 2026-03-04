@@ -363,10 +363,16 @@ def _build_task_card(
 
     # Toggl timer button
     safe_content = raw_content.replace("'", "\\'").replace('"', "&quot;")
+    _toggl_project = (
+        "Scheduled Committed" if is_committed
+        else "Scheduled Best Case" if is_bestcase
+        else ""
+    )
     toggl_select = (
         '<button class="toggl-btn"'
         ' onclick="event.stopPropagation();doTogglStart(this)"'
-        ' data-subject="' + safe_content + '">'
+        ' data-subject="' + safe_content + '"'
+        ' data-toggl-project="' + _toggl_project + '">'
         'Track</button>'
     )
 
@@ -1177,10 +1183,11 @@ def build_view_html(
         # Toggl timer
         "function doTogglStart(btn){"
         "var subject=btn.getAttribute('data-subject')||'';"
+        "var project=btn.getAttribute('data-toggl-project')||'';"
         "btn.disabled=true;btn.textContent='Starting\u2026';"
         f"var url='{base_action_url}?action=toggl_start&token={action_token}';"
         "fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},"
-        "body:JSON.stringify({subject:subject})})"
+        "body:JSON.stringify({subject:subject,project:project})})"
         ".then(function(r){return r.json();})"
         ".then(function(d){"
         "if(d.ok){"
