@@ -1315,6 +1315,100 @@ def _fetch_toggl_daily_total_seconds(toggl_token: str) -> int:
         return 0
 
 
+def _reconcile_toggl_local(toggl_token: str) -> None:
+    """Sync toggl_local with the actual Toggl timer state.
+
+    If toggl_local thinks a timer is running but Toggl says it stopped
+    (i.e., the user stopped the timer directly in the Toggl app),
+    this clears active_start_iso and fills in the session duration from the API.
+    """
+    if not toggl_token:
+        return
+    try:
+        import base64 as _b64
+
+        import requests as _req
+        from zoneinfo import ZoneInfo as _ZI
+
+        _today_et = datetime.now(_ZI("America/New_York")).date().isoformat()
+        _st = _load_home_reviewed_state()
+        _tl = _st.get("toggl_local") or {}
+
+        # Only act if toggl_local has an active timer for today
+        if _tl.get("date") != _today_et or not _tl.get("active_start_iso"):
+            return
+
+        _auth = _b64.b64encode(f"{toggl_token}:api_token".encode()).decode()
+        _th = {"Authorization": f"Basic {_auth}", "Content-Type": "application/json"}
+
+        # Check if a timer is actually running in Toggl
+        _cur_r = _req.get(
+            "https://api.track.toggl.com/api/v9/me/time_entries/current",
+            headers=_th,
+            timeout=10,
+        )
+        _cur_r.raise_for_status()
+        current_entry = _cur_r.json()  # None means no running timer
+
+        if current_entry and current_entry.get("id"):
+            # Timer is still running in Toggl — no reconciliation needed
+            return
+
+        # Timer was stopped externally. Find the completed entry to get its duration.
+        active_start_iso = _tl["active_start_iso"]
+        duration_secs = 0
+        try:
+            _entries_r = _req.get(
+                "https://api.track.toggl.com/api/v9/me/time_entries",
+                headers=_th,
+                timeout=10,
+            )
+            _entries_r.raise_for_status()
+            for entry in (_entries_r.json() or []):
+                dur = entry.get("duration", -1)
+                if dur <= 0:
+                    continue  # skip running or invalid entries
+                entry_start = entry.get("start", "")
+                if not entry_start:
+                    continue
+                try:
+                    ts1 = datetime.fromisoformat(active_start_iso.replace("Z", "+00:00"))
+                    ts2 = datetime.fromisoformat(entry_start.replace("Z", "+00:00"))
+                    if abs((ts1 - ts2).total_seconds()) < 90:  # same session
+                        duration_secs = dur
+                        break
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
+        # Fallback: compute elapsed from start to now
+        if not duration_secs:
+            try:
+                start_dt = datetime.fromisoformat(active_start_iso.replace("Z", "+00:00"))
+                if start_dt.tzinfo is None:
+                    start_dt = start_dt.replace(tzinfo=timezone.utc)
+                duration_secs = min(
+                    max(0, int((datetime.now(timezone.utc) - start_dt).total_seconds())),
+                    28800,
+                )
+            except Exception:
+                duration_secs = 0
+
+        # Close the active session in toggl_local
+        _tl["active_start_iso"] = None
+        _tl["completed_secs"] = (_tl.get("completed_secs") or 0) + duration_secs
+        for _s in reversed(_tl.get("sessions", [])):
+            if _s.get("duration_secs") is None:
+                _s["duration_secs"] = duration_secs
+                break
+        _st["toggl_local"] = _tl
+        _save_home_reviewed_state(_st)
+        logger.info(f"toggl_local reconciled: timer stopped externally, duration={duration_secs}s")
+    except Exception as e:
+        logger.warning(f"toggl_local reconcile failed: {e}")
+
+
 # ---------------------------------------------------------------------------
 # Function URL detection
 # ---------------------------------------------------------------------------
@@ -1502,6 +1596,7 @@ def handle_action(event: dict) -> dict:
             "ffm_outreach",
             "toggl_start",
             "toggl_stop",
+            "toggl_current",
             "toggl_log_event",
             "starred_to_todoist",
             "followup_reviewed",
@@ -1650,11 +1745,22 @@ def handle_action(event: dict) -> dict:
             if _cached:
                 return {"statusCode": 200, "headers": _html_headers, "body": _cached}
             try:
-                from email_report import build_web_html
-                from unread_main import get_unread_emails_for_web
+                from concurrent.futures import ThreadPoolExecutor as _UnreadTPE
 
-                emails = get_unread_emails_for_web()
-                projects = _fetch_todoist_projects(todoist_token)
+                from email_report import build_web_html
+                from unread_main import (
+                    get_recent_emails_for_web,
+                    get_unread_emails_for_web,
+                )
+
+                with _UnreadTPE(max_workers=3) as _ex:
+                    _f_unread = _ex.submit(get_unread_emails_for_web)
+                    _f_recent = _ex.submit(get_recent_emails_for_web, 7)
+                    _f_projects = _ex.submit(_fetch_todoist_projects, todoist_token)
+                    emails = _f_unread.result()
+                    recent_emails = _f_recent.result()
+                    projects = _f_projects.result()
+
                 toggl_projects = _fetch_toggl_projects(
                     os.environ.get("TOGGL_API_TOKEN", "")
                 )
@@ -1665,6 +1771,7 @@ def handle_action(event: dict) -> dict:
                     embed=True,
                     projects=projects,
                     toggl_projects=toggl_projects,
+                    recent_emails=recent_emails,
                 )
                 _set_view_cache("unread", body)
                 return {
@@ -1683,6 +1790,7 @@ def handle_action(event: dict) -> dict:
         elif view == "focus":
             try:
                 from focus_views import build_focus_html
+                _reconcile_toggl_local(os.environ.get("TOGGL_API_TOKEN", ""))
                 _tl_state = _load_home_reviewed_state()
                 _tl_data = _tl_state.get("toggl_local") or {}
                 body = build_focus_html(_tl_data)
@@ -3089,6 +3197,38 @@ def handle_action(event: dict) -> dict:
             except Exception as _e2:
                 logger.warning(f"toggl_local stop fallback failed: {_e2}")
             return _ok_json({"duration": local_duration})
+
+    elif action == "toggl_current":
+        # Return the currently running Toggl timer (description + start), or null.
+        try:
+            import base64 as _b64
+
+            import requests as _req
+
+            toggl_token = os.environ.get("TOGGL_API_TOKEN", "")
+            if not toggl_token:
+                return _ok_json({"description": None})
+            _auth = _b64.b64encode(f"{toggl_token}:api_token".encode()).decode()
+            _th = {"Authorization": f"Basic {_auth}", "Content-Type": "application/json"}
+            _cur_r = _req.get(
+                "https://api.track.toggl.com/api/v9/me/time_entries/current",
+                headers=_th,
+                timeout=8,
+            )
+            _cur_r.raise_for_status()
+            entry = _cur_r.json()
+            if entry and entry.get("id"):
+                start_unix = 0
+                try:
+                    start_dt = datetime.fromisoformat(entry["start"].replace("Z", "+00:00"))
+                    start_unix = int(start_dt.timestamp())
+                except Exception:
+                    pass
+                return _ok_json({"description": entry.get("description", ""), "start_unix": start_unix})
+            return _ok_json({"description": None})
+        except Exception as _e:
+            logger.warning(f"toggl_current failed: {_e}")
+            return _ok_json({"description": None})
 
     elif action == "toggl_log_event":
         event_title = params.get("event_title", "Calendar Event")
