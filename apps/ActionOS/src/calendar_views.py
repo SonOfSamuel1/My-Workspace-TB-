@@ -1275,11 +1275,6 @@ def build_calendar_html(
         ".refresh-btn{margin-left:auto;background:var(--border);border:1px solid var(--border);"
         "color:var(--text-1);font-size:13px;font-weight:600;padding:6px 14px;border-radius:6px;cursor:pointer;}"
         ".refresh-btn:hover{background:var(--border-h);}"
-        ".add-event-btn{flex:0 0 auto;margin-left:auto;background:#16a34a;border:1px solid #15803d;"
-        "color:#fff;font-size:14px;font-weight:600;padding:5px 10px;border-radius:6px;"
-        "cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;"
-        "white-space:nowrap;min-height:30px;}"
-        ".add-event-btn:hover{background:#15803d;}"
         ".scroll-area{height:"
         + page_height
         + ";overflow-y:auto;overflow-x:hidden;background:var(--bg-base);}"
@@ -1546,7 +1541,6 @@ def build_calendar_html(
         '<button class="view-toggle-btn active" id="btn-events" onclick="switchView(\'events\')">Events</button>'
         '<button class="view-toggle-btn" id="btn-7days" onclick="switchView(\'7days\')">Next 7 Days</button>'
         '<button class="view-toggle-btn" id="btn-lay-life-down" onclick="switchView(\'lay-life-down\')">Lay Life Down</button>'
-        '<a class="add-event-btn" href="x-fantastical3://add">+ Add</a>'
         "</div>"
         + _build_cal_nav_bar(_cal_nav_counts)
         + "</div>"
