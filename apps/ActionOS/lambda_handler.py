@@ -904,32 +904,31 @@ def _build_home_html_uncached(
         except Exception as _e:
             logger.warning(f"toggl_local fallback read failed: {_e}")
 
-    # Compute committed calendar total for today (Committed action calendars)
-    _COMMITTED_CAL_TYPES = {"committed_action_a", "committed_action_b"}
+    # Compute committed calendar total for today using the dynamic calendar ID from state
+    _ca_cal_id = cal_state.get("committed_action_calendar_id", "")
     committed_cal_secs = 0
-    try:
-        from zoneinfo import ZoneInfo as _ZI
-        _today_et = datetime.now(_ZI("America/New_York")).date().isoformat()
-        for ev in calendar_events:
-            if ev.get("calendar_type") not in _COMMITTED_CAL_TYPES:
-                continue
-            if ev.get("is_all_day"):
-                continue
-            start_str = ev.get("start", "")
-            end_str = ev.get("end", "")
-            if not start_str or not end_str:
-                continue
-            try:
-                s_dt = datetime.fromisoformat(start_str.replace("Z", "+00:00"))
-                if s_dt.astimezone(_ZI("America/New_York")).date().isoformat() != _today_et:
+    if _ca_cal_id:
+        try:
+            from zoneinfo import ZoneInfo as _ZI
+            _today_et = datetime.now(_ZI("America/New_York")).date().isoformat()
+            for ev in cal.get_today_events_from_calendar(_ca_cal_id):
+                if ev.get("is_all_day"):
                     continue
-                e_dt = datetime.fromisoformat(end_str.replace("Z", "+00:00"))
-                dur = max(0, int((e_dt - s_dt).total_seconds()))
-                committed_cal_secs += dur
-            except Exception:
-                continue
-    except Exception as _e:
-        logger.warning(f"committed calendar total failed: {_e}")
+                start_str = ev.get("start", "")
+                end_str = ev.get("end", "")
+                if not start_str or not end_str:
+                    continue
+                try:
+                    s_dt = datetime.fromisoformat(start_str.replace("Z", "+00:00"))
+                    if s_dt.astimezone(_ZI("America/New_York")).date().isoformat() != _today_et:
+                        continue
+                    e_dt = datetime.fromisoformat(end_str.replace("Z", "+00:00"))
+                    dur = max(0, int((e_dt - s_dt).total_seconds()))
+                    committed_cal_secs += dur
+                except Exception:
+                    continue
+        except Exception as _e:
+            logger.warning(f"committed calendar total failed: {_e}")
 
     # Build set of task titles that have committed action events scheduled today
     # Used to show "Work Scheduled" / "Work Not Scheduled" badges on cards
