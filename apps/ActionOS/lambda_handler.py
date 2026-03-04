@@ -1336,8 +1336,16 @@ def _reconcile_toggl_local(toggl_token: str) -> None:
         _st = _load_home_reviewed_state()
         _tl = _st.get("toggl_local") or {}
 
-        # Only act if toggl_local has an active timer for today
-        if _tl.get("date") != _today_et or not _tl.get("active_start_iso"):
+        # Nothing to reconcile if no active timer
+        if not _tl.get("active_start_iso"):
+            return
+
+        # If the active timer is from a previous day it's definitely stale — clear it
+        if _tl.get("date") != _today_et:
+            _tl["active_start_iso"] = None
+            _st["toggl_local"] = _tl
+            _save_home_reviewed_state(_st)
+            logger.info("toggl_local: cleared stale active_start_iso from previous day")
             return
 
         _auth = _b64.b64encode(f"{toggl_token}:api_token".encode()).decode()
@@ -1400,10 +1408,12 @@ def _reconcile_toggl_local(toggl_token: str) -> None:
         # Close the active session in toggl_local
         _tl["active_start_iso"] = None
         _tl["completed_secs"] = (_tl.get("completed_secs") or 0) + duration_secs
-        for _s in reversed(_tl.get("sessions", [])):
+        # Fill duration on ALL sessions missing it (handles any accumulated stale entries)
+        _filled = 0
+        for _s in _tl.get("sessions", []):
             if _s.get("duration_secs") is None:
-                _s["duration_secs"] = duration_secs
-                break
+                _s["duration_secs"] = duration_secs if _filled == 0 else 0
+                _filled += 1
         _st["toggl_local"] = _tl
         _save_home_reviewed_state(_st)
         logger.info(f"toggl_local reconciled: timer stopped externally, duration={duration_secs}s")

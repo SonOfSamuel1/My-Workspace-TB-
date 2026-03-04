@@ -33,10 +33,37 @@ def _fmt_time(iso: str) -> str:
 
 def build_focus_html(toggl_local: dict) -> str:
     """Build the Focus tab HTML from toggl_local state."""
+    from zoneinfo import ZoneInfo
+    _today_et = datetime.now(ZoneInfo("America/New_York")).date().isoformat()
+
     tl = toggl_local or {}
-    sessions = tl.get("sessions") or []
-    completed_secs = tl.get("completed_secs") or 0
+
+    # Only include sessions from today
+    def _is_today(s: dict) -> bool:
+        start = s.get("start_iso", "")
+        if not start:
+            return False
+        try:
+            dt = datetime.fromisoformat(start.replace("Z", "+00:00"))
+            return dt.astimezone(ZoneInfo("America/New_York")).date().isoformat() == _today_et
+        except Exception:
+            return False
+
+    sessions = [s for s in (tl.get("sessions") or []) if _is_today(s)]
+    # Only use completed_secs if toggl_local is for today
+    completed_secs = (tl.get("completed_secs") or 0) if tl.get("date") == _today_et else 0
     active_iso = tl.get("active_start_iso")
+
+    # Only treat active_iso as live if it's from today
+    if active_iso:
+        try:
+            _astart = datetime.fromisoformat(active_iso.replace("Z", "+00:00"))
+            if _astart.tzinfo is None:
+                _astart = _astart.replace(tzinfo=timezone.utc)
+            if _astart.astimezone(ZoneInfo("America/New_York")).date().isoformat() != _today_et:
+                active_iso = None  # stale from a previous day — ignore
+        except Exception:
+            active_iso = None
 
     # Compute active elapsed (approximation — JS will do live updates)
     active_elapsed = 0
@@ -72,7 +99,7 @@ def build_focus_html(toggl_local: dict) -> str:
     session_rows = ""
     for s in reversed(sessions):
         dur = s.get("duration_secs")
-        is_active = dur is None
+        is_active = dur is None and s.get("start_iso") == active_iso
         dur_display = _fmt_secs(dur) if dur is not None else _fmt_secs(active_elapsed)
         start_display = _fmt_time(s.get("start_iso", ""))
         desc = s.get("description") or "Untitled"
