@@ -37,6 +37,7 @@ def build_shell_html(
     # All others load on first switchTab() call.
     tabs: List[Tuple[str, str, str, bool]] = [
         ("home", "Home", f"{base}?action=web&view=home&embed=1", True),
+        ("focus", "Focus", f"{base}?action=web&view=focus&embed=1", False),
         ("godpower", "God Power", f"{base}?action=web&view=godpower&embed=1", False),
         ("commit", "Commit", f"{base}?action=web&view=commit&embed=1", False),
         ("starred", "Starred", f"{base}?action=web&view=starred&embed=1", False),

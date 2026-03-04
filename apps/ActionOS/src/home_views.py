@@ -291,8 +291,24 @@ def _build_task_card(
         meta_parts.append(age)
     if project_name:
         meta_parts.append(project_name)
+    _cal_icon_sm = (
+        '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" '
+        'stroke-width="2" stroke-linecap="round" stroke-linejoin="round" '
+        'style="vertical-align:-1px;flex-shrink:0;">'
+        '<rect x="3" y="4" width="18" height="18" rx="2"/>'
+        '<line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/>'
+        '<line x1="3" y1="10" x2="21" y2="10"/></svg>'
+    )
     meta_parts.append(
-        f'<span style="color:{due_color};font-weight:500;">{html.escape(due_text)}</span>'
+        f'<span class="meta-date-btn" style="color:{due_color};" '
+        f"onclick=\"event.stopPropagation();var i=this.querySelector('input');i.showPicker?i.showPicker():i.focus()\">"
+        + _cal_icon_sm
+        + f'<span class="meta-date-text">{html.escape(due_text)}</span>'
+        + f'<input type="date" class="meta-date-input" value="{html.escape(due_date)}" '
+        f'tabindex="-1" style="position:absolute;opacity:0;pointer-events:none;width:0;height:0;" '
+        f'onclick="event.stopPropagation()" '
+        f"onchange=\"event.stopPropagation();doSetDueDateMeta('{task_id}',this.value,this)\">"
+        f"</span>"
     )
     meta_line = " &middot; ".join(meta_parts)
 
@@ -509,7 +525,7 @@ def _build_task_card(
         f'<div class="task-meta">{meta_line}</div>'
         f'<div class="task-actions">'
         + (move_select + priority_select if section not in ("commit", "bestcase") else "")
-        + f"{due_date_input}{complete_btn}"
+        + f"{complete_btn}"
         + (review_btn if section != "commit" else "")
         + f"{commit_btn}{bestcase_btn}{schedule_btn}{cc_btn}{toggl_select}{time_tracked_html}"
         f"</div>"
@@ -1397,7 +1413,7 @@ def build_home_html(
         )
     _god_power_cards = (
         '<div class="gp-card">'
-        '<div class="gp-card-ref">Always Remember</div>'
+        '<div class="gp-card-ref">Remember</div>'
         '<div class="gp-card-title">'
         'Whatever I wish will be done for me, if it\u2019s aligned with Jesus\u2019 words and character, '
         'and I ask the Father for it.'
@@ -1409,7 +1425,7 @@ def build_home_html(
         '</div>'
         '</div>'
         '<div class="gp-card">'
-        '<div class="gp-card-ref">Always Remember</div>'
+        '<div class="gp-card-ref">Remember</div>'
         '<div class="gp-card-title">'
         'If I verbally command any mountain, barrier or challenge to be moved it will move.'
         '</div>'
@@ -1430,7 +1446,7 @@ def build_home_html(
     sections_html += _build_section_html(
         "godpower",
         "Use God Power",
-        _god_power_cards + _activity_card_html + _view_all_card,
+        _activity_card_html + _god_power_cards + _view_all_card,
         0,
         2 + (0 if _activity_done else 1),
         collapsed=False,
@@ -1701,6 +1717,32 @@ def build_home_html(
             "postHomeCount();"
         )
 
+    # --- Toggl Daily Progress Widget ---
+    _DAILY_GOAL_SECS = 6 * 3600  # 6-hour daily goal
+    _tdw_secs = max(0, int(toggl_daily_total_secs or 0))
+    _tdw_pct = min(100, round(_tdw_secs / _DAILY_GOAL_SECS * 100)) if _DAILY_GOAL_SECS else 0
+    _tdw_h = _tdw_secs // 3600
+    _tdw_m = (_tdw_secs % 3600) // 60
+    _tdw_time_str = f"{_tdw_h}h {_tdw_m:02d}m / 6h"
+    _tdw_goal_str = "Goal reached!" if _tdw_secs >= _DAILY_GOAL_SECS else "Goal: 6h"
+    _tdw_pct_str = f"{_tdw_pct}% of daily goal"
+    _tdw_fill_width = f"{_tdw_pct}%"
+    _toggl_daily_widget_html = (
+        '<div class="tdw" onclick="window.parent.postMessage({type:\'switchTab\',tab:\'focus\'},\'*\')" style="cursor:pointer;">'
+        '<div class="tdw-header">'
+        '<span class="tdw-label">Today\'s Focus</span>'
+        '<span class="tdw-time">' + _tdw_time_str + '</span>'
+        '</div>'
+        '<div class="tdw-bar-track">'
+        '<div class="tdw-bar-fill" data-pct="' + str(_tdw_pct) + '" style="width:' + _tdw_fill_width + '"></div>'
+        '</div>'
+        '<div class="tdw-footer">'
+        '<span class="tdw-pct">' + _tdw_pct_str + '</span>'
+        '<span class="tdw-goal">' + _tdw_goal_str + '</span>'
+        '</div>'
+        '</div>'
+    )
+
     return (
         "<!DOCTYPE html><html><head>"
         '<meta charset="utf-8">'
@@ -1746,11 +1788,12 @@ def build_home_html(
         ".refresh-btn:hover{background:var(--border-h);}"
         ".scroll-area{height:"
         + page_height
-        + ";overflow-y:auto;overflow-x:hidden;background:var(--bg-base);}"
-        ".home-list{max-width:700px;margin:0 auto;padding:0 16px 12px;}"
+        + ";overflow-y:auto;background:var(--bg-base);}"
+        ".home-list{max-width:700px;margin:0 auto;padding:0 16px 12px;overflow-x:clip;}"
+        # Sticky dashboard header (nav + toggl widget)
+        ".dash-sticky{position:sticky;top:0;z-index:20;background:var(--bg-base);padding-top:12px;padding-bottom:14px;}"
         # Section nav bar
         ".sec-nav{display:flex;gap:8px;overflow-x:auto;padding:10px 0 10px;"
-        "position:sticky;top:0;z-index:20;background:var(--bg-base);"
         "border-bottom:1px solid var(--border);margin-bottom:12px;"
         "-webkit-overflow-scrolling:touch;-ms-overflow-style:none;scrollbar-width:none;}"
         ".sec-nav::-webkit-scrollbar{display:none;}"
@@ -1763,11 +1806,11 @@ def build_home_html(
         "min-width:20px;height:20px;display:inline-flex;align-items:center;"
         "justify-content:center;font-size:11px;font-weight:700;color:#fff;padding:0 5px;}"
         # Section headers (flat, calendar-style)
-        ".section-hdr{display:flex;align-items:center;gap:8px;padding:16px 0 8px;"
+        ".section-hdr{display:flex;align-items:center;gap:8px;padding:16px 0 8px;min-height:44px;"
         "font-size:11px;font-weight:600;text-transform:uppercase;"
         "letter-spacing:0.6px;border-bottom:1px solid var(--border);margin-bottom:10px;"
-        "position:sticky;top:56px;z-index:10;background:var(--bg-base);"
-        "scroll-margin-top:56px;}"
+        "position:-webkit-sticky;position:sticky;top:var(--dash-h,56px);z-index:10;background:var(--bg-base);"
+        "scroll-margin-top:var(--dash-h,56px);}"
         ".section-hdr+.section-hdr{margin-top:14px;}"
         ".section-badge{background:var(--border);color:var(--text-2);font-size:11px;"
         "font-weight:700;padding:2px 7px;border-radius:8px;}"
@@ -1811,7 +1854,7 @@ def build_home_html(
         ".task-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}"
         # Review button
         ".review-btn{font-family:inherit;font-size:12px;font-weight:600;"
-        "padding:4px 12px;border-radius:6px;"
+        "padding:5px 14px;min-height:44px;border-radius:8px;"
         "background:var(--warn-bg);color:var(--warn);border:1px solid var(--warn-b);cursor:pointer;"
         "transition:background .15s;}"
         ".review-btn:hover{background:var(--warn-b);}"
@@ -1819,37 +1862,39 @@ def build_home_html(
         "border-color:var(--border);cursor:default;}"
         # Mark Read button
         ".markread-btn{font-family:inherit;font-size:12px;font-weight:600;"
-        "padding:4px 12px;border-radius:6px;"
+        "padding:5px 14px;min-height:44px;border-radius:8px;"
         "background:var(--border);color:var(--text-2);border:1px solid var(--border);"
         "cursor:pointer;transition:background .15s;}"
         ".markread-btn:hover{background:var(--border-h);color:var(--text-1);}"
         # Complete button
-        ".complete-btn{font-family:inherit;font-size:12px;font-weight:600;"
-        "padding:4px 12px;border-radius:6px;"
+        ".complete-btn{font-family:inherit;font-size:12px;font-weight:700;"
+        "padding:5px 14px;min-height:44px;border-radius:8px;"
         "background:var(--ok-bg);color:var(--ok);border:1px solid var(--ok-b);"
-        "cursor:pointer;transition:background .15s;}"
+        "cursor:pointer;transition:all .15s;}"
         ".complete-btn:hover{background:var(--ok-b);}"
         # Commit button
         ".commit-btn{font-family:inherit;font-size:12px;font-weight:600;"
-        "padding:4px 12px;border-radius:6px;"
-        "background:var(--border);color:var(--text-2);border:1px solid var(--border);"
-        "cursor:pointer;transition:background .15s;}"
+        "padding:5px 14px;min-height:44px;border-radius:8px;"
+        "background:var(--bg-s2);color:var(--text-2);border:1px solid var(--border);"
+        "cursor:pointer;transition:all .15s;}"
         ".commit-btn:hover{background:var(--border-h);color:var(--text-1);}"
         ".commit-btn.committed{background:var(--ok-bg);color:var(--ok);border-color:var(--ok-b);cursor:default;}"
-        ".commit-btn.remove{background:var(--border);color:var(--text-2);border-color:var(--border);}"
+        ".commit-btn.remove{background:var(--bg-s2);color:var(--text-2);border-color:var(--border);}"
+        ".commit-btn.remove:hover{background:var(--border-h);color:var(--text-1);}"
         # Best Case button
         ".bestcase-btn{font-family:inherit;font-size:12px;font-weight:600;"
-        "padding:4px 12px;border-radius:6px;"
-        "background:var(--border);color:var(--text-2);border:1px solid var(--border);"
-        "cursor:pointer;transition:background .15s;}"
+        "padding:5px 14px;min-height:44px;border-radius:8px;"
+        "background:var(--bg-s2);color:var(--text-2);border:1px solid var(--border);"
+        "cursor:pointer;transition:all .15s;}"
         ".bestcase-btn:hover{background:var(--border-h);color:var(--text-1);}"
-        ".bestcase-btn.remove{background:var(--border);color:var(--text-2);border-color:var(--border);}"
-        # Schedule button
+        ".bestcase-btn.remove{background:var(--bg-s2);color:var(--text-2);border-color:var(--border);}"
+        ".bestcase-btn.remove:hover{background:var(--border-h);color:var(--text-1);}"
+        # Schedule button (overridden below in the second CSS block — keeping for fallback)
         ".schedule-btn{font-family:inherit;font-size:12px;font-weight:600;"
-        "padding:4px 12px;border-radius:6px;"
-        "background:var(--border);color:var(--text-2);border:1px solid var(--border);"
-        "cursor:pointer;transition:background .15s;display:inline-flex;align-items:center;gap:4px;}"
-        ".schedule-btn:hover{background:var(--border-h);}"
+        "padding:5px 14px;min-height:44px;border-radius:8px;"
+        "background:var(--bg-s2);color:var(--text-2);border:1px solid var(--border);"
+        "cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap:5px;}"
+        ".schedule-btn:hover{background:var(--border-h);color:var(--text-1);}"
         ".schedule-icon{flex-shrink:0;}"
         # Schedule modal
         "#schedule-overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;"
@@ -1876,35 +1921,35 @@ def build_home_html(
         "#schedule-cancel:hover{color:var(--text-1);}"
         # Todoist button
         ".todoist-btn{font-family:inherit;font-size:12px;font-weight:600;"
-        "padding:4px 12px;border-radius:6px;"
+        "padding:5px 14px;min-height:44px;border-radius:8px;"
         "background:var(--accent-bg);color:var(--accent-l);border:1px solid var(--accent-b);"
         "cursor:pointer;transition:background .15s;}"
         ".todoist-btn:hover{background:var(--accent-b);}"
         # Schedule Prep button
         ".schedule-prep-btn{font-family:inherit;font-size:12px;font-weight:600;"
-        "padding:4px 12px;border-radius:6px;"
-        "background:var(--border);color:var(--text-2);border:1px solid var(--border);"
-        "cursor:pointer;transition:background .15s;}"
-        ".schedule-prep-btn:hover{background:var(--border-h);}"
+        "padding:5px 14px;min-height:44px;border-radius:8px;"
+        "background:var(--bg-s2);color:var(--text-2);border:1px solid var(--border);"
+        "cursor:pointer;transition:all .15s;}"
+        ".schedule-prep-btn:hover{background:var(--border-h);color:var(--text-1);}"
         # Skip Inbox button
         ".skip-inbox-btn{font-family:inherit;font-size:12px;font-weight:600;"
-        "padding:4px 12px;border-radius:6px;"
+        "padding:5px 14px;min-height:44px;border-radius:8px;"
         "background:var(--warn-bg);color:var(--warn);border:1px solid var(--warn-b);"
         "cursor:pointer;transition:background .15s;}"
         ".skip-inbox-btn:hover{background:var(--warn-b);}"
         # Resolve button
         ".resolve-btn{font-family:inherit;font-size:12px;font-weight:600;"
-        "padding:4px 12px;border-radius:6px;"
+        "padding:5px 14px;min-height:44px;border-radius:8px;"
         "background:var(--border);color:var(--text-2);border:1px solid var(--border);"
         "cursor:pointer;transition:background .15s;}"
         ".resolve-btn:hover{background:var(--border-h);color:var(--text-1);}"
         # Timer button
         ".timer-btn{font-family:inherit;font-size:12px;font-weight:600;"
-        "padding:4px 12px;border-radius:6px;"
-        "background:var(--purple-bg);color:var(--purple);border:1px solid var(--purple-b);"
+        "padding:5px 14px;min-height:44px;border-radius:8px;"
+        "background:var(--bg-s2);color:var(--text-2);border:1px solid var(--border);"
         "cursor:pointer;transition:background .15s;"
         "display:inline-flex;align-items:center;gap:5px;}"
-        ".timer-btn:hover{background:var(--purple-b);}"
+        ".timer-btn:hover{background:var(--border-h);color:var(--text-1);}"
         ".timer-btn.expired{opacity:0.4;cursor:default;pointer-events:none;}"
         ".timer-icon{flex-shrink:0;vertical-align:middle;}"
         # GCal link
@@ -1932,21 +1977,24 @@ def build_home_html(
         ".date-icon-wrap{display:inline-flex;align-items:center;}"
         ".date-icon{color:var(--text-3);}"
         ".date-label{font-size:11px;color:var(--text-3);}"
+        ".meta-date-btn{position:relative;display:inline-flex;align-items:center;gap:3px;"
+        "cursor:pointer;font-weight:500;text-decoration:underline dotted;text-underline-offset:2px;}"
+        ".meta-date-btn:hover{opacity:0.75;}"
         ".date-pill-input{font-family:inherit;font-size:11px;"
         "background:transparent;border:none;color:var(--text-1);cursor:pointer;"
         "outline:none;width:100px;}"
         # CC button
         ".assign-cc-btn{font-family:inherit;font-size:12px;font-weight:600;"
-        "padding:5px 14px;border-radius:6px;"
-        "background:var(--border);color:var(--text-2);border:1px solid var(--border);"
-        "cursor:pointer;transition:background .15s ease-out;display:inline-flex;align-items:center;gap:4px;}"
-        ".assign-cc-btn:hover{background:var(--border-h);}"
-        # Schedule button
+        "padding:5px 14px;min-height:44px;border-radius:8px;"
+        "background:var(--bg-s2);color:var(--text-2);border:1px solid var(--border);"
+        "cursor:pointer;transition:all .15s ease-out;display:inline-flex;align-items:center;gap:5px;}"
+        ".assign-cc-btn:hover{background:var(--border-h);color:var(--text-1);}"
+        # Schedule button (overrides earlier definition)
         ".schedule-btn{font-family:inherit;font-size:12px;font-weight:600;"
-        "padding:5px 14px;border-radius:6px;"
-        "background:var(--border);color:var(--text-2);border:1px solid var(--border);cursor:pointer;"
-        "transition:background .15s ease-out;display:inline-flex;align-items:center;gap:4px;}"
-        ".schedule-btn:hover{background:var(--border-h);}"
+        "padding:5px 14px;min-height:44px;border-radius:8px;"
+        "background:var(--bg-s2);color:var(--text-2);border:1px solid var(--border);cursor:pointer;"
+        "transition:all .15s ease-out;display:inline-flex;align-items:center;gap:5px;}"
+        ".schedule-btn:hover{background:var(--border-h);color:var(--text-1);}"
         ".schedule-icon{flex-shrink:0;}"
         # Schedule modal
         "#schedule-overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;"
@@ -1974,10 +2022,10 @@ def build_home_html(
         "#schedule-cancel:hover{color:var(--text-1);}"
         # Toggl timer button
         ".toggl-btn{font-family:inherit;font-size:12px;font-weight:600;"
-        "padding:5px 14px;border-radius:6px;"
-        "background:var(--border);color:var(--text-2);border:1px solid var(--border);cursor:pointer;"
-        "transition:background .15s ease-out;display:inline-flex;align-items:center;gap:4px;}"
-        ".toggl-btn:hover{background:var(--border-h);}"
+        "padding:5px 14px;min-height:44px;border-radius:8px;"
+        "background:var(--bg-s2);color:var(--text-2);border:1px solid var(--border);cursor:pointer;"
+        "transition:all .15s ease-out;display:inline-flex;align-items:center;gap:4px;}"
+        ".toggl-btn:hover{background:var(--border-h);color:var(--text-1);}"
         ".toggl-running{border-style:dashed;}"
         # Time tracked display
         ".time-tracked{font-size:12px;font-weight:600;color:var(--text-2);"
@@ -2043,7 +2091,7 @@ def build_home_html(
         "::-webkit-scrollbar{width:6px;}"
         "::-webkit-scrollbar-track{background:transparent;}"
         "::-webkit-scrollbar-thumb{background:var(--scrollbar);border-radius:3px;}"
-        ".gp-card,.gp-activity-card{background:var(--bg-s1);border:1px solid var(--warn-b);"
+        ".gp-card,.gp-activity-card{background:var(--bg-s1);border:1px solid var(--border);"
         "border-radius:8px;padding:14px 16px;margin-bottom:10px;}"
         ".gp-card-title{font-size:14px;font-weight:700;color:var(--text-1);line-height:1.5;margin-bottom:8px;}"
         ".gp-card-ref{font-size:11px;font-weight:700;color:var(--warn);text-transform:uppercase;"
@@ -2061,24 +2109,19 @@ def build_home_html(
         "font-size:14px;font-weight:600;color:var(--accent-l);transition:background .15s;}"
         ".gp-view-all-card:hover{background:var(--bg-s2);}"
         ".gp-view-all-arrow{font-size:18px;}"
-        # Toggl daily progress widget
-        ".tdw{background:var(--bg-s1);border:1px solid var(--border);"
-        "border-radius:10px;padding:12px 14px;margin-bottom:12px;}"
-        ".tdw-header{display:flex;align-items:center;justify-content:space-between;"
+        # Toggl Daily Widget
+        ".tdw{background:var(--bg-s1);border:1px solid var(--border);border-radius:10px;"
+        "padding:12px 14px;margin-bottom:0;}"
+        ".tdw-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}"
+        ".tdw-label{font-size:12px;font-weight:700;color:var(--text-2);text-transform:uppercase;"
+        "letter-spacing:0.6px;}"
+        ".tdw-time{font-size:13px;font-weight:600;color:var(--text-1);}"
+        ".tdw-bar-track{width:100%;height:6px;background:var(--bg-s2);border-radius:3px;overflow:hidden;"
         "margin-bottom:8px;}"
-        ".tdw-label{font-size:12px;font-weight:700;text-transform:uppercase;"
-        "letter-spacing:0.6px;color:var(--text-2);}"
-        ".tdw-time{font-size:13px;font-weight:700;color:var(--text-1);}"
-        ".tdw-time.goal-met{color:var(--ok);}"
-        ".tdw-bar-track{height:6px;background:var(--bg-s2);"
-        "border-radius:3px;overflow:hidden;}"
-        ".tdw-bar-fill{height:100%;border-radius:3px;"
-        "background:var(--accent);transition:width .4s ease;}"
-        ".tdw-bar-fill.goal-met{background:var(--ok);}"
-        ".tdw-footer{display:flex;align-items:center;justify-content:space-between;"
-        "margin-top:6px;}"
-        ".tdw-pct{font-size:11px;font-weight:600;color:var(--text-2);}"
-        ".tdw-goal{font-size:11px;font-weight:600;color:var(--text-3);}"
+        ".tdw-bar-fill{height:100%;border-radius:3px;background:var(--accent);transition:width .4s ease;}"
+        ".tdw-footer{display:flex;justify-content:space-between;align-items:center;}"
+        ".tdw-pct{font-size:11px;color:var(--text-2);}"
+        ".tdw-goal{font-size:11px;color:var(--text-2);}"
         "</style></head><body>"
         + (
             ""
@@ -2089,8 +2132,9 @@ def build_home_html(
             "</div>"
         )
         + '<div class="scroll-area"><div class="home-list">'
-        + _build_home_nav_bar(_nav_counts)
+        + '<div class="dash-sticky">'
         + _toggl_daily_widget_html
+        + '</div>'
         + sections_html
         + "</div></div>"
         # Detail pane (mobile fullscreen overlay)
@@ -2129,6 +2173,14 @@ def build_home_html(
         "function scrollToSec(key){"
         "var el=document.getElementById('sec-'+key);"
         "if(el){el.scrollIntoView({behavior:'smooth',block:'start'});}}"
+        # Set --dash-h so section headers stick just below the sticky bar
+        "(function(){"
+        "function _setDashH(){"
+        "var d=document.querySelector('.dash-sticky');"
+        "if(d){document.documentElement.style.setProperty('--dash-h',d.offsetHeight+'px');}}"
+        "_setDashH();"
+        "window.addEventListener('resize',_setDashH);"
+        "})();"
         # --- Section toggle ---
         "function toggleSection(key){}"
         # --- Helper: fade card ---
@@ -2209,6 +2261,17 @@ def build_home_html(
         "fetch(_homeUrl+'?action=due_date&task_id='+encodeURIComponent(taskId)+'&date='+encodeURIComponent(date))"
         ".then(function(r){return r.json();}).then(function(d){"
         "if(d.ok){input.style.borderColor=cv('--ok-b');setTimeout(function(){input.style.borderColor='';},1500);}"
+        "}).catch(function(){});}"
+        # --- Set Due Date via meta badge ---
+        "function doSetDueDateMeta(taskId,date,input){"
+        "var card=input.closest('.task-card');"
+        "fetch(_homeUrl+'?action=due_date&task_id='+encodeURIComponent(taskId)+'&date='+encodeURIComponent(date))"
+        ".then(function(r){return r.json();}).then(function(d){"
+        "if(d.ok&&card){"
+        "card.dataset.dueDate=date;"
+        "var label=input.parentNode.querySelector('.meta-date-text');"
+        "if(label){label.textContent=date?date:'No date';}"
+        "}"
         "}).catch(function(){});}"
         # --- Complete task ---
         # --- God Power activity complete ---
@@ -2682,46 +2745,6 @@ def build_home_html(
         "document.getElementById('home-detail-pane').classList.remove('open');"
         "try{window.parent.postMessage({type:'viewer-close'},'*');}catch(e){}}"
         "function closeDetailView(){closeHomeDetail();}"
-        # Schedule modal JS
-        "var _schedTaskId='',_schedMins=0,_schedTitle='';"
-        "function openScheduleModal(taskId,title){"
-        "_schedTaskId=taskId;_schedMins=0;_schedTitle=title||'';"
-        "document.querySelectorAll('.duration-opt').forEach(function(b){b.classList.remove('selected');});"
-        "var btn=document.getElementById('schedule-confirm');"
-        "btn.disabled=true;btn.textContent='Schedule';"
-        "document.getElementById('schedule-overlay').classList.add('open');"
-        "}"
-        "function closeScheduleModal(){"
-        "document.getElementById('schedule-overlay').classList.remove('open');"
-        "}"
-        "document.querySelectorAll('.duration-opt').forEach(function(b){"
-        "b.addEventListener('click',function(){"
-        "document.querySelectorAll('.duration-opt').forEach(function(x){x.classList.remove('selected');});"
-        "b.classList.add('selected');_schedMins=parseInt(b.getAttribute('data-mins'));"
-        "var n=Math.max(1,Math.floor(_schedMins/30));"
-        "document.getElementById('schedule-confirm').disabled=false;"
-        "document.getElementById('schedule-confirm').textContent="
-        "'Schedule '+n+' event'+(n>1?'s':'');"
-        "});});"
-        "document.getElementById('schedule-confirm').addEventListener('click',function(){"
-        "if(!_schedTaskId||!_schedMins)return;"
-        "var btn=this;btn.disabled=true;btn.textContent='Creating...';"
-        "fetch(_homeUrl+'?action=schedule_action&task_id='+_schedTaskId+'&duration='+_schedMins+(_schedTitle?'&task_title='+encodeURIComponent(_schedTitle):''))"
-        ".then(function(r){return r.json();})"
-        ".then(function(d){if(d.ok){"
-        "btn.textContent='\\u2713 '+d.events_created+' events created!';"
-        "btn.style.background='#22c55e';"
-        "setTimeout(function(){closeScheduleModal();btn.style.background='';window.location.href='googlecalendar://';},1500);"
-        "}else{"
-        "btn.textContent='Error: '+(d.error||'unknown');"
-        "btn.style.background='#ef4444';"
-        "setTimeout(function(){btn.style.background='';btn.textContent='Schedule';},2000);"
-        "}})"
-        ".catch(function(e){"
-        "btn.textContent='Failed';btn.style.background='#ef4444';"
-        "setTimeout(function(){btn.textContent='Schedule';},2000);"
-        "});"
-        "});"
         "function linkifyTitles(){"
         "document.querySelectorAll('.task-title').forEach(function(el){"
         "el.childNodes.forEach(function(node){"
@@ -2826,7 +2849,7 @@ def build_godpower_view_html(function_url: str, godpower_state: dict = None) -> 
     for title, ref, verse in _GP_SCRIPTURES:
         scripture_cards += (
             '<div class="gp-card">'
-            '<div class="gp-card-ref">Always Remember</div>'
+            '<div class="gp-card-ref">Remember</div>'
             f'<div class="gp-card-title">{html.escape(title)}</div>'
             f'<div class="gp-card-scripture-ref">{html.escape(ref)}</div>'
             f'<div class="gp-card-verse">{verse}</div>'
@@ -2892,7 +2915,7 @@ def build_godpower_view_html(function_url: str, godpower_state: dict = None) -> 
         ".page{max-width:700px;margin:0 auto;padding:16px;}"
         ".sec-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;"
         "color:var(--warn);padding:16px 0 8px;border-bottom:1px solid var(--border);margin-bottom:12px;}"
-        ".gp-card,.gp-activity-card{background:var(--bg-s1);border:1px solid var(--warn-b);"
+        ".gp-card,.gp-activity-card{background:var(--bg-s1);border:1px solid var(--border);"
         "border-radius:8px;padding:14px 16px;margin-bottom:10px;}"
         ".gp-activity-other{opacity:.65;}"
         ".gp-card-ref{font-size:11px;font-weight:700;color:var(--warn);text-transform:uppercase;"
@@ -2906,13 +2929,13 @@ def build_godpower_view_html(function_url: str, godpower_state: dict = None) -> 
         ".gp-activity-card .complete-btn,.gp-activity-card .schedule-btn,.gp-activity-card .toggl-btn"
         "{min-height:44px;padding:10px 14px;}"
         ".task-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}"
-        ".complete-btn{font-family:inherit;font-size:12px;font-weight:600;padding:5px 14px;border-radius:6px;"
-        "background:var(--ok-bg);color:var(--ok);border:1px solid var(--ok-b);cursor:pointer;}"
-        ".schedule-btn{font-family:inherit;font-size:12px;font-weight:600;padding:5px 14px;border-radius:6px;"
-        "background:var(--bg-s2);color:var(--text-2);border:1px solid var(--border);cursor:pointer;"
-        "display:inline-flex;align-items:center;gap:4px;}"
-        ".toggl-btn{font-family:inherit;font-size:12px;font-weight:600;padding:5px 14px;border-radius:6px;"
-        "background:var(--bg-s2);color:var(--text-2);border:1px solid var(--border);cursor:pointer;}"
+        ".complete-btn{font-family:inherit;font-size:12px;font-weight:700;padding:5px 14px;border-radius:8px;"
+        "min-height:44px;background:var(--ok-bg);color:var(--ok);border:1px solid var(--ok-b);cursor:pointer;}"
+        ".schedule-btn{font-family:inherit;font-size:12px;font-weight:600;padding:5px 14px;border-radius:8px;"
+        "min-height:44px;background:var(--bg-s2);color:var(--text-2);border:1px solid var(--border);cursor:pointer;"
+        "display:inline-flex;align-items:center;gap:5px;}"
+        ".toggl-btn{font-family:inherit;font-size:12px;font-weight:600;padding:5px 14px;border-radius:8px;"
+        "min-height:44px;background:var(--bg-s2);color:var(--text-2);border:1px solid var(--border);cursor:pointer;}"
         "#schedule-overlay{display:none;position:fixed;inset:0;z-index:2000;"
         "background:rgba(0,0,0,.6);align-items:center;justify-content:center;}"
         "#schedule-overlay.open{display:flex;}"

@@ -876,6 +876,30 @@ def _build_home_html_uncached(
         _fetch_toggl_daily_total_seconds(_toggl_tok) if _toggl_tok else 0
     )
 
+    if not toggl_daily_total_secs:
+        try:
+            from zoneinfo import ZoneInfo as _ZI
+            _today_et = datetime.now(_ZI("America/New_York")).date().isoformat()
+            _tl = home_state.get("toggl_local") or {}
+            if _tl.get("date") == _today_et:
+                _completed = _tl.get("completed_secs") or 0
+                _in_progress = 0
+                _active_iso = _tl.get("active_start_iso")
+                if _active_iso:
+                    try:
+                        _start_dt = datetime.fromisoformat(_active_iso)
+                        if _start_dt.tzinfo is None:
+                            _start_dt = _start_dt.replace(tzinfo=timezone.utc)
+                        _in_progress = min(
+                            max(0, int((datetime.now(timezone.utc) - _start_dt).total_seconds())),
+                            28800,  # cap at 8h to handle stale active sessions
+                        )
+                    except Exception:
+                        pass
+                toggl_daily_total_secs = _completed + _in_progress
+        except Exception as _e:
+            logger.warning(f"toggl_local fallback read failed: {_e}")
+
     return build_home_html(
         commit_tasks=commit_tasks,
         bestcase_tasks=bestcase_tasks,
@@ -955,6 +979,8 @@ def _load_home_reviewed_state() -> dict:
     # Daily sections: expire after 2 days; 7-day sections: expire after 8 days
     daily_sections = {"commit", "bestcase", "starred", "inbox"}
     seven_day_sections = {"p1"}
+    # toggl_local has mixed types (int, str) — preserve it outside the pruning loop
+    toggl_local = state.pop("toggl_local", None)
     pruned = {}
     for section, items in state.items():
         if not isinstance(items, dict):
@@ -976,6 +1002,8 @@ def _load_home_reviewed_state() -> dict:
                 pass
         if pruned_items:
             pruned[section] = pruned_items
+    if toggl_local is not None:
+        pruned["toggl_local"] = toggl_local
     return pruned
 
 
@@ -1076,7 +1104,11 @@ def _fetch_toggl_time_entries(toggl_token: str) -> dict:
 
 
 def _fetch_toggl_daily_total_seconds(toggl_token: str) -> int:
-    """Fetch total seconds tracked in Toggl today (Eastern time)."""
+    """Fetch total seconds tracked in Toggl today (Eastern time).
+
+    Uses the same no-param /me/time_entries endpoint as _fetch_toggl_time_entries
+    (which works on all plans), then filters to today's entries in Python.
+    """
     try:
         import base64 as _b64
         import time as _time
@@ -1090,7 +1122,6 @@ def _fetch_toggl_daily_total_seconds(toggl_token: str) -> int:
         _th = {"Authorization": f"Basic {_auth}", "Content-Type": "application/json"}
         _mr = _req.get(
             "https://api.track.toggl.com/api/v9/me/time_entries",
-            params={"start_date": _today_str, "end_date": _today_str},
             headers=_th,
         )
         _mr.raise_for_status()
@@ -1098,6 +1129,16 @@ def _fetch_toggl_daily_total_seconds(toggl_token: str) -> int:
         now_ts = _time.time()
         total = 0
         for entry in entries:
+            # Filter to entries that started today (Eastern)
+            start = entry.get("start", "")
+            if not start:
+                continue
+            try:
+                start_dt = datetime.fromisoformat(start.replace("Z", "+00:00"))
+                if start_dt.astimezone(_eastern).date().isoformat() != _today_str:
+                    continue
+            except Exception:
+                continue
             dur = entry.get("duration", 0)
             if dur < 0:
                 # Currently running timer: duration is -(unix start ts)
@@ -1469,6 +1510,25 @@ def handle_action(event: dict) -> dict:
                 }
             except Exception as e:
                 logger.error(f"Unread view failed: {e}", exc_info=True)
+                return {
+                    "statusCode": 200,
+                    "headers": {"Content-Type": "text/html"},
+                    "body": _error_page(f"Error: {e}"),
+                }
+
+        elif view == "focus":
+            try:
+                from focus_views import build_focus_html
+                _tl_state = _load_home_reviewed_state()
+                _tl_data = _tl_state.get("toggl_local") or {}
+                body = build_focus_html(_tl_data)
+                return {
+                    "statusCode": 200,
+                    "headers": _html_headers,
+                    "body": body,
+                }
+            except Exception as e:
+                logger.error(f"Focus view failed: {e}", exc_info=True)
                 return {
                     "statusCode": 200,
                     "headers": {"Content-Type": "text/html"},
@@ -2031,19 +2091,28 @@ def handle_action(event: dict) -> dict:
                 os.environ["CALENDAR_CREDENTIALS_JSON"],
                 os.environ["CALENDAR_TOKEN_JSON"],
             )
-            # Ensure the "Committed action" calendar exists
-            _ca_state = _load_calendar_state()
-            _ca_id = _ca_state.get("committed_action_calendar_id", "")
-            if not _ca_id:
-                try:
-                    _ca_id = cal.create_calendar("Committed action")
-                    cal.set_calendar_color(_ca_id, "11")  # Tomato (red)
+            # Ensure the "Committed action" calendar exists.
+            # Always look up by name first to avoid duplicates when state
+            # persistence is unavailable (e.g., S3 unreachable from Railway).
+            try:
+                _ca_id = cal.get_or_create_calendar("Committed action")
+                _ca_state = _load_calendar_state()
+                if _ca_state.get("committed_action_calendar_id") != _ca_id:
                     _ca_state["committed_action_calendar_id"] = _ca_id
-                    _save_calendar_state(_ca_state)
-                    logger.info(f"Created 'Committed action' calendar: {_ca_id}")
-                except Exception as _ca_err:
-                    logger.warning(f"Could not create Committed action calendar: {_ca_err}")
-                    _ca_id = "primary"
+                    try:
+                        _save_calendar_state(_ca_state)
+                    except Exception:
+                        pass  # state save is best-effort; lookup-by-name is the guard
+                logger.info(f"Using 'Committed action' calendar: {_ca_id}")
+            except Exception as _ca_err:
+                logger.warning(f"Could not get/create Committed action calendar: {_ca_err}")
+                _ca_id = "primary"
+            # Set color separately — failure here must not change event destination
+            if _ca_id != "primary":
+                try:
+                    cal.set_calendar_color(_ca_id, "11")  # Tomato (red)
+                except Exception:
+                    pass
             created = cal.create_schedule_events(
                 title=task_title,
                 duration_minutes=duration_minutes,
@@ -2550,10 +2619,42 @@ def handle_action(event: dict) -> dict:
                 json=timer_body,
             )
             _r.raise_for_status()
+            try:
+                from zoneinfo import ZoneInfo as _ZI
+                _today_et = datetime.now(_ZI("America/New_York")).date().isoformat()
+                _tl_st = _load_home_reviewed_state()
+                _tl = _tl_st.get("toggl_local") or {}
+                if _tl.get("date") != _today_et:
+                    _tl = {"date": _today_et, "completed_secs": 0, "active_start_iso": None, "sessions": []}
+                _tl.setdefault("sessions", [])
+                _now_iso = datetime.now(timezone.utc).isoformat()
+                _tl["active_start_iso"] = _now_iso
+                _tl["sessions"].append({"description": ts_subject, "start_iso": _now_iso, "duration_secs": None})
+                _tl["sessions"] = _tl["sessions"][-20:]
+                _tl_st["toggl_local"] = _tl
+                _save_home_reviewed_state(_tl_st)
+            except Exception as _e:
+                logger.warning(f"toggl_local start save failed: {_e}")
             return _ok_json()
         except Exception as e:
-            logger.error(f"toggl_start failed: {e}", exc_info=True)
-            return _error_json(str(e))
+            logger.warning(f"toggl_start API failed: {e}")
+            try:
+                from zoneinfo import ZoneInfo as _ZI
+                _today_et = datetime.now(_ZI("America/New_York")).date().isoformat()
+                _tl_st = _load_home_reviewed_state()
+                _tl = _tl_st.get("toggl_local") or {}
+                if _tl.get("date") != _today_et:
+                    _tl = {"date": _today_et, "completed_secs": 0, "active_start_iso": None, "sessions": []}
+                _tl.setdefault("sessions", [])
+                _now_iso = datetime.now(timezone.utc).isoformat()
+                _tl["active_start_iso"] = _now_iso
+                _tl["sessions"].append({"description": ts_subject, "start_iso": _now_iso, "duration_secs": None})
+                _tl["sessions"] = _tl["sessions"][-20:]
+                _tl_st["toggl_local"] = _tl
+                _save_home_reviewed_state(_tl_st)
+            except Exception as _e2:
+                logger.warning(f"toggl_local start fallback failed: {_e2}")
+            return _ok_json()
 
     elif action == "toggl_stop":
         try:
@@ -2588,10 +2689,55 @@ def handle_action(event: dict) -> dict:
             _stop_r.raise_for_status()
             stopped = _stop_r.json()
             duration = stopped.get("duration", 0)
+            try:
+                from zoneinfo import ZoneInfo as _ZI
+                _today_et = datetime.now(_ZI("America/New_York")).date().isoformat()
+                _tl_st = _load_home_reviewed_state()
+                _tl = _tl_st.get("toggl_local") or {}
+                if _tl.get("date") == _today_et:
+                    _tl["completed_secs"] = (_tl.get("completed_secs") or 0) + max(0, duration)
+                else:
+                    _tl = {"date": _today_et, "completed_secs": max(0, duration), "active_start_iso": None, "sessions": []}
+                _tl.setdefault("sessions", [])
+                for _s in reversed(_tl["sessions"]):
+                    if _s.get("duration_secs") is None:
+                        _s["duration_secs"] = max(0, duration)
+                        break
+                _tl["active_start_iso"] = None
+                _tl_st["toggl_local"] = _tl
+                _save_home_reviewed_state(_tl_st)
+            except Exception as _e:
+                logger.warning(f"toggl_local stop save failed: {_e}")
             return _ok_json({"duration": duration})
         except Exception as e:
-            logger.error(f"toggl_stop failed: {e}", exc_info=True)
-            return _error_json(str(e))
+            logger.warning(f"toggl_stop API failed: {e}")
+            local_duration = 0
+            try:
+                from zoneinfo import ZoneInfo as _ZI
+                _today_et = datetime.now(_ZI("America/New_York")).date().isoformat()
+                _tl_st = _load_home_reviewed_state()
+                _tl = _tl_st.get("toggl_local") or {}
+                if _tl.get("date") == _today_et:
+                    _active_iso = _tl.get("active_start_iso")
+                    if _active_iso:
+                        _start_dt = datetime.fromisoformat(_active_iso)
+                        if _start_dt.tzinfo is None:
+                            _start_dt = _start_dt.replace(tzinfo=timezone.utc)
+                        local_duration = max(0, int((datetime.now(timezone.utc) - _start_dt).total_seconds()))
+                        _tl["completed_secs"] = (_tl.get("completed_secs") or 0) + local_duration
+                else:
+                    _tl = {"date": _today_et, "completed_secs": 0, "active_start_iso": None, "sessions": []}
+                _tl.setdefault("sessions", [])
+                for _s in reversed(_tl["sessions"]):
+                    if _s.get("duration_secs") is None:
+                        _s["duration_secs"] = max(0, local_duration)
+                        break
+                _tl["active_start_iso"] = None
+                _tl_st["toggl_local"] = _tl
+                _save_home_reviewed_state(_tl_st)
+            except Exception as _e2:
+                logger.warning(f"toggl_local stop fallback failed: {_e2}")
+            return _ok_json({"duration": local_duration})
 
     elif action == "toggl_log_event":
         event_title = params.get("event_title", "Calendar Event")

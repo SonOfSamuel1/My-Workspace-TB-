@@ -195,32 +195,24 @@ If the user approves:
 If the user does **not** approve, leave the task open and inform the user that
 the task remains in "In Progress" status on Todoist.
 
-## 15. Clean Up the Worktree
+## 15. Worktree Cleanup
 
-After the push succeeds, **always** remove the worktree and its branch. Run
-these commands from the **outer repo root** (not the submodule):
+Do **NOT** manually remove the worktree from within the session — doing so
+corrupts the session's CWD and breaks all subsequent shell commands.
 
-```bash
-cd "/Users/terrancebrandon/Desktop/Code Projects (Official)/My Workspace/My-Workspace-TB-"
-git worktree remove --force .claude/worktrees/<WORKTREE-NAME>
-git branch -d worktree-<WORKTREE-NAME>
-```
+Instead, **let Claude Code handle it**: when this session ends, Claude Code
+will prompt "keep or remove the worktree?" — choose **remove** at that point.
 
-Where `<WORKTREE-NAME>` is the slug recorded in Step 5 (e.g.
-`fix-login-bug-on-mobile`).
-
-> **Why this matters:** If the worktree directory is deleted by Claude Code
-> session cleanup before you explicitly remove it, the Bash tool's stored CWD
-> becomes invalid and all subsequent shell commands in the session will fail
-> with "Working directory no longer exists." Running this step immediately
-> after the push prevents that breakage.
-
-If `git branch -d` fails because the branch was already merged, use `-D` to
-force-delete:
+The feature branch can be deleted from main (after a successful merge):
 
 ```bash
-git branch -D worktree-<WORKTREE-NAME>
+git -C "/Users/terrancebrandon/Desktop/Code Projects (Official)/My Workspace/My-Workspace-TB-/My-Workspace-TB-" branch -d worktree-<WORKTREE-NAME>
 ```
+
+> **Recovery**: If the Bash tool fails with "Path ... does not exist" (stale
+> worktree CWD), fix it immediately — use the Write tool to create a `.keep`
+> file at the missing path, then use `git -C /absolute/path` for all git
+> commands. Do not ask the user, just fix it and continue.
 
 ## API Reference
 
