@@ -904,31 +904,32 @@ def _build_home_html_uncached(
         except Exception as _e:
             logger.warning(f"toggl_local fallback read failed: {_e}")
 
-    # Compute committed calendar total for today using the dynamic calendar ID from state
+    # Compute committed calendar total for today (Committed action calendars)
+    _COMMITTED_CAL_TYPES = {"committed_action_a", "committed_action_b"}
     committed_cal_secs = 0
-    _ca_cal_id = cal_state.get("committed_action_calendar_id", "")
-    if _ca_cal_id:
-        try:
-            from zoneinfo import ZoneInfo as _ZI
-            _today_et = datetime.now(_ZI("America/New_York")).date().isoformat()
-            for ev in cal.get_today_events_from_calendar(_ca_cal_id):
-                if ev.get("is_all_day"):
+    try:
+        from zoneinfo import ZoneInfo as _ZI
+        _today_et = datetime.now(_ZI("America/New_York")).date().isoformat()
+        for ev in calendar_events:
+            if ev.get("calendar_type") not in _COMMITTED_CAL_TYPES:
+                continue
+            if ev.get("is_all_day"):
+                continue
+            start_str = ev.get("start", "")
+            end_str = ev.get("end", "")
+            if not start_str or not end_str:
+                continue
+            try:
+                s_dt = datetime.fromisoformat(start_str.replace("Z", "+00:00"))
+                if s_dt.astimezone(_ZI("America/New_York")).date().isoformat() != _today_et:
                     continue
-                start_str = ev.get("start", "")
-                end_str = ev.get("end", "")
-                if not start_str or not end_str:
-                    continue
-                try:
-                    s_dt = datetime.fromisoformat(start_str.replace("Z", "+00:00"))
-                    if s_dt.astimezone(_ZI("America/New_York")).date().isoformat() != _today_et:
-                        continue
-                    e_dt = datetime.fromisoformat(end_str.replace("Z", "+00:00"))
-                    dur = max(0, int((e_dt - s_dt).total_seconds()))
-                    committed_cal_secs += dur
-                except Exception:
-                    continue
-        except Exception as _e:
-            logger.warning(f"committed calendar total failed: {_e}")
+                e_dt = datetime.fromisoformat(end_str.replace("Z", "+00:00"))
+                dur = max(0, int((e_dt - s_dt).total_seconds()))
+                committed_cal_secs += dur
+            except Exception:
+                continue
+    except Exception as _e:
+        logger.warning(f"committed calendar total failed: {_e}")
 
     # Build set of task titles that have committed action events scheduled today
     # Used to show "Work Scheduled" / "Work Not Scheduled" badges on cards
@@ -2303,6 +2304,110 @@ def handle_action(event: dict) -> dict:
             return _ok_json() if ok else _error_json("Action failed")
         except Exception as e:
             logger.error(f"Todoist action={action} failed: {e}", exc_info=True)
+            return _error_json(str(e))
+
+    # -----------------------------------------------------------------------
+    # Migrate duplicate committed action calendars → correct one, delete dupes
+    # -----------------------------------------------------------------------
+    elif action == "migrate_committed_calendar":
+        try:
+            from calendar_service import CalendarService
+            cal = CalendarService(
+                os.environ["CALENDAR_CREDENTIALS_JSON"],
+                os.environ["CALENDAR_TOKEN_JSON"],
+            )
+            # Find all calendars named "Committed action"
+            items = []
+            page_token = None
+            while True:
+                resp = cal.service.calendarList().list(pageToken=page_token).execute()
+                items.extend(resp.get("items", []))
+                page_token = resp.get("nextPageToken")
+                if not page_token:
+                    break
+            committed_cals = [c for c in items if c.get("summary", "") == "Committed action"]
+            if len(committed_cals) <= 1:
+                return _ok_json({
+                    "ok": True,
+                    "message": f"Only {len(committed_cals)} 'Committed action' calendar(s) — nothing to migrate",
+                    "calendars": [c["id"] for c in committed_cals],
+                })
+            # Determine correct calendar from cal_state; fall back to first in list
+            _mig_state = _load_calendar_state()
+            correct_id = _mig_state.get("committed_action_calendar_id", "")
+            cal_ids = [c["id"] for c in committed_cals]
+            if correct_id not in cal_ids:
+                correct_id = cal_ids[0]
+                _mig_state["committed_action_calendar_id"] = correct_id
+                _save_calendar_state(_mig_state)
+            wrong_ids = [cid for cid in cal_ids if cid != correct_id]
+            now = datetime.now(timezone.utc)
+            time_min = (now - timedelta(days=30)).isoformat()
+            time_max = (now + timedelta(days=365)).isoformat()
+            migrated = 0
+            skipped = 0
+            deleted_cals = []
+            for wrong_id in wrong_ids:
+                try:
+                    # Fetch events from the wrong calendar
+                    wrong_result = cal.service.events().list(
+                        calendarId=wrong_id,
+                        timeMin=time_min, timeMax=time_max,
+                        singleEvents=True, maxResults=500,
+                    ).execute()
+                    wrong_events = wrong_result.get("items", [])
+                    # Fetch existing events in correct calendar to detect duplicates
+                    correct_result = cal.service.events().list(
+                        calendarId=correct_id,
+                        timeMin=time_min, timeMax=time_max,
+                        singleEvents=True, maxResults=500,
+                    ).execute()
+                    existing_keys = set()
+                    for ev in correct_result.get("items", []):
+                        t = ev.get("summary", "")
+                        s = ev.get("start", {}).get("dateTime") or ev.get("start", {}).get("date", "")
+                        existing_keys.add((t, s))
+                    # Copy events to correct calendar
+                    for ev in wrong_events:
+                        title = ev.get("summary", "")
+                        start_dict = ev.get("start", {})
+                        start_val = start_dict.get("dateTime") or start_dict.get("date", "")
+                        if (title, start_val) in existing_keys:
+                            skipped += 1
+                            continue
+                        body = {
+                            "summary": title,
+                            "description": ev.get("description", ""),
+                            "location": ev.get("location", ""),
+                            "start": start_dict,
+                            "end": ev.get("end", {}),
+                        }
+                        if ev.get("extendedProperties"):
+                            body["extendedProperties"] = ev["extendedProperties"]
+                        try:
+                            cal.service.events().insert(calendarId=correct_id, body=body).execute()
+                            migrated += 1
+                        except Exception as _copy_err:
+                            logger.warning(f"migrate: failed to copy '{title}': {_copy_err}")
+                    # Delete the wrong calendar
+                    try:
+                        cal.service.calendars().delete(calendarId=wrong_id).execute()
+                        deleted_cals.append(wrong_id)
+                        logger.info(f"migrate: deleted calendar {wrong_id}")
+                    except Exception as _del_err:
+                        logger.warning(f"migrate: failed to delete {wrong_id}: {_del_err}")
+                except Exception as _mig_err:
+                    logger.warning(f"migrate: error processing {wrong_id}: {_mig_err}")
+            _home_html_cache.clear()
+            return _ok_json({
+                "ok": True,
+                "correct_calendar_id": correct_id,
+                "deleted_calendars": deleted_cals,
+                "events_migrated": migrated,
+                "events_skipped_already_exist": skipped,
+            })
+        except Exception as e:
+            logger.error(f"migrate_committed_calendar failed: {e}", exc_info=True)
             return _error_json(str(e))
 
     # -----------------------------------------------------------------------
