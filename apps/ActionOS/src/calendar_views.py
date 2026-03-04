@@ -1237,8 +1237,8 @@ def build_calendar_html(
     for key, *_ in _REVIEWED_SECTIONS:
         _cal_nav_counts[key] = len(reviewed_buckets[key])
 
-    seven_day_html = _build_next7days_html(events, _build_section_cards)
-    lld_html = _build_lay_life_down_view(events)
+    seven_day_html = _build_next7days_html(filtered_events, _build_section_cards)
+    lld_html = _build_lay_life_down_view(filtered_events)
 
     embed_css = ".top-bar{display:none;}" if embed else ""
     page_height = "100vh" if embed else "calc(100vh - 57px)"
