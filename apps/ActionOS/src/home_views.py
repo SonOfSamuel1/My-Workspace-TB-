@@ -1762,7 +1762,7 @@ def build_home_html(
         ".scroll-area{height:"
         + page_height
         + ";overflow-y:auto;background:var(--bg-base);}"
-        ".home-list{max-width:700px;margin:0 auto;padding:0 16px 12px;overflow-x:hidden;}"
+        ".home-list{max-width:700px;margin:0 auto;padding:0 16px 12px;overflow-x:clip;}"
         # Sticky dashboard header (nav + toggl widget)
         ".dash-sticky{position:sticky;top:0;z-index:20;background:var(--bg-base);padding-top:12px;padding-bottom:14px;}"
         # Section nav bar
@@ -1779,7 +1779,7 @@ def build_home_html(
         "min-width:20px;height:20px;display:inline-flex;align-items:center;"
         "justify-content:center;font-size:11px;font-weight:700;color:#fff;padding:0 5px;}"
         # Section headers (flat, calendar-style)
-        ".section-hdr{display:flex;align-items:center;gap:8px;padding:16px 0 8px;"
+        ".section-hdr{display:flex;align-items:center;gap:8px;padding:16px 0 8px;min-height:44px;"
         "font-size:11px;font-weight:600;text-transform:uppercase;"
         "letter-spacing:0.6px;border-bottom:1px solid var(--border);margin-bottom:10px;"
         "position:-webkit-sticky;position:sticky;top:var(--dash-h,56px);z-index:10;background:var(--bg-base);"
@@ -2153,7 +2153,7 @@ def build_home_html(
         "if(d){document.documentElement.style.setProperty('--dash-h',d.offsetHeight+'px');}}"
         "_setDashH();"
         "window.addEventListener('resize',_setDashH);"
-        "})()"
+        "})();"
         # --- Section toggle ---
         "function toggleSection(key){}"
         # --- Helper: fade card ---
