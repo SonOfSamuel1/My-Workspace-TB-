@@ -2066,7 +2066,7 @@ def build_home_html(
         "border-radius:10px;padding:12px 14px;margin-bottom:12px;}"
         ".tdw-header{display:flex;align-items:center;justify-content:space-between;"
         "margin-bottom:8px;}"
-        ".tdw-label{font-size:11px;font-weight:700;text-transform:uppercase;"
+        ".tdw-label{font-size:12px;font-weight:700;text-transform:uppercase;"
         "letter-spacing:0.6px;color:var(--text-2);}"
         ".tdw-time{font-size:13px;font-weight:700;color:var(--text-1);}"
         ".tdw-time.goal-met{color:var(--ok);}"
