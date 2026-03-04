@@ -31,7 +31,18 @@ def _fmt_time(iso: str) -> str:
         return ""
 
 
-def build_focus_html(toggl_local: dict) -> str:
+_DILIGENT_PROJECTS = [
+    "Scripture Study",
+    "Scheduled Committed",
+    "Scheduled Best Case",
+    "Unscheduled Urgent",
+    "Unscheduled Good Samaritan",
+    "Life Group Meeting",
+    "Life Group Prep",
+]
+
+
+def build_focus_html(toggl_local: dict, function_url: str = "", action_token: str = "") -> str:
     """Build the Focus tab HTML from toggl_local state."""
     from zoneinfo import ZoneInfo
     _today_et = datetime.now(ZoneInfo("America/New_York")).date().isoformat()
@@ -97,19 +108,30 @@ def build_focus_html(toggl_local: dict) -> str:
 
     # Build session rows (newest first)
     session_rows = ""
+    _update_url = (function_url.rstrip("/") + "?action=toggl_update_entry_project") if function_url else ""
     for s in reversed(sessions):
         dur = s.get("duration_secs")
         is_active = dur is None and s.get("start_iso") == active_iso
         dur_display = _fmt_secs(dur) if dur is not None else _fmt_secs(active_elapsed)
         start_display = _fmt_time(s.get("start_iso", ""))
         desc = s.get("description") or "Untitled"
+        proj = s.get("project_name", "")
+        entry_id = s.get("entry_id", "")
+        start_iso = s.get("start_iso", "")
         active_class = " fsr-active" if is_active else ""
         active_badge = '<span class="fsr-live-badge">LIVE</span>' if is_active else ""
+        proj_badge = (
+            f'<span class="fsr-proj" onclick="event.stopPropagation();openProjPicker(this)" '
+            f'data-entry-id="{entry_id}" data-start-iso="{start_iso}">'
+            + (proj if proj else "Set project")
+            + "</span>"
+        )
         session_rows += (
-            f'<div class="fsr{active_class}" data-start="{s.get("start_iso","")}" data-dur="{dur if dur is not None else ""}" data-active="{1 if is_active else 0}">'
+            f'<div class="fsr{active_class}" data-start="{start_iso}" data-dur="{dur if dur is not None else ""}" data-active="{1 if is_active else 0}">'
             f'<div class="fsr-left">'
             f'<span class="fsr-desc">{desc}</span>'
             f'<span class="fsr-meta">{start_display}{active_badge}</span>'
+            f'{proj_badge}'
             f"</div>"
             f'<span class="fsr-dur" id="fsr-dur-{sessions.index(s)}">{dur_display}</span>'
             f"</div>"
@@ -192,6 +214,11 @@ def build_focus_html(toggl_local: dict) -> str:
         ".fsr-dur{font-size:14px;font-weight:700;color:var(--accent);"
         "flex-shrink:0;font-variant-numeric:tabular-nums;}"
         ".fsr-active .fsr-dur{color:var(--ok);}"
+        ".fsr-proj{display:inline-block;margin-top:3px;font-size:10px;font-weight:600;"
+        "padding:2px 7px;border-radius:4px;cursor:pointer;"
+        "background:var(--bg-s2);border:1px solid var(--border);color:var(--text-2);"
+        "transition:border-color .15s,color .15s;}"
+        ".fsr-proj:hover{border-color:var(--accent);color:var(--accent);}"
         ".fs-empty{font-size:14px;color:var(--text-2);text-align:center;padding:32px 0;}"
         "</style></head><body>"
         # Hero
@@ -275,6 +302,44 @@ def build_focus_html(toggl_local: dict) -> str:
         "rows.forEach(function(el){el.textContent=_fmtSecs(elapsed);});"
         "}"
         "if(_tlActiveIso){setInterval(_tick,1000);_tick();}"
+        # Project picker
+        f"var _updateUrl='{_update_url}';"
+        "var _projList=["
+        + ",".join(f"'{p}'" for p in _DILIGENT_PROJECTS)
+        + "];"
+        "function openProjPicker(badge){"
+        "var existing=document.getElementById('focus-proj-modal');"
+        "if(existing)existing.remove();"
+        "var entryId=badge.getAttribute('data-entry-id')||'';"
+        "var startIso=badge.getAttribute('data-start-iso')||'';"
+        "var overlay=document.createElement('div');"
+        "overlay.id='focus-proj-modal';"
+        "overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:center;justify-content:center;';"
+        "var box=document.createElement('div');"
+        "box.style.cssText='background:var(--bg-s1);border:1px solid var(--border);border-radius:10px;padding:20px 24px;min-width:240px;max-width:320px;';"
+        "var title=document.createElement('p');"
+        "title.textContent='Set Toggl project';"
+        "title.style.cssText='margin:0 0 14px;font-weight:600;font-size:.95rem;';"
+        "box.appendChild(title);"
+        "_projList.forEach(function(name){"
+        "var b=document.createElement('button');"
+        "b.textContent=name;"
+        "b.style.cssText='display:block;width:100%;text-align:left;padding:8px 10px;margin-bottom:6px;"
+        "background:var(--bg-s2);border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:.88rem;';"
+        "b.onclick=function(){"
+        "overlay.remove();"
+        "badge.textContent='Saving\u2026';"
+        "fetch(_updateUrl,{method:'POST',headers:{'Content-Type':'application/json'},"
+        "body:JSON.stringify({project_name:name,entry_id:entryId,start_iso:startIso})})"
+        ".then(function(r){return r.json();})"
+        ".then(function(d){badge.textContent=d.ok?name:'Error';});"
+        "};"
+        "box.appendChild(b);"
+        "});"
+        "overlay.appendChild(box);"
+        "overlay.onclick=function(e){if(e.target===overlay)overlay.remove();};"
+        "document.body.appendChild(overlay);"
+        "}"
         "</script>"
         "</body></html>"
     )

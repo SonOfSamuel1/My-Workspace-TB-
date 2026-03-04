@@ -1610,6 +1610,7 @@ def handle_action(event: dict) -> dict:
             "toggl_stop",
             "toggl_current",
             "toggl_log_event",
+            "toggl_update_entry_project",
             "starred_to_todoist",
             "followup_reviewed",
             "followup_resolved",
@@ -1805,7 +1806,7 @@ def handle_action(event: dict) -> dict:
                 _reconcile_toggl_local(os.environ.get("TOGGL_API_TOKEN", ""))
                 _tl_state = _load_home_reviewed_state()
                 _tl_data = _tl_state.get("toggl_local") or {}
-                body = build_focus_html(_tl_data)
+                body = build_focus_html(_tl_data, function_url=function_url, action_token=expected)
                 return {
                     "statusCode": 200,
                     "headers": _html_headers,
@@ -3101,6 +3102,7 @@ def handle_action(event: dict) -> dict:
                 json=timer_body,
             )
             _r.raise_for_status()
+            _entry_id = _r.json().get("id")
             try:
                 from zoneinfo import ZoneInfo as _ZI
                 _today_et = datetime.now(_ZI("America/New_York")).date().isoformat()
@@ -3111,7 +3113,7 @@ def handle_action(event: dict) -> dict:
                 _tl.setdefault("sessions", [])
                 _now_iso = datetime.now(timezone.utc).isoformat()
                 _tl["active_start_iso"] = _now_iso
-                _tl["sessions"].append({"description": ts_subject, "start_iso": _now_iso, "duration_secs": None})
+                _tl["sessions"].append({"description": ts_subject, "start_iso": _now_iso, "duration_secs": None, "entry_id": _entry_id})
                 _tl["sessions"] = _tl["sessions"][-20:]
                 _tl_st["toggl_local"] = _tl
                 _save_home_reviewed_state(_tl_st)
@@ -3315,6 +3317,90 @@ def handle_action(event: dict) -> dict:
         except Exception as e:
             logger.error(f"toggl_log_event failed: {e}", exc_info=True)
             return _error_json(str(e))
+
+    elif action == "toggl_update_entry_project":
+        # Update the Toggl project on a session entry and store project_name locally.
+        # Accepts: project_name (required), entry_id (optional), start_iso (fallback lookup)
+        _up_project_name = post_data.get("project_name", "") or params.get("project_name", "")
+        _up_entry_id = post_data.get("entry_id") or params.get("entry_id")
+        _up_start_iso = post_data.get("start_iso", "") or params.get("start_iso", "")
+        if not _up_project_name:
+            return _error_json("project_name required")
+        try:
+            import base64 as _b64
+            import requests as _req
+
+            toggl_token = os.environ.get("TOGGL_API_TOKEN", "")
+            _auth = _b64.b64encode(f"{toggl_token}:api_token".encode()).decode()
+            _th = {"Authorization": f"Basic {_auth}", "Content-Type": "application/json"}
+
+            # Resolve entry_id by start_iso if not provided
+            if not _up_entry_id and _up_start_iso:
+                _entries_r = _req.get("https://api.track.toggl.com/api/v9/me/time_entries", headers=_th, timeout=10)
+                _entries_r.raise_for_status()
+                for _e in (_entries_r.json() or []):
+                    try:
+                        _ts1 = datetime.fromisoformat(_up_start_iso.replace("Z", "+00:00"))
+                        _ts2 = datetime.fromisoformat(_e["start"].replace("Z", "+00:00"))
+                        if abs((_ts1 - _ts2).total_seconds()) < 90:
+                            _up_entry_id = _e["id"]
+                            break
+                    except Exception:
+                        pass
+
+            if not _up_entry_id:
+                return _error_json("Could not resolve entry_id")
+
+            # Resolve project_id from name
+            _up_project_id = None
+            try:
+                for _p in _fetch_toggl_projects(toggl_token):
+                    if _p.get("name", "").lower() == _up_project_name.lower():
+                        _up_project_id = _p["id"]
+                        break
+            except Exception:
+                pass
+
+            # Get workspace_id from the entry
+            _me_r = _req.get("https://api.track.toggl.com/api/v9/me", headers=_th, timeout=8)
+            _me_r.raise_for_status()
+            _ws_id = _me_r.json().get("default_workspace_id")
+
+            # PATCH the entry to assign project
+            _patch_body = {"project_id": _up_project_id}
+            _patch_r = _req.put(
+                f"https://api.track.toggl.com/api/v9/workspaces/{_ws_id}/time_entries/{_up_entry_id}",
+                headers=_th,
+                json=_patch_body,
+                timeout=10,
+            )
+            _patch_r.raise_for_status()
+
+            # Update toggl_local session with project_name
+            try:
+                _tl_st2 = _load_home_reviewed_state()
+                _tl2 = _tl_st2.get("toggl_local") or {}
+                for _s2 in _tl2.get("sessions", []):
+                    if str(_s2.get("entry_id")) == str(_up_entry_id) or (
+                        _up_start_iso and abs((
+                            datetime.fromisoformat(_s2.get("start_iso", "1970-01-01T00:00:00+00:00").replace("Z", "+00:00")) -
+                            datetime.fromisoformat(_up_start_iso.replace("Z", "+00:00"))
+                        ).total_seconds()) < 90
+                    ):
+                        _s2["project_name"] = _up_project_name
+                        break
+                _tl_st2["toggl_local"] = _tl2
+                _save_home_reviewed_state(_tl_st2)
+            except Exception as _ue:
+                logger.warning(f"toggl_update_entry_project local save failed: {_ue}")
+
+            # Invalidate home cache so Performance widget refreshes
+            _view_html_cache.pop("home", None)
+
+            return _ok_json()
+        except Exception as _upe:
+            logger.error(f"toggl_update_entry_project failed: {_upe}", exc_info=True)
+            return _error_json(str(_upe))
 
     elif action == "home_reviewed":
         section = params.get("section", "")
