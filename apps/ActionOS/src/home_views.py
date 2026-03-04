@@ -923,6 +923,21 @@ def _build_calendar_card(
         + "</button>"
     )
 
+    # Exclude Review button
+    _title_enc_excl = urllib.parse.quote(event.get("title", ""), safe="")
+    _excl_url_h = html.escape(
+        base_url + "?action=calendar_exclude_title&title=" + _title_enc_excl
+    )
+    _unexcl_url_h = html.escape(
+        base_url + "?action=calendar_unexclude_title&title=" + _title_enc_excl
+    )
+    excl_btn = (
+        f'<button class="exclude-review-btn" '
+        f'data-unexclude-url="{_unexcl_url_h}" '
+        f"onclick=\"event.stopPropagation();doExcludeEvent(this,'{_excl_url_h}')\">"
+        "Exclude Review</button>"
+    )
+
     # Schedule badges (last / next occurrence, shown with green event badge style)
     schedule_badges = ""
     if last_date:
@@ -952,7 +967,7 @@ def _build_calendar_card(
         f"</div>"
         f'<div class="task-meta">{meta_line}</div>'
         f'<div class="task-actions">'
-        f"{review_btn}{todoist_btn}{commit_btn}{schedule_prep_btn}{timer_btn}{cc_btn}{gcal_html}"
+        f"{review_btn}{todoist_btn}{commit_btn}{schedule_prep_btn}{timer_btn}{cc_btn}{excl_btn}{gcal_html}"
         f"</div>"
         f"</div></div>"
         f"</div>"
@@ -1582,13 +1597,17 @@ def build_home_html(
 
     _daily_weekly_ids: set = {r for r, s in _rid_starts.items() if _is_dw(s, 2)}
     _daily_weekly_titles: set = {t for t, s in _title_starts.items() if _is_dw(s, 3)}
+    _user_excluded_home: set = {t.lower() for t in cal_state.get("excluded_titles", [])}
 
     for event in calendar_events:
-        if (event.get("title") or "").strip().lower() in _EXCLUDED_EVENT_TITLES:
+        _ev_title_lower = (event.get("title") or "").strip().lower()
+        if _ev_title_lower in _EXCLUDED_EVENT_TITLES:
+            continue
+        if _ev_title_lower in _user_excluded_home:
             continue
         if event.get("calendar_type") != _HABITS_BUILDING_CAL and (
             event.get("recurring_event_id", "") in _daily_weekly_ids
-            or (event.get("title") or "").strip().lower() in _daily_weekly_titles
+            or _ev_title_lower in _daily_weekly_titles
         ):
             continue
         eid = str(event.get("id", ""))
@@ -2097,6 +2116,21 @@ def build_home_html(
         "background:var(--bg-s2);color:var(--text-2);border:1px solid var(--border);"
         "cursor:pointer;transition:all .15s ease-out;display:inline-flex;align-items:center;gap:5px;}"
         ".assign-cc-btn:hover{background:var(--border-h);color:var(--text-1);}"
+        ".exclude-review-btn{font-family:inherit;font-size:12px;font-weight:600;"
+        "padding:5px 14px;min-height:44px;border-radius:8px;"
+        "background:transparent;color:var(--text-2);border:1px solid var(--border);"
+        "cursor:pointer;transition:all .15s ease-out;}"
+        ".exclude-review-btn:hover{background:var(--bg-2);color:var(--text-1);}"
+        "#exclude-toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);"
+        "background:#1f2937;color:#fff;padding:12px 16px;border-radius:10px;"
+        "display:flex;align-items:center;gap:12px;z-index:99999;"
+        "font-size:14px;box-shadow:0 4px 16px rgba(0,0,0,0.4);"
+        "animation:fadeInUp .2s ease;}"
+        "@keyframes fadeInUp{from{opacity:0;transform:translateX(-50%) translateY(8px)}"
+        "to{opacity:1;transform:translateX(-50%) translateY(0)}}"
+        "#exclude-toast .undo-btn{background:#3b82f6;color:#fff;border:none;"
+        "padding:5px 14px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;}"
+        "#exclude-toast .undo-btn:hover{background:#2563eb;}"
         # Schedule button (overrides earlier definition)
         ".schedule-btn{font-family:inherit;font-size:12px;font-weight:600;"
         "padding:5px 14px;min-height:44px;border-radius:8px;"
@@ -2342,6 +2376,39 @@ def build_home_html(
         "_updateBadge('calendar');"
         "}else{btn.textContent='Review';btn.style.pointerEvents='auto';}"
         "}).catch(function(){btn.textContent='Review';btn.style.pointerEvents='auto';});}"
+        "function doExcludeEvent(btn,url){"
+        "btn.style.pointerEvents='none';btn.textContent='Excluding\u2026';"
+        "var card=btn.closest('.task-card');"
+        "var unexclUrl=btn.getAttribute('data-unexclude-url');"
+        "fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'})"
+        ".then(function(r){return r.json();})"
+        ".then(function(d){"
+        "if(d.ok){"
+        "if(card){card.style.transition='opacity .3s';card.style.opacity='0';"
+        "setTimeout(function(){card.remove();},300);}"
+        "_showExcludeToast(unexclUrl);"
+        "_updateBadge('calendar');"
+        "}else{"
+        "btn.textContent='Exclude Review';btn.style.pointerEvents='auto';"
+        "alert('Exclude failed: '+(d.error||'Unknown error'));}"
+        "}).catch(function(){"
+        "btn.textContent='Exclude Review';btn.style.pointerEvents='auto';"
+        "alert('Exclude failed \u2014 check network.');});}"
+        "function _showExcludeToast(unexclUrl){"
+        "var old=document.getElementById('exclude-toast');"
+        "if(old){clearTimeout(old._t);old.remove();}"
+        "var t=document.createElement('div');t.id='exclude-toast';"
+        "var ub=document.createElement('button');ub.className='undo-btn';ub.textContent='Undo';"
+        "ub.onclick=function(){clearTimeout(t._t);t.remove();doUnexcludeEvent(unexclUrl);};"
+        "t.appendChild(document.createTextNode('Event excluded from review\u00a0'));"
+        "t.appendChild(ub);"
+        "document.body.appendChild(t);"
+        "t._t=setTimeout(function(){t.remove();},5000);}"
+        "function doUnexcludeEvent(url){"
+        "fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'})"
+        ".then(function(r){return r.json();})"
+        ".then(function(d){if(d.ok){window.location.reload();}else{alert('Undo failed: '+(d.error||'Unknown error'));}})"
+        ".catch(function(){alert('Undo failed \u2014 check network.');});}"
         # --- Mark Read ---
         "function doMarkRead(btn,msgId,url,idx){"
         "btn.style.pointerEvents='none';btn.textContent='Marking\u2026';"
@@ -2609,7 +2676,14 @@ def build_home_html(
         "if(br){var a=document.createElement('a');a.className='prep-indicator';"
         "a.textContent='Prep Scheduled';a.target='_blank';"
         "a.href=d.task_id?'https://app.todoist.com/app/task/'+d.task_id:'#';"
-        "a.onclick=function(e){e.stopPropagation();};br.appendChild(a);}}"
+        "a.onclick=function(e){e.stopPropagation();};br.appendChild(a);}"
+        "if(card){"
+        "var revBtn=card.querySelector('.review-btn');"
+        "if(revBtn&&!revBtn.classList.contains('reviewed')){"
+        "revBtn.className='review-btn reviewed';revBtn.textContent='\u2713 Reviewed (7d)';"
+        "revBtn.style.cursor='default';revBtn.style.pointerEvents='auto';"
+        "card.classList.add('reviewed-card');card.style.opacity='0.65';}"
+        "_updateBadge('calendar');}}"
         "else{btn.textContent='Schedule Prep';btn.style.pointerEvents='auto';}"
         "}).catch(function(){btn.textContent='Schedule Prep';btn.style.pointerEvents='auto';});}"
         # --- Prep Timer ---

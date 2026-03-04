@@ -1605,6 +1605,8 @@ def handle_action(event: dict) -> dict:
             "calendar_create_sms_reminder",
             "calendar_update_event",
             "calendar_delete_event",
+            "calendar_exclude_title",
+            "calendar_unexclude_title",
             "ffm_outreach",
             "toggl_start",
             "toggl_stop",
@@ -3821,6 +3823,18 @@ def handle_action(event: dict) -> dict:
             )
             _r.raise_for_status()
             _task_data = _r.json()
+
+            # Auto-review the calendar event so the user doesn't have to hit Review separately
+            if event_id:
+                try:
+                    _cal_state = _load_calendar_state()
+                    _cal_state.setdefault("reviews", {})[event_id] = datetime.now(
+                        timezone.utc
+                    ).isoformat()
+                    _save_calendar_state(_cal_state)
+                except Exception as _re:
+                    logger.warning(f"calendar_schedule_prep: auto-review failed: {_re}")
+
             return _ok_json({"task_id": _task_data.get("id", "")})
         except Exception as e:
             logger.error(f"calendar_schedule_prep failed: {e}", exc_info=True)
@@ -3992,6 +4006,40 @@ def handle_action(event: dict) -> dict:
             return _ok_json({})
         except Exception as e:
             logger.error(f"calendar_delete_event failed: {e}", exc_info=True)
+            return _error_json(str(e))
+
+    # -----------------------------------------------------------------------
+    # Exclude / unexclude event title from review cards
+    # -----------------------------------------------------------------------
+    elif action == "calendar_exclude_title":
+        title = params.get("title", "").strip()
+        if not title:
+            return _error_json("Missing title")
+        try:
+            state = _load_calendar_state()
+            excluded = state.setdefault("excluded_titles", [])
+            if title.lower() not in [t.lower() for t in excluded]:
+                excluded.append(title)
+            _save_calendar_state(state)
+            logger.info(f"Excluded calendar title from review: {title!r}")
+            return _ok_json({})
+        except Exception as e:
+            logger.error(f"calendar_exclude_title failed: {e}", exc_info=True)
+            return _error_json(str(e))
+
+    elif action == "calendar_unexclude_title":
+        title = params.get("title", "").strip()
+        if not title:
+            return _error_json("Missing title")
+        try:
+            state = _load_calendar_state()
+            excluded = state.get("excluded_titles", [])
+            state["excluded_titles"] = [t for t in excluded if t.lower() != title.lower()]
+            _save_calendar_state(state)
+            logger.info(f"Unexcluded calendar title from review: {title!r}")
+            return _ok_json({})
+        except Exception as e:
+            logger.error(f"calendar_unexclude_title failed: {e}", exc_info=True)
             return _error_json(str(e))
 
     # -----------------------------------------------------------------------

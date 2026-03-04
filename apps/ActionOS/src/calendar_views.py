@@ -662,6 +662,21 @@ def _build_event_card(
         "Delete</button>"
     )
 
+    # Exclude Review button
+    _title_enc = urllib.parse.quote(event.get("title", ""), safe="")
+    _excl_url = html.escape(
+        function_url.rstrip("/") + "?action=calendar_exclude_title&title=" + _title_enc
+    )
+    _unexcl_url = html.escape(
+        function_url.rstrip("/") + "?action=calendar_unexclude_title&title=" + _title_enc
+    )
+    exclude_btn = (
+        f'<button class="exclude-review-btn" id="excl-{idx}" '
+        f'data-unexclude-url="{_unexcl_url}" '
+        f"onclick=\"event.stopPropagation();doExcludeEvent(this,'{_excl_url}')\">"
+        "Exclude Review</button>"
+    )
+
     card_extra = " reviewed-card" if reviewed else " unreviewed-card"
 
     # Data attributes for the click-to-edit modal
@@ -725,6 +740,7 @@ def _build_event_card(
         f"{timer_btn}"
         f"{toggl_log_btn}"
         f"{cc_btn}"
+        f"{exclude_btn}"
         f"{delete_btn}"
         f"{gcal_html}"
         f"</div>"
@@ -1156,13 +1172,18 @@ def build_calendar_html(
     _daily_weekly_ids, _daily_weekly_titles = _daily_weekly_recurring_ids(events)
 
     # Filter out:
+    # User-excluded titles (via Exclude Review button)
+    _user_excluded = {t.lower() for t in reviewed_state.get("excluded_titles", [])}
+
     #   - birthday/anniversary events beyond 90 days
     #   - explicitly excluded titles (Home, Lunch Break)
+    #   - user-excluded titles (Exclude Review button)
     #   - daily/weekly recurring events (unless on the habits-building calendar)
     filtered_events = [
         ev for ev in events
         if (not _is_birthday_event(ev) or _is_within_days(ev, 90))
         and (ev.get("title") or "").strip().lower() not in _EXCLUDED_EVENT_TITLES
+        and (ev.get("title") or "").strip().lower() not in _user_excluded
         and (
             ev.get("calendar_type") == _HABITS_BUILDING_CAL
             or (
@@ -1478,6 +1499,21 @@ def build_calendar_html(
         "background:transparent;color:var(--err);border:1px solid var(--err-b);"
         "cursor:pointer;transition:background .15s,color .15s;}"
         ".delete-event-btn:hover{background:var(--err-bg);}"
+        ".exclude-review-btn{font-family:inherit;font-size:12px;font-weight:600;"
+        "padding:5px 14px;border-radius:6px;"
+        "background:transparent;color:var(--text-2);border:1px solid var(--border);"
+        "cursor:pointer;transition:background .15s,color .15s;}"
+        ".exclude-review-btn:hover{background:var(--bg-2);color:var(--text-1);}"
+        "#exclude-toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);"
+        "background:#1f2937;color:#fff;padding:12px 16px;border-radius:10px;"
+        "display:flex;align-items:center;gap:12px;z-index:99999;"
+        "font-size:14px;box-shadow:0 4px 16px rgba(0,0,0,0.4);"
+        "animation:fadeInUp .2s ease;}"
+        "@keyframes fadeInUp{from{opacity:0;transform:translateX(-50%) translateY(8px)}"
+        "to{opacity:1;transform:translateX(-50%) translateY(0)}}"
+        "#exclude-toast .undo-btn{background:#3b82f6;color:#fff;border:none;"
+        "padding:5px 14px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;}"
+        "#exclude-toast .undo-btn:hover{background:#2563eb;}"
         ".empty-state{text-align:center;color:var(--text-2);padding:24px 20px;font-size:14px;}"
         # Task card cursor pointer (clickable to open detail)
         ".task-card{cursor:pointer;}"
@@ -1527,7 +1563,7 @@ def build_calendar_html(
         ".ev-save-btn:hover{opacity:0.88;}"
         "@media(max-width:768px){"
         ".task-actions{gap:6px;}"
-        ".action-select,.review-btn,.todoist-btn,.commit-btn,.schedule-prep-btn,.travel-time-btn,.timer-btn,.toggl-log-btn,.assign-cc-btn,.delete-event-btn,.ffm-meal-btn{font-size:11px;padding:4px 6px;min-height:44px;}"
+        ".action-select,.review-btn,.todoist-btn,.commit-btn,.schedule-prep-btn,.travel-time-btn,.timer-btn,.toggl-log-btn,.assign-cc-btn,.delete-event-btn,.exclude-review-btn,.ffm-meal-btn{font-size:11px;padding:4px 6px;min-height:44px;}"
         ".ev-datetime-row{grid-template-columns:1fr;}"
         "}"
         "::-webkit-scrollbar{width:6px;}"
@@ -1871,7 +1907,15 @@ def build_calendar_html(
         "if(br){var a=document.createElement('a');a.className='prep-indicator';"
         "a.textContent='Prep Scheduled';a.target='_blank';"
         "a.href=d.task_id?'https://app.todoist.com/app/task/'+d.task_id:'#';"
-        "a.onclick=function(e){e.stopPropagation();};br.appendChild(a);}}"
+        "a.onclick=function(e){e.stopPropagation();};br.appendChild(a);}"
+        "if(card){"
+        "var revBtn=card.querySelector('.review-btn');"
+        "if(revBtn&&!revBtn.classList.contains('reviewed')){"
+        "revBtn.className='review-btn reviewed';revBtn.textContent='\u2713 Reviewed (7d)';"
+        "revBtn.style.cursor='default';revBtn.style.pointerEvents='auto';"
+        "card.classList.remove('unreviewed-card');card.classList.add('reviewed-card');"
+        "card.style.opacity='0.65';}}"
+        "}"
         "else{"
         "btn.textContent='Schedule Prep';btn.style.pointerEvents='auto';}"
         "}).catch(function(){"
@@ -2005,6 +2049,38 @@ def build_calendar_html(
         "}).catch(function(){"
         "btn.textContent='Delete';btn.style.pointerEvents='auto';"
         "alert('Delete failed — check network connection.');});}"
+        "function doExcludeEvent(btn,url){"
+        "btn.style.pointerEvents='none';btn.textContent='Excluding\u2026';"
+        "var card=btn.closest('.task-card');"
+        "var unexclUrl=btn.getAttribute('data-unexclude-url');"
+        "fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'})"
+        ".then(function(r){return r.json();})"
+        ".then(function(d){"
+        "if(d.ok){"
+        "if(card){card.style.transition='opacity .3s';card.style.opacity='0';"
+        "setTimeout(function(){card.remove();},300);}"
+        "_showExcludeToast(unexclUrl);"
+        "}else{"
+        "btn.textContent='Exclude Review';btn.style.pointerEvents='auto';"
+        "alert('Exclude failed: '+(d.error||'Unknown error'));}"
+        "}).catch(function(){"
+        "btn.textContent='Exclude Review';btn.style.pointerEvents='auto';"
+        "alert('Exclude failed \u2014 check network connection.');});}"
+        "function _showExcludeToast(unexclUrl){"
+        "var old=document.getElementById('exclude-toast');"
+        "if(old){clearTimeout(old._t);old.remove();}"
+        "var t=document.createElement('div');t.id='exclude-toast';"
+        "var ub=document.createElement('button');ub.className='undo-btn';ub.textContent='Undo';"
+        "ub.onclick=function(){clearTimeout(t._t);t.remove();doUnexcludeEvent(unexclUrl);};"
+        "t.appendChild(document.createTextNode('Event excluded from review\u00a0'));"
+        "t.appendChild(ub);"
+        "document.body.appendChild(t);"
+        "t._t=setTimeout(function(){t.remove();},5000);}"
+        "function doUnexcludeEvent(url){"
+        "fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'})"
+        ".then(function(r){return r.json();})"
+        ".then(function(d){if(d.ok){window.location.reload();}else{alert('Undo failed: '+(d.error||'Unknown error'));}})"
+        ".catch(function(){alert('Undo failed \u2014 check network.');});}"
         "function _timerLabel(secs){"
         "if(secs<=0)return 'Starting soon';"
         "var h=Math.floor(secs/3600);var m=Math.floor((secs%3600)/60);var s=secs%60;"
