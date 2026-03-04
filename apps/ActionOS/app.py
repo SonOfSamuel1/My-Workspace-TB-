@@ -77,11 +77,13 @@ def _warm_caches():
                 _wlog.warning(f"[cache-warm] {name} failed: {_e}")
 
         from concurrent.futures import ThreadPoolExecutor as _WarmTPE
-        with _WarmTPE(max_workers=4) as _ex:
+        with _WarmTPE(max_workers=6) as _ex:
             _ex.submit(_warm, "shell", _get_shell_data, todoist_token)
             _ex.submit(_warm, "home", _get_home_html, function_url, action_token, todoist_token)
             _ex.submit(_warm, "calendar", handle_action, _view_event("calendar"))
             _ex.submit(_warm, "code", handle_action, _view_event("code"))
+            _ex.submit(_warm, "unread", handle_action, _view_event("unread"))
+            _ex.submit(_warm, "followup", handle_action, _view_event("followup"))
     except Exception as e:
         import logging as _log
         _log.getLogger(__name__).warning(f"[cache-warm] outer failure: {e}")
