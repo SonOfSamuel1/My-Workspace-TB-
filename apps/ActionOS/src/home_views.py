@@ -1488,7 +1488,12 @@ def build_home_html(
         '</div>'
     )
     _view_all_card = (
-        '<div class="gp-view-all-card" onclick="window.parent.postMessage({type:\'switchTab\',tab:\'godpower\'},\'*\')">'
+        '<div class="gp-view-all-card" onclick="'
+        "try{if(window.parent&&typeof window.parent.switchTab==='function')"
+        "{window.parent.switchTab('godpower')}"
+        "else{window.parent.postMessage({type:'switchTab',tab:'godpower'},'*')}}"
+        "catch(e){window.parent.postMessage({type:'switchTab',tab:'godpower'},'*')}"
+        '">'
         '<span>View all Power Scriptures &amp; Activities</span>'
         '<span class="gp-view-all-arrow">\u2192</span>'
         '</div>'
@@ -1782,7 +1787,12 @@ def build_home_html(
     _dw_fill_color = "var(--ok)" if _dw_goal_reached else "var(--accent)"
     _dw_fill_width = f"{_dw_pct}%"
     _toggl_daily_widget_html = (
-        '<div class="tdw" onclick="window.parent.postMessage({type:\'switchTab\',tab:\'focus\'},\'*\')" style="cursor:pointer;">'
+        '<div class="tdw" onclick="'
+        "try{if(window.parent&&typeof window.parent.switchTab==='function')"
+        "{window.parent.switchTab('focus')}"
+        "else{window.parent.postMessage({type:'switchTab',tab:'focus'},'*')}}"
+        "catch(e){window.parent.postMessage({type:'switchTab',tab:'focus'},'*')}"
+        '" style="cursor:pointer;">'
         '<div class="tdw-title">Performance</div>'
         '<div class="tdw-header">'
         '<span class="tdw-label">My Diligent Work</span>'
