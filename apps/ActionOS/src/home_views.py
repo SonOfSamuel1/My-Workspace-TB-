@@ -1766,8 +1766,8 @@ def build_home_html(
         ".section-hdr{display:flex;align-items:center;gap:8px;padding:16px 0 8px;"
         "font-size:11px;font-weight:600;text-transform:uppercase;"
         "letter-spacing:0.6px;border-bottom:1px solid var(--border);margin-bottom:10px;"
-        "position:sticky;top:56px;z-index:10;background:var(--bg-base);"
-        "scroll-margin-top:56px;}"
+        "position:sticky;top:var(--dash-h,56px);z-index:10;background:var(--bg-base);"
+        "scroll-margin-top:var(--dash-h,56px);}"
         ".section-hdr+.section-hdr{margin-top:14px;}"
         ".section-badge{background:var(--border);color:var(--text-2);font-size:11px;"
         "font-weight:700;padding:2px 7px;border-radius:8px;}"
@@ -2126,6 +2126,14 @@ def build_home_html(
         "function scrollToSec(key){"
         "var el=document.getElementById('sec-'+key);"
         "if(el){el.scrollIntoView({behavior:'smooth',block:'start'});}}"
+        # Set --dash-h so section headers stick just below the sticky bar
+        "(function(){"
+        "function _setDashH(){"
+        "var d=document.querySelector('.dash-sticky');"
+        "if(d){document.documentElement.style.setProperty('--dash-h',d.offsetHeight+'px');}}"
+        "_setDashH();"
+        "window.addEventListener('resize',_setDashH);"
+        "})()"
         # --- Section toggle ---
         "function toggleSection(key){}"
         # --- Helper: fade card ---
