@@ -876,6 +876,9 @@ def _build_home_html_uncached(
     toggl_daily_total_secs = (
         _fetch_toggl_daily_total_seconds(_toggl_tok) if _toggl_tok else 0
     )
+    diligent_work_secs = (
+        _fetch_toggl_diligent_work_secs(_toggl_tok) if _toggl_tok else 0
+    )
 
     if not toggl_daily_total_secs:
         try:
@@ -901,6 +904,32 @@ def _build_home_html_uncached(
         except Exception as _e:
             logger.warning(f"toggl_local fallback read failed: {_e}")
 
+    # Compute committed calendar total for today (primary calendar timed events)
+    committed_cal_secs = 0
+    try:
+        from zoneinfo import ZoneInfo as _ZI
+        _today_et = datetime.now(_ZI("America/New_York")).date().isoformat()
+        for ev in calendar_events:
+            if ev.get("calendar_type") != "primary":
+                continue
+            if ev.get("is_all_day"):
+                continue
+            start_str = ev.get("start", "")
+            end_str = ev.get("end", "")
+            if not start_str or not end_str:
+                continue
+            try:
+                s_dt = datetime.fromisoformat(start_str.replace("Z", "+00:00"))
+                if s_dt.astimezone(_ZI("America/New_York")).date().isoformat() != _today_et:
+                    continue
+                e_dt = datetime.fromisoformat(end_str.replace("Z", "+00:00"))
+                dur = max(0, int((e_dt - s_dt).total_seconds()))
+                committed_cal_secs += dur
+            except Exception:
+                continue
+    except Exception as _e:
+        logger.warning(f"committed calendar total failed: {_e}")
+
     return build_home_html(
         commit_tasks=commit_tasks,
         bestcase_tasks=bestcase_tasks,
@@ -919,6 +948,8 @@ def _build_home_html_uncached(
         embed=True,
         toggl_time_totals=toggl_time_totals,
         toggl_daily_total_secs=toggl_daily_total_secs,
+        diligent_work_secs=diligent_work_secs,
+        committed_cal_secs=committed_cal_secs,
         todoist_tasks=all_todoist_tasks,
         godpower_state=godpower_state,
     )
@@ -1121,6 +1152,85 @@ def _fetch_toggl_time_entries(toggl_token: str) -> dict:
     except Exception as e:
         logger.warning(f"Could not fetch Toggl time entries: {e}")
         return {}
+
+
+_DILIGENT_PROJECT_NAMES = {
+    "Scripture Study",
+    "Scheduled Committed",
+    "Scheduled Best Case",
+    "Unscheduled Urgent",
+    "Unscheduled Good Samaritan",
+}
+
+
+def _fetch_toggl_diligent_work_secs(toggl_token: str) -> int:
+    """Fetch today's Toggl seconds for 'diligent work' projects only.
+
+    Diligent projects: Scripture Study, Scheduled Committed, Scheduled Best Case,
+    Unscheduled Urgent, Unscheduled Good Samaritan, and any project with 'Love' in the name.
+    """
+    try:
+        import base64 as _b64
+        import time as _time
+
+        import requests as _req
+        from zoneinfo import ZoneInfo
+
+        _eastern = ZoneInfo("America/New_York")
+        _today_str = datetime.now(_eastern).date().isoformat()
+        _auth = _b64.b64encode(f"{toggl_token}:api_token".encode()).decode()
+        _th = {"Authorization": f"Basic {_auth}", "Content-Type": "application/json"}
+
+        # Fetch projects to build id -> name map
+        _pr = _req.get(
+            "https://api.track.toggl.com/api/v9/me?with_related_data=true",
+            headers=_th,
+            timeout=15,
+        )
+        _pr.raise_for_status()
+        _pd = _pr.json()
+        project_names = {}
+        for p in _pd.get("projects", []):
+            project_names[p.get("id")] = p.get("name", "")
+
+        # Fetch time entries
+        _mr = _req.get(
+            "https://api.track.toggl.com/api/v9/me/time_entries",
+            headers=_th,
+            timeout=15,
+        )
+        _mr.raise_for_status()
+        entries = _mr.json()
+        now_ts = _time.time()
+        total = 0
+        for entry in entries:
+            start = entry.get("start", "")
+            if not start:
+                continue
+            try:
+                start_dt = datetime.fromisoformat(start.replace("Z", "+00:00"))
+                if start_dt.astimezone(_eastern).date().isoformat() != _today_str:
+                    continue
+            except Exception:
+                continue
+            # Check if this entry's project qualifies as diligent work
+            pid = entry.get("project_id")
+            pname = project_names.get(pid, "")
+            is_diligent = (
+                pname in _DILIGENT_PROJECT_NAMES
+                or "love" in pname.lower()
+            )
+            if not is_diligent:
+                continue
+            dur = entry.get("duration", 0)
+            if dur < 0:
+                total += max(0, int(now_ts + dur))
+            elif dur > 0:
+                total += dur
+        return total
+    except Exception as e:
+        logger.warning(f"Could not fetch Toggl diligent work: {e}")
+        return 0
 
 
 def _fetch_toggl_daily_total_seconds(toggl_token: str) -> int:
