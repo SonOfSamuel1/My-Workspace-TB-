@@ -3477,10 +3477,13 @@ def handle_action(event: dict) -> dict:
         if not event_id:
             return _error_json("Missing event_id")
         try:
+            recurring_event_id = params.get("recurring_event_id", "")
+            calendar_type = params.get("calendar_type", "")
+            now_iso = datetime.now(timezone.utc).isoformat()
             state = _load_calendar_state()
-            state.setdefault("reviews", {})[event_id] = datetime.now(
-                timezone.utc
-            ).isoformat()
+            state.setdefault("reviews", {})[event_id] = now_iso
+            if calendar_type == "my_habits_building" and recurring_event_id:
+                state.setdefault("series_reviews", {})[recurring_event_id] = now_iso
             _save_calendar_state(state)
             return _ok_json()
         except Exception as e:

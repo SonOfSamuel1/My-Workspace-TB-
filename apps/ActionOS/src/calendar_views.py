@@ -105,8 +105,14 @@ _CAL_TYPE_COLORS = {
 }
 
 
-def _is_event_reviewed(event_id: str, state: dict) -> bool:
+def _is_event_reviewed(
+    event_id: str, state: dict, recurring_event_id: str = ""
+) -> bool:
+    """Return True if event_id (or its series) was reviewed within 7 days."""
     ts = state.get("reviews", {}).get(event_id)
+    # For habits-building series, also check the series-level review
+    if not ts and recurring_event_id:
+        ts = state.get("series_reviews", {}).get(recurring_event_id)
     if not ts:
         return False
     try:
@@ -120,8 +126,12 @@ def _is_event_reviewed(event_id: str, state: dict) -> bool:
         return False
 
 
-def _days_until_reviewed_reset(event_id: str, state: dict) -> int:
+def _days_until_reviewed_reset(
+    event_id: str, state: dict, recurring_event_id: str = ""
+) -> int:
     ts = state.get("reviews", {}).get(event_id)
+    if not ts and recurring_event_id:
+        ts = state.get("series_reviews", {}).get(recurring_event_id)
     if not ts:
         return 0
     try:
@@ -392,6 +402,8 @@ def _build_event_card(
     html_link_enc = urllib.parse.quote(html_link)
 
     # Review button
+    _cal_type = event.get("calendar_type", "")
+    _rid = event.get("recurring_event_id", "")
     if reviewed:
         review_btn = (
             f'<button class="review-btn reviewed" id="rev-{idx}" style="cursor:default;">'
@@ -403,6 +415,7 @@ def _build_event_card(
             + "?action=calendar_reviewed"
             + "&event_id="
             + eid_enc
+            + ("&recurring_event_id=" + urllib.parse.quote(_rid) + "&calendar_type=" + urllib.parse.quote(_cal_type) if _cal_type == _HABITS_BUILDING_CAL and _rid else "")
         )
         review_btn = (
             f'<button class="review-btn" id="rev-{idx}" '
@@ -1197,7 +1210,8 @@ def build_calendar_html(
     unreviewed = []
     reviewed_events = []
     for ev in filtered_events:
-        if _is_event_reviewed(ev.get("id", ""), reviewed_state):
+        _ev_rid = ev.get("recurring_event_id", "") if ev.get("calendar_type") == _HABITS_BUILDING_CAL else ""
+        if _is_event_reviewed(ev.get("id", ""), reviewed_state, _ev_rid):
             reviewed_events.append(ev)
         else:
             unreviewed.append(ev)
@@ -1224,8 +1238,9 @@ def build_calendar_html(
             idx = _card_idx[0]
             _card_idx[0] += 1
             eid = event.get("id", "")
-            r = _is_event_reviewed(eid, reviewed_state)
-            days_rem = _days_until_reviewed_reset(eid, reviewed_state)
+            _s_rid = event.get("recurring_event_id", "") if event.get("calendar_type") == _HABITS_BUILDING_CAL else ""
+            r = _is_event_reviewed(eid, reviewed_state, _s_rid)
+            days_rem = _days_until_reviewed_reset(eid, reviewed_state, _s_rid)
             ev_title_lower = (event.get("title") or "").strip().lower()
             last_date, next_date = _get_schedule(
                 event.get("title", ""), event.get("start", "")
@@ -1827,14 +1842,19 @@ def build_calendar_html(
         "btn.style.pointerEvents='none';btn.textContent='Reviewing\u2026';"
         "fetch(url).then(function(r){return r.json();}).then(function(d){"
         "if(d.ok){"
-        "btn.className='review-btn reviewed';btn.textContent='\u2713 Reviewed (7d)';"
-        "btn.style.cursor='default';btn.style.pointerEvents='auto';"
-        "var card=btn.closest('.task-card');"
-        "if(card){card.classList.remove('unreviewed-card');card.classList.add('reviewed-card');}"
         "if(typeof calendarCount!=='undefined'){calendarCount=Math.max(0,calendarCount-1);"
         "if(typeof postCount==='function')postCount();}"
         "var b=document.getElementById('unrev-badge');"
         "if(b&&typeof calendarCount!=='undefined')b.textContent=calendarCount;"
+        "var card=btn.closest('.task-card');"
+        "if(card&&card.classList.contains('unreviewed-card')){"
+        "card.style.transition='opacity 0.3s ease';"
+        "card.style.opacity='0';"
+        "setTimeout(function(){card.remove();},300);"
+        "}else if(card){"
+        "btn.className='review-btn reviewed';btn.textContent='\u2713 Reviewed (7d)';"
+        "btn.style.cursor='default';btn.style.pointerEvents='auto';"
+        "card.classList.remove('unreviewed-card');card.classList.add('reviewed-card');}"
         "}else{"
         "btn.textContent='Review';btn.style.pointerEvents='auto';"
         "}"

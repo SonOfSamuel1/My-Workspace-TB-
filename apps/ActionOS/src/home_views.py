@@ -1611,8 +1611,11 @@ def build_home_html(
         ):
             continue
         eid = str(event.get("id", ""))
+        _ev_rid = event.get("recurring_event_id", "")
         # Check cal_state directly (same pattern as calendar_views._is_event_reviewed)
         ts = cal_reviews.get(eid)
+        if not ts and _ev_rid and event.get("calendar_type") == _HABITS_BUILDING_CAL:
+            ts = cal_state.get("series_reviews", {}).get(_ev_rid)
         rev = False
         days_rem = 0
         if ts:
