@@ -89,6 +89,7 @@ COUNTDOWN_STATE_KEY = "actionos/countdowns.json"
 FOLLOWUP_STATE_KEY = "actionos/followup_state.json"
 HOME_REVIEWED_STATE_KEY = "actionos/home_reviewed_state.json"
 GODPOWER_STATE_KEY = "actionos/godpower_state.json"
+ACTIVITY_LOG_STATE_KEY = "actionos/activity_log.json"
 
 _PAGE_STYLE = (
     "font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;"
@@ -1036,6 +1037,25 @@ def _save_godpower_state(state: dict) -> None:
     )
 
 
+def _load_activity_log_state() -> dict:
+    try:
+        bucket = os.environ.get("STATE_BUCKET", "gmail-unread-digest")
+        obj = _s3.get_object(Bucket=bucket, Key=ACTIVITY_LOG_STATE_KEY)
+        return json.loads(obj["Body"].read())
+    except Exception:
+        return {"entries": [], "last_synced": ""}
+
+
+def _save_activity_log_state(state: dict) -> None:
+    bucket = os.environ.get("STATE_BUCKET", "gmail-unread-digest")
+    _s3.put_object(
+        Bucket=bucket,
+        Key=ACTIVITY_LOG_STATE_KEY,
+        Body=json.dumps(state),
+        ContentType="application/json",
+    )
+
+
 # ---------------------------------------------------------------------------
 # Todoist helpers
 # ---------------------------------------------------------------------------
@@ -1873,6 +1893,46 @@ def handle_action(event: dict) -> dict:
                 }
             except Exception as e:
                 logger.error(f"Follow-up view failed: {e}", exc_info=True)
+                return {
+                    "statusCode": 200,
+                    "headers": {"Content-Type": "text/html"},
+                    "body": _error_page(f"Error: {e}"),
+                }
+
+        # -- Activity Log view --
+        elif view == "activitylog":
+            try:
+                from activity_log_views import (
+                    build_activity_log_html,
+                    fetch_toggl_entries,
+                    merge_entries,
+                )
+
+                _toggl_tok = os.environ.get("TOGGL_API_TOKEN", "")
+                al_state = _load_activity_log_state()
+                saved_entries = al_state.get("entries") or []
+
+                # Fetch fresh entries from Toggl and merge with archive
+                fresh = fetch_toggl_entries(_toggl_tok) if _toggl_tok else []
+                merged = merge_entries(saved_entries, fresh)
+
+                # Save merged archive back to S3
+                from zoneinfo import ZoneInfo
+                now_eastern = datetime.now(ZoneInfo("America/New_York"))
+                sync_time = now_eastern.strftime("%-I:%M %p, %b %-d")
+                _save_activity_log_state({
+                    "entries": merged,
+                    "last_synced": sync_time,
+                })
+
+                body = build_activity_log_html(merged, sync_time)
+                return {
+                    "statusCode": 200,
+                    "headers": _html_headers,
+                    "body": body,
+                }
+            except Exception as e:
+                logger.error(f"Activity log view failed: {e}", exc_info=True)
                 return {
                     "statusCode": 200,
                     "headers": {"Content-Type": "text/html"},

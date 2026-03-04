@@ -50,6 +50,7 @@ def build_shell_html(
         ("followup", "Follow-up", f"{base}?action=web&view=followup&embed=1", False),
         ("sabbath", "Sabbath", f"{base}?action=web&view=sabbath&embed=1", False),
         ("code", "Code", f"{base}?action=web&view=code&embed=1", False),
+        ("activitylog", "Activity Log", f"{base}?action=web&view=activitylog&embed=1", False),
     ]
 
     # Generate sidebar tab HTML
