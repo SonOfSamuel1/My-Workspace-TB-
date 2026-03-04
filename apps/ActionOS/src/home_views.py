@@ -1764,7 +1764,7 @@ def build_home_html(
         + ";overflow-y:auto;overflow-x:hidden;background:var(--bg-base);}"
         ".home-list{max-width:700px;margin:0 auto;padding:0 16px 12px;}"
         # Sticky dashboard header (nav + toggl widget)
-        ".dash-sticky{position:sticky;top:0;z-index:20;background:var(--bg-base);}"
+        ".dash-sticky{position:sticky;top:0;z-index:20;background:var(--bg-base);padding-bottom:14px;}"
         # Section nav bar
         ".sec-nav{display:flex;gap:8px;overflow-x:auto;padding:10px 0 10px;"
         "border-bottom:1px solid var(--border);margin-bottom:12px;"
@@ -2084,7 +2084,7 @@ def build_home_html(
         ".gp-view-all-arrow{font-size:18px;}"
         # Toggl Daily Widget
         ".tdw{background:var(--bg-s1);border:1px solid var(--border);border-radius:10px;"
-        "padding:12px 14px;margin-bottom:14px;}"
+        "padding:12px 14px;margin-bottom:0;}"
         ".tdw-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}"
         ".tdw-label{font-size:12px;font-weight:700;color:var(--text-2);text-transform:uppercase;"
         "letter-spacing:0.6px;}"
