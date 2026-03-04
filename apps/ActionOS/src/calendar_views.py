@@ -26,40 +26,50 @@ _EXCLUDED_EVENT_TITLES = {"home", "lunch break"}
 _HABITS_BUILDING_CAL = "my_habits_building"
 
 
-def _daily_weekly_recurring_ids(events: List[Dict[str, Any]]) -> set:
-    """Return the set of recurring_event_ids whose occurrences repeat daily or weekly.
+def _daily_weekly_recurring_ids(
+    events: List[Dict[str, Any]],
+) -> tuple:
+    """Return (ids, titles) of series that repeat daily or weekly.
 
-    Groups events by their recurring_event_id, then computes the minimum gap
-    between consecutive occurrences. Any series with a min gap <= 7 days is
-    considered daily or weekly.
+    Primary detection: group by recurring_event_id (from Google Calendar).
+    Fallback detection: group by event title for events without a
+    recurring_event_id — catches manually-created repeat events that lack
+    the recurringEventId field. Requires 3+ title-matched instances to
+    avoid false positives.
+
+    Returns a tuple of (set[recurring_event_id], set[title_lower]).
     """
     from collections import defaultdict
 
-    groups: dict = defaultdict(list)
+    by_rid: dict = defaultdict(list)
+    by_title: dict = defaultdict(list)
+
     for ev in events:
-        rid = ev.get("recurring_event_id", "")
-        if not rid:
-            continue
         start_str = ev.get("start", "")
         try:
-            # Parse ISO datetime or date string
             if "T" in start_str:
                 dt = datetime.fromisoformat(start_str.replace("Z", "+00:00"))
             else:
                 dt = datetime.fromisoformat(start_str).replace(tzinfo=timezone.utc)
-            groups[rid].append(dt)
         except Exception:
-            pass
-
-    daily_weekly: set = set()
-    for rid, starts in groups.items():
-        if len(starts) < 2:
             continue
+        rid = ev.get("recurring_event_id", "")
+        if rid:
+            by_rid[rid].append(dt)
+        else:
+            title = (ev.get("title") or "").strip().lower()
+            if title:
+                by_title[title].append(dt)
+
+    def _is_daily_weekly(starts: list, min_count: int) -> bool:
+        if len(starts) < min_count:
+            return False
         starts.sort()
-        min_gap = min((b - a).days for a, b in zip(starts, starts[1:]))
-        if min_gap <= 7:
-            daily_weekly.add(rid)
-    return daily_weekly
+        return min((b - a).days for a, b in zip(starts, starts[1:])) <= 7
+
+    daily_weekly_ids = {rid for rid, s in by_rid.items() if _is_daily_weekly(s, 2)}
+    daily_weekly_titles = {t for t, s in by_title.items() if _is_daily_weekly(s, 3)}
+    return daily_weekly_ids, daily_weekly_titles
 
 _FONT = (
     "'Inter','SF Pro Display',-apple-system,BlinkMacSystemFont,"
@@ -1142,8 +1152,8 @@ def build_calendar_html(
                 event_key, bool(t.get("checked", False))
             )
 
-    # Build set of recurring_event_ids with daily/weekly frequency
-    _daily_weekly_ids = _daily_weekly_recurring_ids(events)
+    # Build sets of recurring IDs and titles with daily/weekly frequency
+    _daily_weekly_ids, _daily_weekly_titles = _daily_weekly_recurring_ids(events)
 
     # Filter out:
     #   - birthday/anniversary events beyond 90 days
@@ -1155,7 +1165,10 @@ def build_calendar_html(
         and (ev.get("title") or "").strip().lower() not in _EXCLUDED_EVENT_TITLES
         and (
             ev.get("calendar_type") == _HABITS_BUILDING_CAL
-            or ev.get("recurring_event_id", "") not in _daily_weekly_ids
+            or (
+                ev.get("recurring_event_id", "") not in _daily_weekly_ids
+                and (ev.get("title") or "").strip().lower() not in _daily_weekly_titles
+            )
         )
     ]
 

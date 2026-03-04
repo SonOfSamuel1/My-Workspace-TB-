@@ -1556,33 +1556,39 @@ def build_home_html(
     needs_review = 0
     reviewed_cards = ""
 
-    # Build set of recurring_event_ids with daily/weekly frequency (min gap <= 7 days)
+    # Build sets of recurring IDs and titles with daily/weekly frequency (min gap <= 7 days)
     _all_cal = all_calendar_events if all_calendar_events is not None else calendar_events
     _rid_starts: Dict[str, list] = {}
+    _title_starts: Dict[str, list] = {}
     for _ev in _all_cal:
-        _rid = _ev.get("recurring_event_id", "")
-        if not _rid:
-            continue
         _s = _ev.get("start", "")
         try:
-            _dt = datetime.fromisoformat(_s.replace("Z", "+00:00") if "T" in _s else _s).replace(tzinfo=timezone.utc) if "T" in _s else datetime.fromisoformat(_s).replace(tzinfo=timezone.utc)
-            _rid_starts.setdefault(_rid, []).append(_dt)
+            _dt = datetime.fromisoformat(_s.replace("Z", "+00:00")).astimezone(timezone.utc) if "T" in _s else datetime.fromisoformat(_s).replace(tzinfo=timezone.utc)
         except Exception:
-            pass
-    _daily_weekly_ids: set = set()
-    for _rid, _starts in _rid_starts.items():
-        if len(_starts) < 2:
             continue
-        _starts.sort()
-        if min((_b - _a).days for _a, _b in zip(_starts, _starts[1:])) <= 7:
-            _daily_weekly_ids.add(_rid)
+        _rid = _ev.get("recurring_event_id", "")
+        if _rid:
+            _rid_starts.setdefault(_rid, []).append(_dt)
+        else:
+            _t = (_ev.get("title") or "").strip().lower()
+            if _t:
+                _title_starts.setdefault(_t, []).append(_dt)
+
+    def _is_dw(starts: list, min_count: int) -> bool:
+        if len(starts) < min_count:
+            return False
+        starts.sort()
+        return min((_b - _a).days for _a, _b in zip(starts, starts[1:])) <= 7
+
+    _daily_weekly_ids: set = {r for r, s in _rid_starts.items() if _is_dw(s, 2)}
+    _daily_weekly_titles: set = {t for t, s in _title_starts.items() if _is_dw(s, 3)}
 
     for event in calendar_events:
         if (event.get("title") or "").strip().lower() in _EXCLUDED_EVENT_TITLES:
             continue
-        if (
-            event.get("calendar_type") != _HABITS_BUILDING_CAL
-            and event.get("recurring_event_id", "") in _daily_weekly_ids
+        if event.get("calendar_type") != _HABITS_BUILDING_CAL and (
+            event.get("recurring_event_id", "") in _daily_weekly_ids
+            or (event.get("title") or "").strip().lower() in _daily_weekly_titles
         ):
             continue
         eid = str(event.get("id", ""))
