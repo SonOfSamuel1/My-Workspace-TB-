@@ -1764,7 +1764,7 @@ def build_home_html(
         + ";overflow-y:auto;overflow-x:hidden;background:var(--bg-base);}"
         ".home-list{max-width:700px;margin:0 auto;padding:0 16px 12px;}"
         # Sticky dashboard header (nav + toggl widget)
-        ".dash-sticky{position:sticky;top:0;z-index:20;background:var(--bg-base);padding-bottom:14px;}"
+        ".dash-sticky{position:sticky;top:0;z-index:20;background:var(--bg-base);padding-top:12px;padding-bottom:14px;}"
         # Section nav bar
         ".sec-nav{display:flex;gap:8px;overflow-x:auto;padding:10px 0 10px;"
         "border-bottom:1px solid var(--border);margin-bottom:12px;"
