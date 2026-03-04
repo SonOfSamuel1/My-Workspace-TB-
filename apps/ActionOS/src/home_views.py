@@ -1761,8 +1761,8 @@ def build_home_html(
         ".refresh-btn:hover{background:var(--border-h);}"
         ".scroll-area{height:"
         + page_height
-        + ";overflow-y:auto;overflow-x:hidden;background:var(--bg-base);}"
-        ".home-list{max-width:700px;margin:0 auto;padding:0 16px 12px;}"
+        + ";overflow-y:auto;background:var(--bg-base);}"
+        ".home-list{max-width:700px;margin:0 auto;padding:0 16px 12px;overflow-x:hidden;}"
         # Sticky dashboard header (nav + toggl widget)
         ".dash-sticky{position:sticky;top:0;z-index:20;background:var(--bg-base);padding-top:12px;padding-bottom:14px;}"
         # Section nav bar
@@ -1782,7 +1782,7 @@ def build_home_html(
         ".section-hdr{display:flex;align-items:center;gap:8px;padding:16px 0 8px;"
         "font-size:11px;font-weight:600;text-transform:uppercase;"
         "letter-spacing:0.6px;border-bottom:1px solid var(--border);margin-bottom:10px;"
-        "position:sticky;top:var(--dash-h,56px);z-index:10;background:var(--bg-base);"
+        "position:-webkit-sticky;position:sticky;top:var(--dash-h,56px);z-index:10;background:var(--bg-base);"
         "scroll-margin-top:var(--dash-h,56px);}"
         ".section-hdr+.section-hdr{margin-top:14px;}"
         ".section-badge{background:var(--border);color:var(--text-2);font-size:11px;"
