@@ -112,7 +112,18 @@ def build_focus_html(toggl_local: dict, function_url: str = "", action_token: st
     for s in reversed(sessions):
         dur = s.get("duration_secs")
         is_active = dur is None and s.get("start_iso") == active_iso
-        dur_display = _fmt_secs(dur) if dur is not None else _fmt_secs(active_elapsed)
+        if dur is not None:
+            dur_display = _fmt_secs(dur)
+        elif is_active:
+            dur_display = _fmt_secs(active_elapsed)
+        else:
+            try:
+                _sd = datetime.fromisoformat(s.get("start_iso", "").replace("Z", "+00:00"))
+                if _sd.tzinfo is None:
+                    _sd = _sd.replace(tzinfo=timezone.utc)
+                dur_display = _fmt_secs(min(max(0, int((datetime.now(timezone.utc) - _sd).total_seconds())), 28800))
+            except Exception:
+                dur_display = "?"
         start_display = _fmt_time(s.get("start_iso", ""))
         desc = s.get("description") or "Untitled"
         proj = s.get("project_name", "")
