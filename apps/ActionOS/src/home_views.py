@@ -1276,6 +1276,8 @@ def build_home_html(
     email_actions_token: str = "",
     toggl_time_totals=None,
     toggl_daily_total_secs: int = 0,
+    diligent_work_secs: int = 0,
+    committed_cal_secs: int = 0,
     todoist_tasks: List[Dict[str, Any]] = None,
     all_calendar_events: List[Dict[str, Any]] = None,
     godpower_state: dict = None,
@@ -1717,28 +1719,33 @@ def build_home_html(
             "postHomeCount();"
         )
 
-    # --- Toggl Daily Progress Widget ---
-    _DAILY_GOAL_SECS = 6 * 3600  # 6-hour daily goal
-    _tdw_secs = max(0, int(toggl_daily_total_secs or 0))
-    _tdw_pct = min(100, round(_tdw_secs / _DAILY_GOAL_SECS * 100)) if _DAILY_GOAL_SECS else 0
-    _tdw_h = _tdw_secs // 3600
-    _tdw_m = (_tdw_secs % 3600) // 60
-    _tdw_time_str = f"{_tdw_h}h {_tdw_m:02d}m / 6h"
-    _tdw_goal_str = "Goal reached!" if _tdw_secs >= _DAILY_GOAL_SECS else "Goal: 6h"
-    _tdw_pct_str = f"{_tdw_pct}% of daily goal"
-    _tdw_fill_width = f"{_tdw_pct}%"
+    # --- Performance Widget (My Diligent Work) ---
+    _dw_secs = max(0, int(diligent_work_secs or 0))
+    _cc_secs = max(0, int(committed_cal_secs or 0))
+    _dw_pct = min(100, round(_dw_secs / _cc_secs * 100)) if _cc_secs else 0
+    _dw_h = _dw_secs // 3600
+    _dw_m = (_dw_secs % 3600) // 60
+    _cc_h = _cc_secs // 3600
+    _cc_m = (_cc_secs % 3600) // 60
+    _dw_time_str = f"{_dw_h}h {_dw_m:02d}m / {_cc_h}h {_cc_m:02d}m"
+    _dw_goal_reached = _dw_secs >= _cc_secs and _cc_secs > 0
+    _dw_goal_str = "Goal reached!" if _dw_goal_reached else f"Committed: {_cc_h}h {_cc_m:02d}m"
+    _dw_pct_str = f"{_dw_pct}%" if _cc_secs else "No events scheduled"
+    _dw_fill_color = "var(--ok)" if _dw_goal_reached else "var(--accent)"
+    _dw_fill_width = f"{_dw_pct}%"
     _toggl_daily_widget_html = (
         '<div class="tdw" onclick="window.parent.postMessage({type:\'switchTab\',tab:\'focus\'},\'*\')" style="cursor:pointer;">'
+        '<div class="tdw-title">Performance</div>'
         '<div class="tdw-header">'
-        '<span class="tdw-label">Today\'s Focus</span>'
-        '<span class="tdw-time">' + _tdw_time_str + '</span>'
+        '<span class="tdw-label">My Diligent Work</span>'
+        '<span class="tdw-time">' + _dw_time_str + '</span>'
         '</div>'
         '<div class="tdw-bar-track">'
-        '<div class="tdw-bar-fill" data-pct="' + str(_tdw_pct) + '" style="width:' + _tdw_fill_width + '"></div>'
+        '<div class="tdw-bar-fill" data-pct="' + str(_dw_pct) + '" style="width:' + _dw_fill_width + ';background:' + _dw_fill_color + '"></div>'
         '</div>'
         '<div class="tdw-footer">'
-        '<span class="tdw-pct">' + _tdw_pct_str + '</span>'
-        '<span class="tdw-goal">' + _tdw_goal_str + '</span>'
+        '<span class="tdw-pct">' + _dw_pct_str + '</span>'
+        '<span class="tdw-goal">' + _dw_goal_str + '</span>'
         '</div>'
         '</div>'
     )
@@ -2112,6 +2119,8 @@ def build_home_html(
         # Toggl Daily Widget
         ".tdw{background:var(--bg-s1);border:1px solid var(--border);border-radius:10px;"
         "padding:12px 14px;margin-bottom:0;}"
+        ".tdw-title{font-size:11px;font-weight:700;color:var(--accent);text-transform:uppercase;"
+        "letter-spacing:0.8px;margin-bottom:6px;}"
         ".tdw-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}"
         ".tdw-label{font-size:12px;font-weight:700;color:var(--text-2);text-transform:uppercase;"
         "letter-spacing:0.6px;}"
