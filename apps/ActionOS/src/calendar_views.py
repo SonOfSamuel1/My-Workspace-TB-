@@ -19,6 +19,9 @@ logger = logging.getLogger(__name__)
 
 _CC_LABEL = "Claude"
 
+# Calendar events excluded from review cards (exact title match, case-insensitive)
+_EXCLUDED_EVENT_TITLES = {"home", "lunch break"}
+
 _FONT = (
     "'Inter','SF Pro Display',-apple-system,BlinkMacSystemFont,"
     "'Segoe UI',Roboto,sans-serif"
@@ -1100,9 +1103,11 @@ def build_calendar_html(
                 event_key, bool(t.get("checked", False))
             )
 
-    # Filter out birthday/anniversary events beyond 90 days
+    # Filter out birthday/anniversary events beyond 90 days and excluded titles
     filtered_events = [
-        ev for ev in events if not _is_birthday_event(ev) or _is_within_days(ev, 90)
+        ev for ev in events
+        if (not _is_birthday_event(ev) or _is_within_days(ev, 90))
+        and (ev.get("title") or "").strip().lower() not in _EXCLUDED_EVENT_TITLES
     ]
 
     # Split events: unreviewed vs reviewed

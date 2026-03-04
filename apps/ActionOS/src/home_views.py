@@ -15,6 +15,9 @@ from zoneinfo import ZoneInfo
 
 _EASTERN = ZoneInfo("America/New_York")
 
+# Calendar events excluded from review cards (exact title match, case-insensitive)
+_EXCLUDED_EVENT_TITLES = {"home", "lunch break"}
+
 # Priority display: API value -> (label, color)
 PRIORITY_MAP = {
     4: ("P1", "#ef4444"),
@@ -1550,6 +1553,8 @@ def build_home_html(
     needs_review = 0
     reviewed_cards = ""
     for event in calendar_events:
+        if (event.get("title") or "").strip().lower() in _EXCLUDED_EVENT_TITLES:
+            continue
         eid = str(event.get("id", ""))
         # Check cal_state directly (same pattern as calendar_views._is_event_reviewed)
         ts = cal_reviews.get(eid)
