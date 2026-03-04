@@ -302,6 +302,10 @@ def build_shell_html(
         "border-radius:50%;background:var(--fab-bg);color:#fff;"
         "border:none;cursor:pointer;align-items:center;justify-content:center;"
         "box-shadow:0 2px 8px rgba(0,0,0,.25);z-index:1000;touch-action:manipulation;}"
+        ".cal-fab{display:none;position:fixed;bottom:156px;right:20px;width:56px;height:56px;"
+        "border-radius:50%;background:var(--fab-bg);color:#fff;"
+        "align-items:center;justify-content:center;"
+        "box-shadow:0 2px 8px rgba(0,0,0,.25);z-index:1000;text-decoration:none;touch-action:manipulation;}"
         ".qa-sheet-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);"
         "z-index:1001;}"
         ".qa-sheet-overlay.open{display:block;}"
@@ -530,6 +534,13 @@ def build_shell_html(
         '<button class="section-dd-edit-btn" id="section-dd-edit-btn" onclick="toggleEditMode()">Edit</button>'
         "</div>" + dropdown_items_html + "</div>"
         # Mobile FAB + bottom sheet (Todoist-style with SVG icons)
+        '<a class="cal-fab" id="cal-fab" href="x-fantastical3://add">'
+        '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+        '<rect x="3" y="4" width="18" height="18" rx="2"/>'
+        '<line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/>'
+        '<line x1="3" y1="10" x2="21" y2="10"/>'
+        '<line x1="12" y1="14" x2="12" y2="18"/><line x1="10" y1="16" x2="14" y2="16"/>'
+        "</svg></a>"
         '<button class="qa-fab" id="qa-fab" onclick="window.location.href=\'todoist://addtask\'">'
         '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">'
         '<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>'
@@ -692,6 +703,9 @@ def build_shell_html(
         "document.querySelectorAll('.bottom-nav-item').forEach(function(item){"
         "item.classList.toggle('active',item.getAttribute('data-tab')===tab);"
         "});"
+        # Show calendar FAB only when calendar tab is active
+        "var calFab=document.getElementById('cal-fab');"
+        "if(calFab)calFab.style.display=tab==='calendar'?'flex':'none';"
         "}"
         # Section picker
         "function toggleSectionPicker(){"
