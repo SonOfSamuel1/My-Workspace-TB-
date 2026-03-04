@@ -228,6 +228,12 @@ def get_unread_emails_for_web() -> List[Dict[str, Any]]:
     return gmail.get_unread_emails()
 
 
+def get_recent_emails_for_web(days: int = 7) -> List[Dict[str, Any]]:
+    """Fetch recent inbox emails from the past N days for the web digest page."""
+    gmail = GmailService()
+    return gmail.get_recent_emails(days=days)
+
+
 def _state_to_email_list(state: Dict[str, Any]) -> List[Dict[str, Any]]:
     """Convert state dict to a list of email dicts with 'id' key included."""
     emails = []

@@ -590,10 +590,11 @@ def build_cards_html(
                 "</select>"
             )
             action_parts.append(priority_select)
-            safe_subject = subject.replace("'", "\\'").replace('"', "&quot;")
-            safe_from = from_addr.replace("'", "\\'").replace('"', "&quot;")
-            safe_gmail = gmail_link.replace("'", "\\'").replace('"', "&quot;")
-            safe_date = date_received.replace("'", "\\'").replace('"', "&quot;")
+            import html as _html_esc
+            safe_subject = _html_esc.escape(subject).replace("'", "&#39;")
+            safe_from = _html_esc.escape(from_addr).replace("'", "&#39;")
+            safe_gmail = _html_esc.escape(gmail_link).replace("'", "&#39;")
+            safe_date = _html_esc.escape(date_received).replace("'", "&#39;")
             # Best Case button
             bestcase_btn = (
                 '<button class="action-pill" '
@@ -612,6 +613,13 @@ def build_cards_html(
                 "Best Case</button>"
             )
             action_parts.append(bestcase_btn)
+            track_btn = (
+                '<button class="toggl-btn"'
+                " onclick=\"event.stopPropagation();doTogglStartBtn(this)\""
+                ' data-subject="' + safe_subject + '">'
+                "Track</button>"
+            )
+            action_parts.append(track_btn)
             if projects:
                 move_select = (
                     '<select class="action-pill" style="color:var(--accent-l);background:var(--accent-bg);border:1px solid var(--accent-b);"'
@@ -713,6 +721,233 @@ def build_cards_html(
     return content_section, count, project_options_html
 
 
+def _build_recent_cards_html(
+    recent_emails: List[Dict[str, Any]],
+    unread_ids: set,
+    function_url: str,
+    action_token: str,
+    projects: List[Dict[str, Any]],
+    toggl_projects: List[Dict[str, Any]],
+) -> str:
+    """Build home-tab-styled cards for the Recent Mail section (past 7 days).
+
+    Excludes emails that are already shown in the Unread section.
+    """
+    import re as _re
+    import urllib.parse as _urlparse
+
+    projects = projects or []
+    toggl_projects = toggl_projects or []
+
+    project_options_html = '<option value="" disabled selected>Move to Todoist...</option>'
+    for proj in sorted(projects, key=lambda p: p.get("name", "").lower()):
+        pid = proj.get("id", "")
+        pname = proj.get("name", "")
+        project_options_html += '<option value="' + pid + '">' + pname + "</option>"
+
+    toggl_project_options_html = ""
+    if toggl_projects:
+        toggl_project_options_html = (
+            '<option value="" disabled selected>\u25b6 Toggl\u2026</option>'
+        )
+        for tp in sorted(toggl_projects, key=lambda p: p.get("name", "").lower()):
+            toggl_project_options_html += (
+                '<option value="' + str(tp.get("id", "")) + '"'
+                ' data-workspace-id="' + str(tp.get("workspace_id", "")) + '">'
+                + tp.get("name", "") + "</option>"
+            )
+
+    filtered = [e for e in recent_emails if e.get("id", "") not in unread_ids]
+    filtered = _sort_by_most_recent(filtered)
+
+    if not filtered:
+        return ""
+
+    cards = ""
+    for email_item in filtered:
+        gmail_link = email_item.get("gmail_link", "")
+        from_addr = email_item.get("from", "")
+        date_received = email_item.get("date", "")
+        age = _days_ago(date_received) if date_received else "?"
+        days_int = _days_ago_int(date_received) if date_received else -1
+        subject = email_item.get("subject", "(no subject)")
+        msg_id = email_item.get("id", "")
+
+        open_url = ""
+        markread_btn = ""
+        skip_inbox_btn = ""
+
+        if gmail_link:
+            if not msg_id:
+                msg_id = _extract_msg_id_from_link(gmail_link)
+            if function_url and action_token:
+                _thread_id = gmail_link.split("#inbox/")[-1] if "#inbox/" in gmail_link else ""
+                if _thread_id:
+                    open_url = (
+                        function_url.rstrip("/")
+                        + "?action=open&msg_id=" + msg_id
+                        + "&thread_id=" + _thread_id
+                        + "&token=" + action_token
+                    )
+                else:
+                    open_url = gmail_link
+            else:
+                open_url = gmail_link
+
+            if function_url and action_token and msg_id:
+                markread_btn = (
+                    "<button onclick=\"event.stopPropagation();doMarkRead(this,'"
+                    + msg_id + "')\" class=\"r-markread-btn\">"
+                    "&#10003; Mark Read</button>"
+                )
+
+        if function_url and action_token and from_addr:
+            _email_match = _re.search(r"<([^>]+)>", from_addr)
+            _sender_email = _email_match.group(1) if _email_match else from_addr.strip()
+            if _sender_email:
+                _filter_url = (
+                    function_url.rstrip("/")
+                    + "?action=create_filter"
+                    + "&from_email=" + _urlparse.quote(_sender_email)
+                    + "&token=" + action_token
+                )
+                skip_inbox_btn = (
+                    "<button onclick=\"event.stopPropagation();doSkipInbox(this,'"
+                    + _filter_url + "','" + msg_id + "')\" class=\"r-skip-inbox-btn\">"
+                    + _SVG_BLOCK + " Skip Inbox</button>"
+                )
+
+        age_css = _age_style(days_int)
+        meta_parts = ['<span style="' + age_css + '">' + age + "</span>"]
+        if from_addr:
+            meta_parts.append(from_addr.replace("@", "&#64;"))
+        info_html = " &middot; ".join(meta_parts)
+
+        import html as _html
+        safe_subject = _html.escape(subject).replace("'", "&#39;")
+        safe_from = _html.escape(from_addr).replace("'", "&#39;")
+        safe_gmail = _html.escape(gmail_link).replace("'", "&#39;")
+        safe_date = _html.escape(date_received).replace("'", "&#39;")
+
+        assign_cc_btn = (
+            "<button onclick=\"event.stopPropagation();doCopyEmailForClaude(this,'"
+            + safe_subject + "','" + safe_from + "','" + safe_gmail + "')\" "
+            'class="r-assign-cc-btn" title="Assign CC">' + _CC_LABEL + "</button>"
+        )
+
+        date_input = (
+            '<label class="r-schedule-btn due-date-wrap"'
+            ' style="display:inline-flex;align-items:center;gap:4px;position:relative;cursor:pointer;"'
+            ' onclick="event.stopPropagation()">'
+            + _SVG_CALENDAR
+            + '<span class="due-date-text" style="font-size:12px;"></span>'
+            '<input type="date" class="due-date-picker"'
+            ' style="position:absolute;inset:0;opacity:0;width:100%;height:100%;'
+            'cursor:pointer;font-size:16px;-webkit-appearance:none;appearance:none;"'
+            ' onclick="event.stopPropagation()"'
+            " onchange=\"this.parentNode.querySelector('.due-date-text').textContent=this.value||'';\">"
+            "</label>"
+        )
+
+        sched_btn = (
+            '<button class="r-schedule-btn" '
+            "onclick=\"event.stopPropagation();doStarredAction(this,'bestcase','"
+            + msg_id + "','" + safe_subject + "','" + safe_from + "','"
+            + safe_gmail + "','" + safe_date + "')\">"
+            "Schedule Work</button>"
+        )
+
+        priority_select = (
+            '<select class="r-priority-btn priority-picker"'
+            ' onclick="event.stopPropagation()">'
+            '<option value="" disabled selected>Priority \u21d5</option>'
+            '<option value="4">P1</option>'
+            '<option value="3">P2</option>'
+            '<option value="2">P3</option>'
+            '<option value="1">P4</option>'
+            "</select>"
+        )
+
+        bestcase_btn = (
+            '<button class="r-bestcase-btn" '
+            "onclick=\"event.stopPropagation();doStarredAction(this,'bestcase','"
+            + msg_id + "','" + safe_subject + "','" + safe_from + "','"
+            + safe_gmail + "','" + safe_date + "')\">"
+            "Best Case</button>"
+        )
+
+        track_btn = (
+            '<button class="toggl-btn"'
+            " onclick=\"event.stopPropagation();doTogglStartBtn(this)\""
+            ' data-subject="' + safe_subject + '">'
+            "Track</button>"
+        )
+
+        action_parts = []
+        if markread_btn:
+            action_parts.append(markread_btn)
+        if skip_inbox_btn:
+            action_parts.append(skip_inbox_btn)
+        action_parts.append(assign_cc_btn)
+        action_parts.append(date_input)
+        action_parts.append(sched_btn)
+        action_parts.append(priority_select)
+        action_parts.append(bestcase_btn)
+        action_parts.append(track_btn)
+        if projects:
+            move_select = (
+                '<select class="r-todoist-btn" '
+                'onclick="event.stopPropagation()"'
+                ' data-subject="' + safe_subject + '"'
+                ' data-from="' + safe_from + '"'
+                ' data-gmail-link="' + safe_gmail + '"'
+                ' data-date="' + safe_date + '"'
+                ' onchange="event.stopPropagation();doMoveTodoist(this)">'
+                + project_options_html + "</select>"
+            )
+            action_parts.append(move_select)
+
+        if toggl_projects:
+            toggl_select = (
+                '<select class="r-todoist-btn toggl-timer-select"'
+                ' onclick="event.stopPropagation()"'
+                ' data-subject="' + safe_subject + '"'
+                ' onchange="event.stopPropagation();doTogglStart(this)">'
+                + toggl_project_options_html + "</select>"
+            )
+            action_parts.append(toggl_select)
+
+        action_html = (
+            '<div class="card-actions-inline" style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">'
+            + "".join(action_parts) + "</div>"
+        ) if action_parts else ""
+
+        data_attr = ' data-msg-id="' + msg_id + '"' if msg_id else ""
+        data_open_attr = ' data-open-url="' + open_url + '"' if open_url else ""
+        data_subject_attr = ' data-subject="' + subject.replace('"', "&quot;") + '"'
+        data_from_attr = ' data-from="' + from_addr.replace('"', "&quot;") + '"'
+        data_gmail_attr = ' data-gmail-link="' + gmail_link.replace('"', "&quot;") + '"'
+        data_date_attr = ' data-date="' + date_received.replace('"', "&quot;") + '"'
+
+        cards += (
+            '<div class="email-card"'
+            + data_attr + data_open_attr + data_subject_attr
+            + data_from_attr + data_gmail_attr + data_date_attr
+            + ' onclick="openEmail(this)"'
+            + ' style="background:var(--bg-s1);border-radius:8px;border:1px solid var(--border);'
+            "padding:14px 16px;margin-bottom:10px;"
+            'transition:opacity .3s,max-height .3s,padding .3s;cursor:pointer;">'
+            '<div style="flex:1;min-width:0;">'
+            '<div style="font-size:15px;font-weight:600;color:var(--text-1);line-height:1.4;">'
+            + subject + "</div>"
+            '<div style="margin-top:6px;font-size:12px;color:var(--text-2);line-height:1.4;">'
+            + info_html + "</div>"
+            + action_html + "</div></div>"
+        )
+
+    return cards
+
+
 def build_web_html(
     emails: List[Dict[str, Any]],
     function_url: str = "",
@@ -721,6 +956,7 @@ def build_web_html(
     projects: List[Dict[str, Any]] = None,
     toggl_projects: List[Dict[str, Any]] = None,
     view_type: str = "unread",
+    recent_emails: List[Dict[str, Any]] = None,
 ) -> str:
     """Build an interactive web page listing unread emails with one-click mark read.
 
@@ -732,6 +968,7 @@ def build_web_html(
     """
     projects = projects or []
     toggl_projects = toggl_projects or []
+    recent_emails = recent_emails or []
 
     content_section, count, project_options_html = build_cards_html(
         emails,
@@ -1005,6 +1242,23 @@ def build_web_html(
         "sel.disabled=false;sel.selectedIndex=0;"
         "}"
         "}).catch(function(){sel.disabled=false;sel.selectedIndex=0;});"
+        "}"
+        # doTogglStartBtn: button-based Toggl timer start (no project selection required)
+        "function doTogglStartBtn(btn){"
+        "var subject=btn.getAttribute('data-subject')||'';"
+        "btn.disabled=true;btn.textContent='Starting\u2026';"
+        "fetch(BASE_URL+'?action=toggl_start&token='+TOKEN,"
+        "{method:'POST',headers:{'Content-Type':'application/json'},"
+        "body:JSON.stringify({subject:subject})})"
+        ".then(function(r){return r.json();})"
+        ".then(function(d){"
+        "if(d.ok){"
+        "var ind=document.createElement('span');"
+        "ind.className='toggl-btn toggl-running';"
+        "ind.textContent='\u25cf Running';"
+        "btn.parentNode.replaceChild(ind,btn);"
+        "}else{btn.disabled=false;btn.textContent='Track';}"
+        "}).catch(function(){btn.disabled=false;btn.textContent='Track';});"
         "}"
         "function doStarredAction(btn,mode,msgId,subject,fromAddr,gmailLink,dateRecv){"
         "btn.disabled=true;btn.style.opacity='.5';var origText=btn.textContent;btn.textContent='Adding\u2026';"
@@ -1475,6 +1729,44 @@ def build_web_html(
         ".sheet-input-ctrl{font-size:15px;padding:6px 10px;border-radius:8px;"
         "border:1px solid var(--border-h);background:var(--bg-s2);color:var(--text-1);"
         "font-family:inherit;cursor:pointer;}"
+        # Toggl timer button (shared by unread + recent sections)
+        ".toggl-btn{font-family:inherit;font-size:12px;font-weight:600;"
+        "padding:5px 14px;min-height:44px;border-radius:8px;cursor:pointer;"
+        "transition:all .15s;display:inline-flex;align-items:center;gap:5px;"
+        "background:var(--bg-s2);color:var(--text-2);border:1px solid var(--border);}"
+        ".toggl-btn:hover{background:var(--border-h);color:var(--text-1);}"
+        ".toggl-running{background:var(--ok-bg);color:var(--ok);border:1px dashed var(--ok-b);"
+        "font-size:12px;font-weight:600;padding:5px 14px;border-radius:8px;"
+        "display:inline-flex;align-items:center;gap:5px;}"
+        # Home-tab-style button classes for Recent Mail section
+        ".r-markread-btn,.r-skip-inbox-btn,.r-assign-cc-btn,.r-schedule-btn,.r-bestcase-btn,.r-todoist-btn,.r-priority-btn{"
+        "font-family:inherit;font-size:12px;font-weight:600;"
+        "padding:5px 14px;min-height:44px;border-radius:8px;"
+        "cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap:5px;"
+        "border:none;}"
+        ".r-markread-btn{background:var(--border);color:var(--text-2);border:1px solid var(--border);}"
+        ".r-markread-btn:hover{background:var(--border-h);color:var(--text-1);}"
+        ".r-skip-inbox-btn{background:var(--warn-bg);color:var(--warn);border:1px solid var(--warn-b);}"
+        ".r-skip-inbox-btn:hover{background:var(--warn-b);}"
+        ".r-assign-cc-btn{background:rgba(196,120,64,0.10);color:#c47840;"
+        "border:1px solid rgba(196,120,64,0.25);}"
+        ".r-assign-cc-btn:hover{background:rgba(196,120,64,0.18);}"
+        ".r-schedule-btn{background:var(--bg-s2);color:var(--text-2);border:1px solid var(--border);}"
+        ".r-schedule-btn:hover{background:var(--border-h);color:var(--text-1);}"
+        ".r-bestcase-btn{background:var(--bg-s2);color:var(--text-2);border:1px solid var(--border);}"
+        ".r-bestcase-btn:hover{background:var(--border-h);color:var(--text-1);}"
+        ".r-todoist-btn{background:var(--accent-bg);color:var(--accent-l);"
+        "border:1px solid var(--accent-b);font-family:inherit;font-size:12px;font-weight:600;"
+        "padding:5px 14px;min-height:44px;border-radius:8px;cursor:pointer;}"
+        ".r-todoist-btn:hover{background:var(--accent-b);}"
+        ".r-priority-btn{background:var(--warn-bg);color:var(--warn);"
+        "border:1px solid var(--warn-b);font-family:inherit;font-size:12px;font-weight:600;"
+        "padding:5px 14px;min-height:44px;border-radius:8px;cursor:pointer;}"
+        "@media(max-width:768px){"
+        ".r-markread-btn,.r-skip-inbox-btn,.r-assign-cc-btn,.r-schedule-btn,.r-bestcase-btn,.r-todoist-btn,.r-priority-btn{"
+        "font-size:14px!important;padding:8px 12px!important;min-height:44px!important;"
+        "touch-action:manipulation;}"
+        "}"
         "::-webkit-scrollbar{width:6px;}"
         "::-webkit-scrollbar-track{background:transparent;}"
         "::-webkit-scrollbar-thumb{background:var(--scrollbar);border-radius:3px;}"
@@ -1543,7 +1835,29 @@ def build_web_html(
         )
         + '<div style="padding:0 16px 16px;">'
         + content_section
-        + "</div></div></div>"
+        + "</div>"
+        # Recent Mail section (past 7 days)
+        + (
+            lambda _rc: (
+                '<div style="padding:0 16px 16px;">'
+                '<div class="section-hdr" style="color:var(--text-2);margin-top:4px;">'
+                "<span>RECENT MAIL &mdash; PAST 7 DAYS</span>"
+                '<span class="section-badge">' + str(len(_rc.split('<div class="email-card"')) - 1) + "</span>"
+                "</div>"
+                + _rc
+                + "</div>"
+            ) if _rc else ""
+        )(
+            _build_recent_cards_html(
+                recent_emails,
+                {e.get("id", "") for e in emails},
+                function_url,
+                action_token or "",
+                projects,
+                toggl_projects,
+            )
+        )
+        + "</div></div>"
         # Right pane: email viewer iframe
         '<div id="viewer-pane">'
         # Desktop CC button (shown beside close-btn; hidden until email is opened)

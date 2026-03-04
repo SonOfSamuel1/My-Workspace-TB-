@@ -237,6 +237,46 @@ class GmailService:
             logger.error(f"Gmail API error fetching starred emails: {e}")
             raise
 
+    def get_recent_emails(self, days: int = 7) -> List[Dict[str, Any]]:
+        """Fetch recent inbox emails from the past N days (read and unread).
+
+        Returns:
+            List of dicts with keys: id, threadId, subject, from, date, gmail_link
+        """
+        if not self.service:
+            self.connect()
+
+        results = []
+        page_token = None
+
+        try:
+            while True:
+                kwargs: Dict[str, Any] = {
+                    "userId": "me",
+                    "q": f"in:inbox newer_than:{days}d",
+                    "maxResults": 100,
+                }
+                if page_token:
+                    kwargs["pageToken"] = page_token
+
+                response = self.service.users().messages().list(**kwargs).execute()
+                messages = response.get("messages", [])
+
+                for msg in messages:
+                    detail = self.get_message_detail(msg["id"])
+                    results.append(detail)
+
+                page_token = response.get("nextPageToken")
+                if not page_token:
+                    break
+
+            logger.info(f"Found {len(results)} recent emails (past {days}d)")
+            return results
+
+        except HttpError as e:
+            logger.error(f"Gmail API error fetching recent emails: {e}")
+            raise
+
     def unstar_email(self, message_id: str) -> None:
         """Remove the STARRED label from a Gmail message."""
         if not self.service:
