@@ -752,7 +752,7 @@ def build_view_html(
         ".assign-cc-btn:hover{background:var(--border-h);}"
         # Schedule button
         ".schedule-btn{font-family:inherit;font-size:12px;font-weight:600;"
-        "padding:5px 14px;border-radius:6px;"
+        "padding:5px 14px;border-radius:6px;min-height:44px;"
         "background:var(--border);color:var(--text-2);border:1px solid var(--border);cursor:pointer;"
         "transition:background .15s ease-out;display:inline-flex;align-items:center;gap:4px;}"
         ".schedule-btn:hover{background:var(--border-h);}"
