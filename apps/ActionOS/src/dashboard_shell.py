@@ -303,7 +303,7 @@ def build_shell_html(
         "border:none;cursor:pointer;align-items:center;justify-content:center;"
         "box-shadow:0 2px 8px rgba(0,0,0,.25);z-index:1000;touch-action:manipulation;}"
         ".cal-fab{display:none;position:fixed;bottom:156px;right:20px;width:56px;height:56px;"
-        "border-radius:50%;background:#16a34a;color:#fff;"
+        "border-radius:50%;background:var(--fab-bg);color:#fff;"
         "align-items:center;justify-content:center;"
         "box-shadow:0 2px 8px rgba(0,0,0,.25);z-index:1000;text-decoration:none;touch-action:manipulation;}"
         ".qa-sheet-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);"
