@@ -27,6 +27,9 @@ CALENDAR_IDS = {
     "fishing_for_men": "c_0971bcbca44be72f8cbfb8cca0607ac51f73448726708bca096df5900e002d9d@group.calendar.google.com",
     # serve_least_of_these ID is created on first use and stored in calendar state
     "serve_least_of_these": "",
+    # Habits calendar IDs are created on first use and stored in calendar state
+    "my_habits_existing": "",
+    "my_habits_building": "",
 }
 
 _CALENDAR_DAY_OVERRIDES = {

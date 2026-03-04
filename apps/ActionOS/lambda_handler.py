@@ -1812,6 +1812,44 @@ def handle_action(event: dict) -> dict:
                         events.extend(_slt_events)
                     except Exception as _slt_fetch_err:
                         logger.warning(f"Could not fetch Serve Least of These events: {_slt_fetch_err}")
+                # Ensure "My Habits- Existing" calendar exists and append its events
+                _mhe_id = state.get("my_habits_existing_calendar_id", "")
+                if not _mhe_id:
+                    try:
+                        _mhe_id = cal.create_calendar("My Habits- Existing")
+                        state["my_habits_existing_calendar_id"] = _mhe_id
+                        _save_calendar_state(state)
+                        logger.info(f"Created 'My Habits- Existing' calendar: {_mhe_id}")
+                    except Exception as _mhe_err:
+                        logger.warning(f"Could not create My Habits- Existing calendar: {_mhe_err}")
+                if _mhe_id:
+                    try:
+                        _mhe_events = cal.get_events_for_types(
+                            ["my_habits_existing"], days=180,
+                            extra_ids={"my_habits_existing": _mhe_id}
+                        )
+                        events.extend(_mhe_events)
+                    except Exception as _mhe_fetch_err:
+                        logger.warning(f"Could not fetch My Habits- Existing events: {_mhe_fetch_err}")
+                # Ensure "My Habits- Building" calendar exists and append its events
+                _mhb_id = state.get("my_habits_building_calendar_id", "")
+                if not _mhb_id:
+                    try:
+                        _mhb_id = cal.create_calendar("My Habits- Building")
+                        state["my_habits_building_calendar_id"] = _mhb_id
+                        _save_calendar_state(state)
+                        logger.info(f"Created 'My Habits- Building' calendar: {_mhb_id}")
+                    except Exception as _mhb_err:
+                        logger.warning(f"Could not create My Habits- Building calendar: {_mhb_err}")
+                if _mhb_id:
+                    try:
+                        _mhb_events = cal.get_events_for_types(
+                            ["my_habits_building"], days=180,
+                            extra_ids={"my_habits_building": _mhb_id}
+                        )
+                        events.extend(_mhb_events)
+                    except Exception as _mhb_fetch_err:
+                        logger.warning(f"Could not fetch My Habits- Building events: {_mhb_fetch_err}")
                 projects = _fetch_todoist_projects(todoist_token)
                 checklists = _load_checklists()
                 # Fetch Fishing for Men Todoist project tasks + all tasks for matching

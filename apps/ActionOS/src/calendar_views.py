@@ -34,6 +34,8 @@ _CAL_TYPE_LABELS = {
     "love_friends_family": "Love Friends & Family",
     "fishing_for_men": "Fishing For Men",
     "serve_least_of_these": "Serve Least of These",
+    "my_habits_existing": "My Habits \u2013 Existing",
+    "my_habits_building": "My Habits \u2013 Building",
 }
 
 _CAL_TYPE_COLORS = {
@@ -46,6 +48,8 @@ _CAL_TYPE_COLORS = {
     "love_friends_family": "#ec4899",
     "fishing_for_men": "#06b6d4",
     "serve_least_of_these": "#f97316",
+    "my_habits_existing": "#10b981",
+    "my_habits_building": "#3b82f6",
 }
 
 
@@ -137,6 +141,10 @@ def _categorize_event(event: Dict[str, Any]) -> str:
         return "medical"
     if cal_type == "birthdays":
         return "birthdays"
+    if cal_type == "my_habits_existing":
+        return "my_habits_existing"
+    if cal_type == "my_habits_building":
+        return "my_habits_building"
 
     # Title-based fallback for medical keywords
     if (
@@ -234,6 +242,22 @@ _REVIEWED_SECTIONS = [
         "--warn-bg",
         "--warn",
         "--warn-b",
+    ),
+    (
+        "my_habits_existing",
+        "My Habits \u2013 Existing",
+        "--ok",
+        "--ok-bg",
+        "--ok",
+        "--ok-b",
+    ),
+    (
+        "my_habits_building",
+        "My Habits \u2013 Building",
+        "--accent-l",
+        "--accent-bg",
+        "--accent-l",
+        "--accent-b",
     ),
     ("other", "Everything Else", "--text-2", "--border", "--text-2", "--border-h"),
 ]
