@@ -2114,7 +2114,7 @@ def handle_action(event: dict) -> dict:
                 except Exception:
                     pass
             created = cal.create_schedule_events(
-                title=f"Commit: {task_title}",
+                title=f"COMMIT: {task_title}",
                 duration_minutes=duration_minutes,
                 calendar_id=_ca_id,
             )
