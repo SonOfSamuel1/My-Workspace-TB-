@@ -871,42 +871,13 @@ def _build_home_html_uncached(
     cal_state = _load_calendar_state()
     godpower_state = _load_godpower_state()
 
-    # Build set of task titles already scheduled for later today in "Committed action" calendar
-    committed_action_titles: set = set()
-    _ca_cal_id = cal_state.get("committed_action_calendar_id", "")
-    if _ca_cal_id:
-        try:
-            _ca_events = cal.get_today_future_events_from_calendar(_ca_cal_id)
-            for _ev in _ca_events:
-                _t = _ev.get("title", "")
-                if _t.upper().startswith("COMMIT:"):
-                    committed_action_titles.add(_t[_t.index(":") + 1 :].strip().lower())
-        except Exception:
-            pass
-
-    # Auto-mark tasks as reviewed if they have work scheduled for later today
-    if committed_action_titles:
-        try:
-            _now_iso = datetime.now(timezone.utc).isoformat()
-            _state_changed = False
-            for _section, _tasks in (("commit", commit_tasks), ("bestcase", bestcase_tasks)):
-                for _t in _tasks:
-                    _tid = str(_t.get("id", ""))
-                    _title_key = (_t.get("content") or "").strip().lower()
-                    if _title_key in committed_action_titles:
-                        # Only write if not already reviewed (avoids unnecessary S3 writes)
-                        if not home_state.get(_section, {}).get(_tid):
-                            home_state.setdefault(_section, {})[_tid] = _now_iso
-                            _state_changed = True
-            if _state_changed:
-                _save_home_reviewed_state(home_state)
-        except Exception:
-            pass
-
     _toggl_tok = _os.environ.get("TOGGL_API_TOKEN", "")
     toggl_time_totals = _fetch_toggl_time_entries(_toggl_tok) if _toggl_tok else {}
     toggl_daily_total_secs = (
         _fetch_toggl_daily_total_seconds(_toggl_tok) if _toggl_tok else 0
+    )
+    diligent_work_secs = (
+        _fetch_toggl_diligent_work_secs(_toggl_tok) if _toggl_tok else 0
     )
 
     if not toggl_daily_total_secs:
@@ -933,6 +904,65 @@ def _build_home_html_uncached(
         except Exception as _e:
             logger.warning(f"toggl_local fallback read failed: {_e}")
 
+    # Compute committed calendar total for today using the dynamic calendar ID from state
+    committed_cal_secs = 0
+    _ca_cal_id = cal_state.get("committed_action_calendar_id", "")
+    if _ca_cal_id:
+        try:
+            from zoneinfo import ZoneInfo as _ZI
+            _today_et = datetime.now(_ZI("America/New_York")).date().isoformat()
+            for ev in cal.get_today_events_from_calendar(_ca_cal_id):
+                if ev.get("is_all_day"):
+                    continue
+                start_str = ev.get("start", "")
+                end_str = ev.get("end", "")
+                if not start_str or not end_str:
+                    continue
+                try:
+                    s_dt = datetime.fromisoformat(start_str.replace("Z", "+00:00"))
+                    if s_dt.astimezone(_ZI("America/New_York")).date().isoformat() != _today_et:
+                        continue
+                    e_dt = datetime.fromisoformat(end_str.replace("Z", "+00:00"))
+                    dur = max(0, int((e_dt - s_dt).total_seconds()))
+                    committed_cal_secs += dur
+                except Exception:
+                    continue
+        except Exception as _e:
+            logger.warning(f"committed calendar total failed: {_e}")
+
+    # Build set of task titles that have committed action events scheduled today
+    # Used to show "Work Scheduled" / "Work Not Scheduled" badges on cards
+    committed_action_titles: set = set()
+    _cals_to_check = list({_ca_cal_id, "primary"} - {""})
+    for _check_id in _cals_to_check:
+        try:
+            for _ev in cal.get_today_events_from_calendar(_check_id):
+                _t = _ev.get("title", "")
+                if _t.upper().startswith("COMMIT:"):
+                    committed_action_titles.add(_t[_t.index(":") + 1:].strip().lower())
+        except Exception:
+            pass
+
+    # Auto-mark reviewed: any commit/bestcase task with work already scheduled today
+    try:
+        _home_st_changed = False
+        _home_st = home_state
+        for _sec, _tasks in (("commit", commit_tasks), ("bestcase", bestcase_tasks)):
+            for _t in _tasks:
+                _tid = _t.get("id", "")
+                _title_lower = (_t.get("content") or "").strip().lower()
+                if _title_lower in committed_action_titles and _tid:
+                    if not _home_st.get(_sec, {}).get(_tid):
+                        _home_st.setdefault(_sec, {})[_tid] = datetime.now(timezone.utc).isoformat()
+                        _home_st_changed = True
+        if _home_st_changed:
+            try:
+                _save_home_reviewed_state(_home_st)
+            except Exception:
+                pass
+    except Exception:
+        pass
+
     return build_home_html(
         commit_tasks=commit_tasks,
         bestcase_tasks=bestcase_tasks,
@@ -951,6 +981,8 @@ def _build_home_html_uncached(
         embed=True,
         toggl_time_totals=toggl_time_totals,
         toggl_daily_total_secs=toggl_daily_total_secs,
+        diligent_work_secs=diligent_work_secs,
+        committed_cal_secs=committed_cal_secs,
         todoist_tasks=all_todoist_tasks,
         godpower_state=godpower_state,
         committed_action_titles=committed_action_titles,
@@ -1154,6 +1186,85 @@ def _fetch_toggl_time_entries(toggl_token: str) -> dict:
     except Exception as e:
         logger.warning(f"Could not fetch Toggl time entries: {e}")
         return {}
+
+
+_DILIGENT_PROJECT_NAMES = {
+    "Scripture Study",
+    "Scheduled Committed",
+    "Scheduled Best Case",
+    "Unscheduled Urgent",
+    "Unscheduled Good Samaritan",
+}
+
+
+def _fetch_toggl_diligent_work_secs(toggl_token: str) -> int:
+    """Fetch today's Toggl seconds for 'diligent work' projects only.
+
+    Diligent projects: Scripture Study, Scheduled Committed, Scheduled Best Case,
+    Unscheduled Urgent, Unscheduled Good Samaritan, and any project with 'Love' in the name.
+    """
+    try:
+        import base64 as _b64
+        import time as _time
+
+        import requests as _req
+        from zoneinfo import ZoneInfo
+
+        _eastern = ZoneInfo("America/New_York")
+        _today_str = datetime.now(_eastern).date().isoformat()
+        _auth = _b64.b64encode(f"{toggl_token}:api_token".encode()).decode()
+        _th = {"Authorization": f"Basic {_auth}", "Content-Type": "application/json"}
+
+        # Fetch projects to build id -> name map
+        _pr = _req.get(
+            "https://api.track.toggl.com/api/v9/me?with_related_data=true",
+            headers=_th,
+            timeout=15,
+        )
+        _pr.raise_for_status()
+        _pd = _pr.json()
+        project_names = {}
+        for p in _pd.get("projects", []):
+            project_names[p.get("id")] = p.get("name", "")
+
+        # Fetch time entries
+        _mr = _req.get(
+            "https://api.track.toggl.com/api/v9/me/time_entries",
+            headers=_th,
+            timeout=15,
+        )
+        _mr.raise_for_status()
+        entries = _mr.json()
+        now_ts = _time.time()
+        total = 0
+        for entry in entries:
+            start = entry.get("start", "")
+            if not start:
+                continue
+            try:
+                start_dt = datetime.fromisoformat(start.replace("Z", "+00:00"))
+                if start_dt.astimezone(_eastern).date().isoformat() != _today_str:
+                    continue
+            except Exception:
+                continue
+            # Check if this entry's project qualifies as diligent work
+            pid = entry.get("project_id")
+            pname = project_names.get(pid, "")
+            is_diligent = (
+                pname in _DILIGENT_PROJECT_NAMES
+                or "love" in pname.lower()
+            )
+            if not is_diligent:
+                continue
+            dur = entry.get("duration", 0)
+            if dur < 0:
+                total += max(0, int(now_ts + dur))
+            elif dur > 0:
+                total += dur
+        return total
+    except Exception as e:
+        logger.warning(f"Could not fetch Toggl diligent work: {e}")
+        return 0
 
 
 def _fetch_toggl_daily_total_seconds(toggl_token: str) -> int:
@@ -1684,8 +1795,7 @@ def handle_action(event: dict) -> dict:
                     tasks = [
                         t
                         for t in all_bestcase
-                        if not t.get("due")
-                        or t["due"].get("date", "")[:10] <= today_str
+                        if t.get("due") and t["due"].get("date", "")[:10] <= today_str
                     ]
                 elif view == "sabbath":
                     tasks, projects = service.get_sabbath_tasks()
@@ -2251,11 +2361,11 @@ def handle_action(event: dict) -> dict:
                 calendar_id=_ca_id,
             )
             num = len(created)
-            # Mark task as reviewed in home state for commit and/or bestcase sections
+            # Mark task as reviewed in home state so the badge tracks scheduling
             try:
                 task_labels = (task.get("labels") or []) if task else []
-                _home_st = _load_home_reviewed_state()
                 _now_iso = datetime.now(timezone.utc).isoformat()
+                _home_st = _load_home_reviewed_state()
                 _changed = False
                 if "Commit" in task_labels:
                     _home_st.setdefault("commit", {})[task_id] = _now_iso

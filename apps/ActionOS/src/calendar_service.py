@@ -30,6 +30,7 @@ CALENDAR_IDS = {
     # Habits calendar IDs are created on first use and stored in calendar state
     "my_habits_existing": "",
     "my_habits_building": "",
+    # committed_action calendar ID is dynamic — stored in calendar state (S3), NOT hardcoded here
 }
 
 _CALENDAR_DAY_OVERRIDES = {
@@ -182,23 +183,63 @@ class CalendarService:
     def get_or_create_calendar(self, summary: str) -> str:
         """Return the ID of the first calendar with the given name, creating it if missing.
 
-        Prevents duplicate calendars when state persistence is unreliable.
+        Raises API exceptions instead of silently swallowing them — a caller that
+        catches and falls back to 'primary' is safer than accidentally creating a
+        duplicate calendar every time the API has a transient error.
         """
-        try:
-            items = []
-            page_token = None
-            while True:
-                resp = self.service.calendarList().list(pageToken=page_token).execute()
-                items.extend(resp.get("items", []))
-                page_token = resp.get("nextPageToken")
-                if not page_token:
-                    break
-            for cal in items:
-                if cal.get("summary", "") == summary:
-                    return cal["id"]
-        except Exception as e:
-            logger.warning(f"get_or_create_calendar: list failed: {e}")
+        items = []
+        page_token = None
+        while True:
+            resp = self.service.calendarList().list(pageToken=page_token).execute()
+            items.extend(resp.get("items", []))
+            page_token = resp.get("nextPageToken")
+            if not page_token:
+                break
+        for cal in items:
+            if cal.get("summary", "") == summary:
+                return cal["id"]
         return self.create_calendar(summary)
+
+    def get_today_events_from_calendar(self, calendar_id: str) -> List[Dict[str, Any]]:
+        """Fetch all events for today from a specific calendar, including scheduled_work events."""
+        now = datetime.now(timezone.utc)
+        local_now = now.astimezone(_EASTERN_TZ)
+        today_start = local_now.replace(hour=0, minute=0, second=0, microsecond=0)
+        today_end = local_now.replace(hour=23, minute=59, second=59, microsecond=0)
+        try:
+            result = (
+                self.service.events()
+                .list(
+                    calendarId=calendar_id,
+                    timeMin=today_start.isoformat(),
+                    timeMax=today_end.isoformat(),
+                    singleEvents=True,
+                    orderBy="startTime",
+                    maxResults=50,
+                )
+                .execute()
+            )
+        except Exception as e:
+            logger.warning(f"get_today_events_from_calendar({calendar_id}): {e}")
+            return []
+        events = []
+        for item in result.get("items", []):
+            event_id = item.get("id", "")
+            if not event_id:
+                continue
+            start = item.get("start", {})
+            end = item.get("end", {})
+            is_all_day = "date" in start and "dateTime" not in start
+            events.append(
+                {
+                    "id": event_id,
+                    "title": item.get("summary", "(No title)"),
+                    "start": start.get("dateTime") or start.get("date", ""),
+                    "end": end.get("dateTime") or end.get("date", ""),
+                    "is_all_day": is_all_day,
+                }
+            )
+        return events
 
     def fetch_events_for_calendar(
         self, cal_type: str, cal_id: str, days: int = 180
@@ -574,52 +615,6 @@ class CalendarService:
             raise ValueError(f"Unknown calendar_type: {calendar_type!r}")
         self.service.events().delete(calendarId=cal_id, eventId=event_id).execute()
         logger.info(f"Deleted event {event_id!r} from calendar {calendar_type!r}")
-
-    def get_today_future_events_from_calendar(
-        self, calendar_id: str
-    ) -> List[Dict[str, Any]]:
-        """Fetch timed events from a specific calendar starting from now through end of today.
-
-        Unlike get_upcoming_events, this includes events with actionos_source='scheduled_work'.
-        Returns a list of dicts: {id, title, start, end}
-        """
-        now = datetime.now(timezone.utc)
-        local_now = now.astimezone(_EASTERN_TZ)
-        today_end = local_now.replace(hour=23, minute=59, second=59, microsecond=0)
-        try:
-            result = (
-                self.service.events()
-                .list(
-                    calendarId=calendar_id,
-                    timeMin=now.isoformat(),
-                    timeMax=today_end.isoformat(),
-                    singleEvents=True,
-                    orderBy="startTime",
-                    maxResults=50,
-                )
-                .execute()
-            )
-        except Exception as e:
-            logger.warning(f"Failed to fetch committed action calendar {calendar_id}: {e}")
-            return []
-        events = []
-        for item in result.get("items", []):
-            start = item.get("start", {})
-            is_all_day = "date" in start and "dateTime" not in start
-            if is_all_day:
-                continue
-            start_val = start.get("dateTime") or start.get("date", "")
-            end = item.get("end", {})
-            end_val = end.get("dateTime") or end.get("date", "")
-            events.append(
-                {
-                    "id": item.get("id", ""),
-                    "title": item.get("summary", "(No title)"),
-                    "start": start_val,
-                    "end": end_val,
-                }
-            )
-        return events
 
     def get_upcoming_events_cached(self, days: int = 90) -> List[Dict[str, Any]]:
         """TTL-cached wrapper around get_upcoming_events (60s cache)."""
