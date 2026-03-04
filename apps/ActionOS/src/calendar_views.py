@@ -1318,7 +1318,7 @@ def build_calendar_html(
         "min-width:20px;height:20px;display:inline-flex;align-items:center;"
         "justify-content:center;font-size:11px;font-weight:700;color:#fff;padding:0 5px;}"
         ".section-hdr{display:flex;align-items:center;gap:8px;padding:16px 0 8px;"
-        "font-size:11px;font-weight:600;color:var(--text-3);text-transform:uppercase;"
+        "font-size:14px;font-weight:600;color:var(--text-3);text-transform:uppercase;"
         "letter-spacing:0.6px;border-bottom:1px solid var(--border);margin-bottom:10px;"
         "position:sticky;top:116px;z-index:10;background:var(--bg-base);"
         "scroll-margin-top:116px;}"
