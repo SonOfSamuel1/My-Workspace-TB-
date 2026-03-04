@@ -2044,19 +2044,23 @@ def handle_action(event: dict) -> dict:
                 os.environ["CALENDAR_CREDENTIALS_JSON"],
                 os.environ["CALENDAR_TOKEN_JSON"],
             )
-            # Ensure the "Committed action" calendar exists
-            _ca_state = _load_calendar_state()
-            _ca_id = _ca_state.get("committed_action_calendar_id", "")
-            if not _ca_id:
-                try:
-                    _ca_id = cal.create_calendar("Committed action")
-                    cal.set_calendar_color(_ca_id, "11")  # Tomato (red)
+            # Ensure the "Committed action" calendar exists.
+            # Always look up by name first to avoid duplicates when state
+            # persistence is unavailable (e.g., S3 unreachable from Railway).
+            try:
+                _ca_id = cal.get_or_create_calendar("Committed action")
+                cal.set_calendar_color(_ca_id, "11")  # Tomato (red)
+                _ca_state = _load_calendar_state()
+                if _ca_state.get("committed_action_calendar_id") != _ca_id:
                     _ca_state["committed_action_calendar_id"] = _ca_id
-                    _save_calendar_state(_ca_state)
-                    logger.info(f"Created 'Committed action' calendar: {_ca_id}")
-                except Exception as _ca_err:
-                    logger.warning(f"Could not create Committed action calendar: {_ca_err}")
-                    _ca_id = "primary"
+                    try:
+                        _save_calendar_state(_ca_state)
+                    except Exception:
+                        pass  # state save is best-effort; lookup-by-name is the guard
+                logger.info(f"Using 'Committed action' calendar: {_ca_id}")
+            except Exception as _ca_err:
+                logger.warning(f"Could not get/create Committed action calendar: {_ca_err}")
+                _ca_id = "primary"
             created = cal.create_schedule_events(
                 title=task_title,
                 duration_minutes=duration_minutes,

@@ -176,6 +176,27 @@ class CalendarService:
         result = self.service.calendars().insert(body={"summary": summary}).execute()
         return result.get("id", "")
 
+    def get_or_create_calendar(self, summary: str) -> str:
+        """Return the ID of the first calendar with the given name, creating it if missing.
+
+        Prevents duplicate calendars when state persistence is unreliable.
+        """
+        try:
+            items = []
+            page_token = None
+            while True:
+                resp = self.service.calendarList().list(pageToken=page_token).execute()
+                items.extend(resp.get("items", []))
+                page_token = resp.get("nextPageToken")
+                if not page_token:
+                    break
+            for cal in items:
+                if cal.get("summary", "") == summary:
+                    return cal["id"]
+        except Exception as e:
+            logger.warning(f"get_or_create_calendar: list failed: {e}")
+        return self.create_calendar(summary)
+
     def fetch_events_for_calendar(
         self, cal_type: str, cal_id: str, days: int = 180
     ) -> List[Dict[str, Any]]:
