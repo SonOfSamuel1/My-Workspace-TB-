@@ -1413,7 +1413,7 @@ def build_home_html(
         )
     _god_power_cards = (
         '<div class="gp-card">'
-        '<div class="gp-card-ref">Always Remember</div>'
+        '<div class="gp-card-ref">Remember</div>'
         '<div class="gp-card-title">'
         'Whatever I wish will be done for me, if it\u2019s aligned with Jesus\u2019 words and character, '
         'and I ask the Father for it.'
@@ -1425,7 +1425,7 @@ def build_home_html(
         '</div>'
         '</div>'
         '<div class="gp-card">'
-        '<div class="gp-card-ref">Always Remember</div>'
+        '<div class="gp-card-ref">Remember</div>'
         '<div class="gp-card-title">'
         'If I verbally command any mountain, barrier or challenge to be moved it will move.'
         '</div>'
@@ -1446,7 +1446,7 @@ def build_home_html(
     sections_html += _build_section_html(
         "godpower",
         "Use God Power",
-        _god_power_cards + _activity_card_html + _view_all_card,
+        _activity_card_html + _god_power_cards + _view_all_card,
         0,
         2 + (0 if _activity_done else 1),
         collapsed=False,
@@ -2862,7 +2862,7 @@ def build_godpower_view_html(function_url: str, godpower_state: dict = None) -> 
     for title, ref, verse in _GP_SCRIPTURES:
         scripture_cards += (
             '<div class="gp-card">'
-            '<div class="gp-card-ref">Always Remember</div>'
+            '<div class="gp-card-ref">Remember</div>'
             f'<div class="gp-card-title">{html.escape(title)}</div>'
             f'<div class="gp-card-scripture-ref">{html.escape(ref)}</div>'
             f'<div class="gp-card-verse">{verse}</div>'
