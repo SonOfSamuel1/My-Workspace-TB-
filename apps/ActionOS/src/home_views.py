@@ -291,8 +291,24 @@ def _build_task_card(
         meta_parts.append(age)
     if project_name:
         meta_parts.append(project_name)
+    _cal_icon_sm = (
+        '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" '
+        'stroke-width="2" stroke-linecap="round" stroke-linejoin="round" '
+        'style="vertical-align:-1px;flex-shrink:0;">'
+        '<rect x="3" y="4" width="18" height="18" rx="2"/>'
+        '<line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/>'
+        '<line x1="3" y1="10" x2="21" y2="10"/></svg>'
+    )
     meta_parts.append(
-        f'<span style="color:{due_color};font-weight:500;">{html.escape(due_text)}</span>'
+        f'<span class="meta-date-btn" style="color:{due_color};" '
+        f"onclick=\"event.stopPropagation();var i=this.querySelector('input');i.showPicker?i.showPicker():i.focus()\">"
+        + _cal_icon_sm
+        + f'<span class="meta-date-text">{html.escape(due_text)}</span>'
+        + f'<input type="date" class="meta-date-input" value="{html.escape(due_date)}" '
+        f'tabindex="-1" style="position:absolute;opacity:0;pointer-events:none;width:0;height:0;" '
+        f'onclick="event.stopPropagation()" '
+        f"onchange=\"event.stopPropagation();doSetDueDateMeta('{task_id}',this.value,this)\">"
+        f"</span>"
     )
     meta_line = " &middot; ".join(meta_parts)
 
@@ -509,7 +525,7 @@ def _build_task_card(
         f'<div class="task-meta">{meta_line}</div>'
         f'<div class="task-actions">'
         + (move_select + priority_select if section not in ("commit", "bestcase") else "")
-        + f"{due_date_input}{complete_btn}"
+        + f"{complete_btn}"
         + (review_btn if section != "commit" else "")
         + f"{commit_btn}{bestcase_btn}{schedule_btn}{cc_btn}{toggl_select}{time_tracked_html}"
         f"</div>"
@@ -1934,6 +1950,9 @@ def build_home_html(
         ".date-icon-wrap{display:inline-flex;align-items:center;}"
         ".date-icon{color:var(--text-3);}"
         ".date-label{font-size:11px;color:var(--text-3);}"
+        ".meta-date-btn{position:relative;display:inline-flex;align-items:center;gap:3px;"
+        "cursor:pointer;font-weight:500;text-decoration:underline dotted;text-underline-offset:2px;}"
+        ".meta-date-btn:hover{opacity:0.75;}"
         ".date-pill-input{font-family:inherit;font-size:11px;"
         "background:transparent;border:none;color:var(--text-1);cursor:pointer;"
         "outline:none;width:100px;}"
@@ -2216,6 +2235,17 @@ def build_home_html(
         "fetch(_homeUrl+'?action=due_date&task_id='+encodeURIComponent(taskId)+'&date='+encodeURIComponent(date))"
         ".then(function(r){return r.json();}).then(function(d){"
         "if(d.ok){input.style.borderColor=cv('--ok-b');setTimeout(function(){input.style.borderColor='';},1500);}"
+        "}).catch(function(){});}"
+        # --- Set Due Date via meta badge ---
+        "function doSetDueDateMeta(taskId,date,input){"
+        "var card=input.closest('.task-card');"
+        "fetch(_homeUrl+'?action=due_date&task_id='+encodeURIComponent(taskId)+'&date='+encodeURIComponent(date))"
+        ".then(function(r){return r.json();}).then(function(d){"
+        "if(d.ok&&card){"
+        "card.dataset.dueDate=date;"
+        "var label=input.parentNode.querySelector('.meta-date-text');"
+        "if(label){label.textContent=date?date:'No date';}"
+        "}"
         "}).catch(function(){});}"
         # --- Complete task ---
         # --- God Power activity complete ---
