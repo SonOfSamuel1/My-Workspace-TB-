@@ -30,6 +30,8 @@ CALENDAR_IDS = {
     # Habits calendar IDs are created on first use and stored in calendar state
     "my_habits_existing": "",
     "my_habits_building": "",
+    "committed_action_a": "c_881eb94df958b5622096819728b93463185a648e46c685eadeb41339b8817e29@group.calendar.google.com",
+    "committed_action_b": "c_18ada04c5fb972db33101899a7d1b0a17d6ce535361f0030e6f74bd35380e8c0@group.calendar.google.com",
 }
 
 _CALENDAR_DAY_OVERRIDES = {

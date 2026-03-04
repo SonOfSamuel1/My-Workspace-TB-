@@ -904,13 +904,14 @@ def _build_home_html_uncached(
         except Exception as _e:
             logger.warning(f"toggl_local fallback read failed: {_e}")
 
-    # Compute committed calendar total for today (primary calendar timed events)
+    # Compute committed calendar total for today (Committed action calendars)
+    _COMMITTED_CAL_TYPES = {"committed_action_a", "committed_action_b"}
     committed_cal_secs = 0
     try:
         from zoneinfo import ZoneInfo as _ZI
         _today_et = datetime.now(_ZI("America/New_York")).date().isoformat()
         for ev in calendar_events:
-            if ev.get("calendar_type") != "primary":
+            if ev.get("calendar_type") not in _COMMITTED_CAL_TYPES:
                 continue
             if ev.get("is_all_day"):
                 continue
