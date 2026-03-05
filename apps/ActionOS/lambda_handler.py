@@ -1874,13 +1874,7 @@ def handle_action(event: dict) -> dict:
                             service.get_tasks_by_label, "Commit"
                         )
                     projects = projects_future.result()
-                    all_commit = tasks_future.result()
-                    tasks = [
-                        t
-                        for t in all_commit
-                        if not t.get("due")
-                        or t["due"].get("date", "")[:10] <= today_str
-                    ]
+                    tasks = tasks_future.result()
                 elif view == "p1":
                     with ThreadPoolExecutor(max_workers=2) as executor:
                         projects_future = executor.submit(service.get_all_projects)
@@ -1914,12 +1908,7 @@ def handle_action(event: dict) -> dict:
                             service.get_tasks_by_label, "Best Case"
                         )
                     projects = projects_future.result()
-                    all_bestcase = tasks_future.result()
-                    tasks = [
-                        t
-                        for t in all_bestcase
-                        if t.get("due") and t["due"].get("date", "")[:10] <= today_str
-                    ]
+                    tasks = tasks_future.result()
                 elif view == "sabbath":
                     tasks, projects = service.get_sabbath_tasks()
                     tasks.sort(
@@ -2208,6 +2197,7 @@ def handle_action(event: dict) -> dict:
         elif view == "activitylog":
             try:
                 from activity_log_views import (
+                    _is_sleep_entry,
                     build_activity_log_html,
                     fetch_toggl_entries,
                     merge_entries,
@@ -2215,7 +2205,8 @@ def handle_action(event: dict) -> dict:
 
                 _toggl_tok = os.environ.get("TOGGL_API_TOKEN", "")
                 al_state = _load_activity_log_state()
-                saved_entries = al_state.get("entries") or []
+                # Strip any sleep entries that may have been saved before the filter was added
+                saved_entries = [e for e in (al_state.get("entries") or []) if not _is_sleep_entry(e)]
 
                 # Fetch fresh entries from Toggl and merge with archive
                 fresh = fetch_toggl_entries(_toggl_tok) if _toggl_tok else []

@@ -497,26 +497,61 @@ def build_view_html(
         )
 
     # Build task cards
-    cards_html = ""
-    if tasks:
-        for task in tasks:
-            cards_html += _build_task_card(
-                task,
-                projects_by_id,
-                function_url,
-                action_token,
-                email_actions_url=email_actions_url,
-                email_actions_token=email_actions_token,
-                view_name=view_name,
-                toggl_time_totals=toggl_time_totals,
-            )
-    else:
-        cards_html = (
+    def _make_card(task):
+        return _build_task_card(
+            task,
+            projects_by_id,
+            function_url,
+            action_token,
+            email_actions_url=email_actions_url,
+            email_actions_token=email_actions_token,
+            view_name=view_name,
+            toggl_time_totals=toggl_time_totals,
+        )
+
+    def _empty_state(label):
+        return (
             '<div style="text-align:center;padding:60px 20px;color:var(--text-2);">'
             '<div style="font-size:36px;margin-bottom:12px;">&#10003;</div>'
-            f'<div style="font-size:16px;">No {title.lower()} items</div>'
+            f'<div style="font-size:16px;">{label}</div>'
             "</div>"
         )
+
+    cards_html = ""
+    if view_name in ("bestcase", "commit"):
+        today_str_v = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        today_tasks = [
+            t for t in tasks
+            if not t.get("due") or t["due"].get("date", "")[:10] <= today_str_v
+        ]
+        future_tasks = sorted(
+            [t for t in tasks if t.get("due") and t["due"].get("date", "")[:10] > today_str_v],
+            key=lambda t: t["due"]["date"][:10],
+        )
+        today_label = "BEST CASE TODAY" if view_name == "bestcase" else "COMMIT TODAY"
+        today_html = "".join(_make_card(t) for t in today_tasks) or _empty_state(f"No {today_label.lower()} items")
+        future_html = "".join(_make_card(t) for t in future_tasks)
+        cards_html = (
+            f'<div class="section-hdr" style="color:var(--text-2);">'
+            f'<span>{today_label}</span>'
+            f'<span class="section-badge">{len(today_tasks)}</span>'
+            f'</div>'
+            + today_html
+        )
+        if future_tasks:
+            cards_html += (
+                f'<div class="section-hdr" style="color:var(--text-2);margin-top:8px;">'
+                f'<span>UPCOMING</span>'
+                f'<span class="section-badge">{len(future_tasks)}</span>'
+                f'</div>'
+                + future_html
+            )
+        count = len(tasks)
+    elif tasks:
+        for task in tasks:
+            cards_html += _make_card(task)
+    else:
+        cards_html = _empty_state(f"No {title.lower()} items")
 
     # Action base URL
     base_action_url = function_url.rstrip("/")
@@ -557,7 +592,7 @@ def build_view_html(
     checklist_card_html = ""
     checklist_css = ""
     checklist_js = ""
-    if view_name == "commit" and checklists is not None:
+    if False and view_name == "commit" and checklists is not None:  # checklist card removed
         cl_key = "remember_power_christ"
         cl_content = html.escape(checklists.get(cl_key, ""))
         checklist_card_html = (
@@ -890,11 +925,17 @@ def build_view_html(
         + '<div class="left-pane">'
         + subheader_html
         + '<div class="task-list">'
-        + f'<div class="section-hdr" style="color:var(--text-2);">'
-        f'<span>{html.escape(title.upper())}</span>'
-        f'<span class="section-badge" id="task-count-badge">{count}</span>'
-        f'</div>'
-        + checklist_card_html
+        + (
+            ""
+            if view_name in ("bestcase", "commit")
+            else (
+                f'<div class="section-hdr" style="color:var(--text-2);">'
+                f'<span>{html.escape(title.upper())}</span>'
+                f'<span class="section-badge" id="task-count-badge">{count}</span>'
+                f'</div>'
+            )
+        )
+        + (checklist_card_html if view_name not in ("bestcase", "commit") else "")
         + cards_html
         + "</div></div>"
         # Right pane — task detail / email viewer

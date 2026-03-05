@@ -182,7 +182,7 @@ def _due_date_display(due_date_str: str):
         return ("no date", "#56565e")
     try:
         due = datetime.strptime(due_date_str, "%Y-%m-%d").date()
-        today = datetime.now(timezone.utc).date()
+        today = datetime.now(_EASTERN).date()
         diff = (due - today).days
         if diff < 0:
             return ("overdue", "#ef4444")
@@ -1248,19 +1248,15 @@ def _build_section_html(
         badge_html = f'<span class="section-badge section-needs-badge" id="sbadge-{key}" style="display:none;"></span>'
 
     if not cards_html:
-        cards_html = '<div class="empty-state">Nothing here \u2713</div>'
+        return ""
 
     display = "none" if collapsed else "block"
-    chevron = "\u25b6" if collapsed else "\u25bc"
 
     return (
         f'<div class="section-hdr" id="sec-{key}" style="color:{border_color};cursor:pointer;" '
-        f"onclick=\"var b=document.getElementById('body-{key}'),"
-        f"c=this.querySelector('.chevron');"
-        f"if(b.style.display==='none'){{b.style.display='block';c.textContent='\\u25BC';}}"
-        f"else{{b.style.display='none';c.textContent='\\u25B6';}}"
+        f"onclick=\"var b=document.getElementById('body-{key}');"
+        f"b.style.display=b.style.display==='none'?'block':'none';"
         f'">'
-        f'<span class="chevron" style="font-size:9px;width:10px;">{chevron}</span>'
         f"<span>{html.escape(label.upper())}</span>"
         f"{badge_html}"
         f"</div>"
@@ -2476,7 +2472,8 @@ def build_home_html(
         "btn.style.pointerEvents='none';btn.textContent='Completing\u2026';"
         "fetch(_homeUrl+'?action=complete&task_id='+encodeURIComponent(taskId))"
         ".then(function(r){return r.json();}).then(function(d){"
-        "if(d.ok){btn.textContent='\u2713 Done';_disposeCard(btn);}"
+        "if(d.ok){btn.textContent='\u2713 Done';btn.style.cursor='default';"
+        "if(_sectionOf(btn)!=='bestcase'){_disposeCard(btn);}}"
         "else{btn.textContent='Complete';btn.style.pointerEvents='auto';}"
         "}).catch(function(){btn.textContent='Complete';btn.style.pointerEvents='auto';});}"
         # --- Commit label ---
@@ -2508,7 +2505,7 @@ def build_home_html(
         "btn.style.pointerEvents='none';btn.textContent='Removing\u2026';"
         "fetch(_homeUrl+'?action=remove_bestcase&task_id='+encodeURIComponent(taskId))"
         ".then(function(r){return r.json();}).then(function(d){"
-        "if(d.ok){_fadeCard(btn);}"
+        "if(d.ok){btn.textContent='\u2713 Removed';btn.style.cursor='default';}"
         "else{btn.textContent='Remove Best Case';btn.style.pointerEvents='auto';}"
         "}).catch(function(){btn.textContent='Remove Best Case';btn.style.pointerEvents='auto';});}"
         # --- Copy CC ---
