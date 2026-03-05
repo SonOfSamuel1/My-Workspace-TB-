@@ -2052,27 +2052,6 @@ def handle_action(event: dict) -> dict:
                     os.environ["CALENDAR_TOKEN_JSON"],
                 )
                 svc = TodoistService(todoist_token)
-                # Auto-sync FFM events to Family calendar (rate-limited to once per 30 min
-                # to prevent duplicates from Google Calendar's eventual-consistency lag)
-                try:
-                    _sync_state = _load_calendar_state()
-                    _last_sync = _sync_state.get("ffm_last_sync", "")
-                    _run_sync = True
-                    if _last_sync:
-                        _last_dt = datetime.fromisoformat(_last_sync)
-                        if datetime.now(timezone.utc) - _last_dt < timedelta(
-                            minutes=30
-                        ):
-                            _run_sync = False
-                            logger.info("FFM sync: skipping — ran less than 30 min ago")
-                    if _run_sync:
-                        cal.sync_ffm_to_family()
-                        _sync_state["ffm_last_sync"] = datetime.now(
-                            timezone.utc
-                        ).isoformat()
-                        _save_calendar_state(_sync_state)
-                except Exception as sync_err:
-                    logger.warning(f"FFM auto-sync failed: {sync_err}")
                 events = cal.get_upcoming_events(days=90)
                 # Ensure "Serve Least of These" calendar exists and append its events
                 state = _load_calendar_state()
