@@ -1,5 +1,5 @@
 # Dockerfile for Daily Todoist Reviewer Lambda
-FROM public.ecr.aws/lambda/nodejs:20
+FROM public.ecr.aws/lambda/nodejs:22
 
 # Set working directory
 WORKDIR ${LAMBDA_TASK_ROOT}
