@@ -895,9 +895,11 @@ def _build_calendar_card(
             '<line x1="12" y1="1" x2="12" y2="4"/>'
             "</svg>"
         )
+        _title_esc = html.escape(event.get("title", "Event"))
         timer_btn = (
             f'<button class="timer-btn" '
             f'data-start="{start_iso}" '
+            f'data-title="{_title_esc}" '
             f'onclick="event.stopPropagation();doPrepTimer(this)">'
             f'{_timer_svg} <span class="timer-label">Prep Timer</span></button>'
         )
@@ -2704,11 +2706,12 @@ def build_home_html(
         "function doPrepTimer(btn){"
         "var secs=_calcPrepSec(btn);"
         "if(secs<=0){_setTimerText(btn,'Starting soon');btn.classList.add('expired');return;}"
-        "_setTimerText(btn,_timerLabel(secs)+' set');"
+        "var title=btn.getAttribute('data-title')||'Event';"
+        "_setTimerText(btn,_timerLabel(secs)+' \u2713');"
         "btn.style.background=cv('--ok-bg');btn.style.color=cv('--ok');btn.style.borderColor=cv('--ok-b');"
-        "window.top.location.href='shortcuts://run-shortcut?name=Prep%20Timer&input=text&text='+secs;"
-        "setTimeout(function(){_setTimerText(btn,_timerLabel(_calcPrepSec(btn)));"
-        "btn.style.background='';btn.style.color='';btn.style.borderColor='';},3000);}"
+        "btn.classList.add('scheduled');"
+        "var h=Math.floor(secs/3600);var rm=Math.floor((secs%3600)/60);var rs=secs%60;"
+        "window.top.open('timerplus://app/quick-timers/new?hours='+h+'&minutes='+rm+'&seconds='+rs+'&name='+encodeURIComponent(title));}"
         # Init timer buttons
         "function initTimerBtns(){"
         "var btns=document.querySelectorAll('.timer-btn');"

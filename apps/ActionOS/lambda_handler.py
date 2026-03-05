@@ -661,7 +661,14 @@ def _load_calendar_state() -> dict:
         obj = _s3.get_object(Bucket=bucket, Key=CALENDAR_STATE_KEY)
         return json.loads(obj["Body"].read())
     except Exception:
-        return {"reviews": {}}
+        return {
+            "reviews": {},
+            "ffm_last_sync": "",
+            "serve_least_of_these_calendar_id": "",
+            "my_habits_existing_calendar_id": "",
+            "my_habits_building_calendar_id": "",
+            "committed_action_calendar_id": "",
+        }
 
 
 def _save_calendar_state(state: dict) -> None:
