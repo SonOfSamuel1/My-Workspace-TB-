@@ -59,36 +59,79 @@ def _friendly_date(date_str: str) -> str:
         return date_str
 
 
+_SLEEP_TAGS = {"sleep", "eight-sleep"}
+
+
+def _is_sleep_entry(entry: dict) -> bool:
+    tags = {t.lower() for t in (entry.get("tags") or [])}
+    return bool(tags & _SLEEP_TAGS)
+
+
+def _normalize_entries(raw: list) -> list:
+    result = []
+    for e in raw:
+        dur = e.get("duration", 0)
+        if dur <= 0:
+            continue  # skip running timers
+        tags = e.get("tags") or []
+        tag_set = {t.lower() for t in tags}
+        if tag_set & _SLEEP_TAGS:
+            continue  # exclude sleep entries
+        result.append({
+            "id": e.get("id"),
+            "description": e.get("description") or "Untitled",
+            "start": e.get("start", ""),
+            "stop": e.get("stop", ""),
+            "duration": dur,
+            "project_id": e.get("project_id"),
+            "tags": tags,
+        })
+    return result
+
+
 def fetch_toggl_entries(toggl_token: str) -> list:
-    """Fetch all available time entries from Toggl (last ~90 days)."""
+    """Fetch Toggl time entries using two passes to ensure full coverage.
+
+    Pass 1: last 90 days with explicit date range (history).
+    Pass 2: no date range (Toggl returns ~9 days newest-first) to guarantee
+            the most recent entries are always captured.
+    Both results are merged by id so there are no duplicates.
+    """
     try:
         import base64
+        from datetime import timedelta
         import requests
         auth = base64.b64encode(f"{toggl_token}:api_token".encode()).decode()
         headers = {"Authorization": f"Basic {auth}", "Content-Type": "application/json"}
-        resp = requests.get(
+        now_utc = datetime.now(timezone.utc)
+        start_date = (now_utc - timedelta(days=90)).strftime("%Y-%m-%dT00:00:00Z")
+        end_date = (now_utc + timedelta(days=1)).strftime("%Y-%m-%dT00:00:00Z")
+
+        # Pass 1: full 90-day history
+        r1 = requests.get(
+            "https://api.track.toggl.com/api/v9/me/time_entries",
+            headers=headers,
+            params={"start_date": start_date, "end_date": end_date},
+            timeout=15,
+        )
+        r1.raise_for_status()
+        entries1 = _normalize_entries(r1.json())
+
+        # Pass 2: no params — guarantees the freshest ~9 days are included
+        r2 = requests.get(
             "https://api.track.toggl.com/api/v9/me/time_entries",
             headers=headers,
             timeout=15,
         )
-        resp.raise_for_status()
-        entries = resp.json()
-        # Normalize each entry to a compact dict
-        result = []
-        for e in entries:
-            dur = e.get("duration", 0)
-            if dur <= 0:
-                continue  # skip running timers
-            result.append({
-                "id": e.get("id"),
-                "description": e.get("description") or "Untitled",
-                "start": e.get("start", ""),
-                "stop": e.get("stop", ""),
-                "duration": dur,
-                "project_id": e.get("project_id"),
-                "tags": e.get("tags") or [],
-            })
-        return result
+        r2.raise_for_status()
+        entries2 = _normalize_entries(r2.json())
+
+        # Merge by id (pass 2 overrides pass 1 for same id)
+        by_id = {e["id"]: e for e in entries1 if e.get("id")}
+        for e in entries2:
+            if e.get("id"):
+                by_id[e["id"]] = e
+        return list(by_id.values())
     except Exception:
         return []
 
