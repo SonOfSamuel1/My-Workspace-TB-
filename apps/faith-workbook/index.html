@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Faith That Moves Things</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Lora:wght@400;600;700&family=Montserrat:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #2c3e50;
+            --accent: #c9302c;
+            --gold: #d4a574;
+            --light-bg: #f8f6f1;
+            --text: #3a3a3a;
+            --border: #e8e2d9;
+            --serif: 'Lora', serif;
+            --sans: 'Montserrat', sans-serif;
+            --dark-bg: #1a1a1a;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: var(--serif);
+            color: var(--text);
+            background-color: #fff;
+            line-height: 1.7;
+        }
+
+        /* Navigation */
+        nav {
+            position: sticky;
+            top: 0;
+            background: var(--primary);
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 1000;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        nav h1 {
+            color: #fff;
+            font-size: 1.5rem;
+            font-family: var(--serif);
+        }
+
+        nav .nav-links {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+        }
+
+        nav a {
+            color: #fff;
+            text-decoration: none;
+            font-family: var(--sans);
+            font-size: 0.9rem;
+            transition: color 0.3s;
+        }
+
+        nav a:hover {
+            color: var(--gold);
+        }
+
+        /* Hero Cover */
+        .cover {
+            background: linear-gradient(135deg, var(--primary) 0%, #34495e 100%);
+            color: #fff;
+            padding: 60px 20px;
+            text-align: center;
+            min-height: 70vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .cover::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: repeating-linear-gradient(
+                90deg,
+                transparent,
+                transparent 2px,
+                rgba(255,255,255,.03) 2px,
+                rgba(255,255,255,.03) 4px
+            );
+            pointer-events: none;
+        }
+
+        .cover-content {
+            position: relative;
+            z-index: 1;
+            max-width: 600px;
+        }
+
+        .cover h1 {
+            font-family: var(--serif);
+            font-size: clamp(2.5rem, 8vw, 4rem);
+            font-weight: 700;
+            margin-bottom: 20px;
+            letter-spacing: -1px;
+        }
+
+        .cover p {
+            font-family: var(--sans);
+            font-size: clamp(1rem, 4vw, 1.4rem);
+            font-weight: 300;
+            margin-bottom: 30px;
+            opacity: 0.95;
+        }
+
+        .cover-divider {
+            width: 60px;
+            height: 3px;
+            background: var(--gold);
+            margin: 20px auto;
+        }
+
+        .cover-subtitle {
+            font-family: var(--sans);
+            font-size: clamp(0.85rem, 3vw, 1.1rem);
+            opacity: 0.9;
+            margin-top: 30px;
+        }
+
+        /* CTA Button */
+        .cta-button {
+            display: inline-block;
+            background: var(--gold);
+            color: #fff;
+            padding: 12px 30px;
+            border-radius: 5px;
+            text-decoration: none;
+            margin-top: 30px;
+            font-family: var(--sans);
+            font-weight: 600;
+            transition: all 0.3s;
+            border: 2px solid var(--gold);
+            cursor: pointer;
+        }
+
+        .cta-button:hover {
+            background: transparent;
+            color: var(--gold);
+        }
+
+        /* Container */
+        .container {
+            max-width: 100%;
+            margin: 0 auto;
+            padding: 0;
+        }
+
+        /* Activity Grid */
+        .activities-grid {
+            padding: 40px 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .activities-grid h2 {
+            text-align: center;
+            font-size: 2.5rem;
+            margin-bottom: 40px;
+            color: var(--primary);
+        }
+
+        .activity-card {
+            background: #fff;
+            border-radius: 8px;
+            overflow: hidden;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            transition: transform 0.3s, box-shadow 0.3s;
+            border-left: 5px solid var(--accent);
+        }
+
+        .activity-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+        }
+
+        .activity-card-header {
+            background: linear-gradient(135deg, var(--primary), #34495e);
+            color: #fff;
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .activity-number {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--gold);
+            font-family: var(--serif);
+        }
+
+        .activity-card-header h3 {
+            font-size: 1.3rem;
+            font-family: var(--serif);
+        }
+
+        .activity-card-content {
+            padding: 25px;
+        }
+
+        .scripture-section {
+            background: var(--light-bg);
+            padding: 20px;
+            border-left: 5px solid var(--accent);
+            margin-bottom: 20px;
+            border-radius: 5px;
+        }
+
+        .scripture-ref {
+            font-family: var(--sans);
+            font-size: 0.8rem;
+            font-weight: 700;
+            color: var(--accent);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 10px;
+        }
+
+        .scripture-text {
+            font-size: 0.95rem;
+            line-height: 1.7;
+            font-style: italic;
+            color: var(--text);
+        }
+
+        .activity-label {
+            display: inline-block;
+            background: var(--gold);
+            color: #fff;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-family: var(--sans);
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 12px;
+        }
+
+        .activity-text {
+            font-size: 0.95rem;
+            line-height: 1.7;
+            color: var(--text);
+        }
+
+        /* Footer */
+        footer {
+            background: var(--primary);
+            color: #fff;
+            text-align: center;
+            padding: 40px 20px;
+            font-family: var(--sans);
+            margin-top: 60px;
+        }
+
+        footer p {
+            margin: 10px 0;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            nav .nav-links {
+                gap: 10px;
+                font-size: 0.8rem;
+            }
+
+            nav a {
+                font-size: 0.8rem;
+            }
+
+            .cover {
+                min-height: 60vh;
+                padding: 40px 15px;
+            }
+
+            .activities-grid {
+                padding: 20px 15px;
+            }
+
+            .activities-grid h2 {
+                font-size: 1.8rem;
+                margin-bottom: 25px;
+            }
+
+            .activity-card-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 10px;
+            }
+
+            .activity-card-header h3 {
+                font-size: 1.1rem;
+            }
+
+            .activity-number {
+                font-size: 1.5rem;
+            }
+
+            .activity-card-content {
+                padding: 15px;
+            }
+
+            .scripture-section {
+                padding: 15px;
+                margin-bottom: 15px;
+            }
+
+            .scripture-text {
+                font-size: 0.9rem;
+            }
+        }
+
+        /* Print */
+        @media print {
+            nav, footer, .cta-button {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav>
+        <h1>Faith That Moves Things</h1>
+        <div class="nav-links">
+            <a href="#activities">Activities</a>
+            <a href="#download">Download</a>
+        </div>
+    </nav>
+
+    <!-- Cover -->
+    <div class="cover">
+        <div class="cover-content">
+            <h1>Faith That Moves Things</h1>
+            <div class="cover-divider"></div>
+            <p>Activites to Excercise Your Power in Christ</p>
+            <div class="cover-divider"></div>
+            <div class="cover-subtitle">Biblical Principles & Practical Exercises for Answered Prayer</div>
+            <a href="#activities" class="cta-button">Explore Activities</a>
+        </div>
+    </div>
+
+    <!-- Activities Section -->
+    <div class="activities-grid" id="activities">
+        <h2>10 Powerful Faith Exercises</h2>
+
+        <!-- Activity 1 -->
+        <div class="activity-card">
+            <div class="activity-card-header">
+                <div class="activity-number">01</div>
+                <h3>Be Like the Persistent Widow</h3>
+            </div>
+            <div class="activity-card-content">
+                <div class="scripture-section">
+                    <div class="scripture-ref">Luke 18:1-8</div>
+                    <div class="scripture-text">"And he told them a parable to the effect that they ought always to pray and not lose heart. He said, 'In a certain city there was a judge who neither feared God nor respected man. And there was a widow in that city who kept coming to him and saying, Give me justice against my adversary.' And the Lord said, 'Hear what the unrighteous judge says. And will not God give justice to his elect, who cry to him day and night? Will he delay long over them? I tell you, he will give justice to them speedily.'"</div>
+                </div>
+                <div class="activity-label">Activity</div>
+                <div class="activity-text">
+                    <strong>Ask God 3x a day for what you want.</strong><br><br>
+                    Like the persistent widow who refused to give up on her request for justice, develop a consistent prayer habit. Set specific times (morning, noon, evening) to bring your petition before God with steadfast faith and determination.
+                </div>
+            </div>
+        </div>
+
+        <!-- Activity 2 -->
+        <div class="activity-card">
+            <div class="activity-card-header">
+                <div class="activity-number">02</div>
+                <h3>Command Mountains to Be Moved</h3>
+            </div>
+            <div class="activity-card-content">
+                <div class="scripture-section">
+                    <div class="scripture-ref">Matthew 17:20</div>
+                    <div class="scripture-text">"He said to them, 'Because of your little faith. For truly, I say to you, if you have faith like a grain of mustard seed, you will say to this mountain, Move from here to there, and it will move, and nothing will be impossible for you.'"</div>
+                </div>
+                <div class="scripture-section">
+                    <div class="scripture-ref">Mark 11:22-25</div>
+                    <div class="scripture-text">"And Jesus answered them, 'Have faith in God. Truly, I say to you, whoever says to this mountain, Be taken up and thrown into the sea, and does not doubt in his heart, but believes that what he says will come to pass, it will be done for him.'"</div>
+                </div>
+                <div class="activity-label">Activity</div>
+                <div class="activity-text">
+                    <strong>Write out your greatest obstacle and command it to be moved.</strong><br><br>
+                    Identify the major barrier preventing you from accomplishing your goals. Speak to that mountain with authority, declaring that it will be removed. Exercise faith by verbally commanding the obstacle out of your way.
+                </div>
+            </div>
+        </div>
+
+        <!-- Activity 3 -->
+        <div class="activity-card">
+            <div class="activity-card-header">
+                <div class="activity-number">03</div>
+                <h3>Reason From Earthly Models</h3>
+            </div>
+            <div class="activity-card-content">
+                <div class="scripture-section">
+                    <div class="scripture-ref">Matthew 15:21-28</div>
+                    <div class="scripture-text">"And Jesus went away from there and withdrew to the district of Tyre and Sidon. And behold, a Canaanite woman from that region came out and was crying, 'Have mercy on me, O Lord, Son of David; my daughter is severely oppressed by a demon.' She said, 'Yes, Lord, yet even the dogs eat the crumbs that fall from their masters' table.' Then Jesus answered her, 'O woman, great is your faith! Let it be done for you as you desire.' And her daughter was healed instantly."</div>
+                </div>
+                <div class="scripture-section">
+                    <div class="scripture-ref">Luke 7:6-9</div>
+                    <div class="scripture-text">"The centurion sent friends, saying to him, 'Lord, do not trouble yourself... But say the word, and let my servant be healed. For I too am a man set under authority, with soldiers under me: and I say to one, Go, and he goes.' When Jesus heard these things, he marveled at him, and turning to the crowd that followed him, said, 'I tell you, not even in Israel have I found such faith.'"</div>
+                </div>
+                <div class="activity-label">Activity</div>
+                <div class="activity-text">
+                    <strong>Identify a favorable earthly outcome and model your prayer after it.</strong><br><br>
+                    Study how people in authority and with humility have achieved results. See yourself in a humble, lowly state and God in a position of power and authority. Tell God He is infinitely better than any earthly model and ask accordingly.
+                </div>
+            </div>
+        </div>
+
+        <!-- Activity 4 -->
+        <div class="activity-card">
+            <div class="activity-card-header">
+                <div class="activity-number">04</div>
+                <h3>Have Shameless Audacity</h3>
+            </div>
+            <div class="activity-card-content">
+                <div class="scripture-section">
+                    <div class="scripture-ref">Luke 11:5-8</div>
+                    <div class="scripture-text">"And he said to them, 'Which of you who has a friend will go to him at midnight and say to him, Friend, lend me three loaves?' I tell you, though he will not get up and give him anything because he is his friend, yet because of his impudence he will rise and give him whatever he needs.'"</div>
+                </div>
+                <div class="activity-label">Activity</div>
+                <div class="activity-text">
+                    <strong>Define and schedule steps of shameless audacity.</strong><br><br>
+                    Break down bold, courageous action steps you can take toward your goal. Don't wait for perfect conditions. Schedule these audacious steps immediately and take action ASAP.
+                </div>
+            </div>
+        </div>
+
+        <!-- Activity 5 -->
+        <div class="activity-card">
+            <div class="activity-card-header">
+                <div class="activity-number">05</div>
+                <h3>Everything in the Name is Approved</h3>
+            </div>
+            <div class="activity-card-content">
+                <div class="scripture-section">
+                    <div class="scripture-ref">John 16:23-24</div>
+                    <div class="scripture-text">"In that day you will ask nothing of me. Truly, truly, I say to you, whatever you ask of the Father in my name, he will give it to you. Until now you have asked nothing in my name. Ask, and you will receive, that your joy may be full."</div>
+                </div>
+                <div class="scripture-section">
+                    <div class="scripture-ref">John 14:12-14</div>
+                    <div class="scripture-text">"Truly, truly, I say to you, whoever believes in me will also do the works that I do; and greater works than these will he do, because I am going to the Father. Whatever you ask in my name, this I will do, that the Father may be glorified in the Son."</div>
+                </div>
+                <div class="activity-label">Activity</div>
+                <div class="activity-text">
+                    <strong>Write out how your request aligns with Jesus' name and character.</strong><br><br>
+                    Consider Jesus' example, values, and character. Frame your request in a way that is consistent with His nature and goals. Ask in accordance with who He is and what He stands for.
+                </div>
+            </div>
+        </div>
+
+        <!-- Activity 6 -->
+        <div class="activity-card">
+            <div class="activity-card-header">
+                <div class="activity-number">06</div>
+                <h3>Expect to Receive</h3>
+            </div>
+            <div class="activity-card-content">
+                <div class="scripture-section">
+                    <div class="scripture-ref">Mark 11:23-24</div>
+                    <div class="scripture-text">"And Jesus answered them, 'Have faith in God. Truly, I say to you, whoever says to this mountain, Be taken up and thrown into the sea, and does not doubt in his heart, but believes that what he says will come to pass, it will be done for him. Therefore I tell you, whatever you ask in prayer, believe that you have received it, and it will be yours.'"</div>
+                </div>
+                <div class="activity-label">Activity</div>
+                <div class="activity-text">
+                    <strong>Write your next step after receiving what you asked for.</strong><br><br>
+                    Before you've seen physical evidence, mentally rehearse and write down the next step you'll take once you've received your answer. Expect that God will act. Visualize yourself taking that next step with confidence.
+                </div>
+            </div>
+        </div>
+
+        <!-- Activity 7 -->
+        <div class="activity-card">
+            <div class="activity-card-header">
+                <div class="activity-number">07</div>
+                <h3>Believe and Act As If You Already Received</h3>
+            </div>
+            <div class="activity-card-content">
+                <div class="scripture-section">
+                    <div class="scripture-ref">Mark 11:24</div>
+                    <div class="scripture-text">"Therefore I tell you, whatever you ask in prayer, believe that you have received it, and it will be yours."</div>
+                </div>
+                <div class="activity-label">Activity</div>
+                <div class="activity-text">
+                    <strong>Now that what you want is yours, write out what you do differently.</strong><br><br>
+                    Operating from the belief that you have already received what you asked for, how will your behavior change? What decisions will you make differently? Live as though the promise is already fulfilled.
+                </div>
+            </div>
+        </div>
+
+        <!-- Activity 8 -->
+        <div class="activity-card">
+            <div class="activity-card-header">
+                <div class="activity-number">08</div>
+                <h3>Check Your Motivations</h3>
+            </div>
+            <div class="activity-card-content">
+                <div class="scripture-section">
+                    <div class="scripture-ref">James 4:3</div>
+                    <div class="scripture-text">"You ask and do not receive, because you ask wrongly, to spend it on your passions."</div>
+                </div>
+                <div class="activity-label">Activity</div>
+                <div class="activity-text">
+                    <strong>Examine your true motivations with honesty.</strong><br><br>
+                    Be honest with yourself about why you're asking for what you want. Is it aligned with God's values, or are you primarily seeking to satisfy selfish earthly desires? Refine your request to ensure it's not merely for self-gratification.
+                </div>
+            </div>
+        </div>
+
+        <!-- Activity 9 -->
+        <div class="activity-card">
+            <div class="activity-card-header">
+                <div class="activity-number">09</div>
+                <h3>Ask, Knock, Seek</h3>
+            </div>
+            <div class="activity-card-content">
+                <div class="scripture-section">
+                    <div class="scripture-ref">Matthew 7:7-11</div>
+                    <div class="scripture-text">"Ask, and it will be given to you; seek, and you will find; knock, and it will be opened to you. For everyone who asks receives, and the one who seeks finds, and to the one who knocks it will be opened. If you then, who are evil, know how to give good gifts to your children, how much more will your Father who is in heaven give good things to those who ask him!"</div>
+                </div>
+                <div class="activity-label">Activity</div>
+                <div class="activity-text">
+                    <strong>Identify all current actions toward your goal and brainstorm additional ones.</strong><br><br>
+                    Write out everything you're already doing to obtain what you're praying for (asking, seeking, knocking). Then brainstorm additional concrete actions. Faith requires both prayer and persistent action.
+                </div>
+            </div>
+        </div>
+
+        <!-- Activity 10 -->
+        <div class="activity-card">
+            <div class="activity-card-header">
+                <div class="activity-number">10</div>
+                <h3>Provide Yourself With Moneybag</h3>
+            </div>
+            <div class="activity-card-content">
+                <div class="scripture-section">
+                    <div class="scripture-ref">Luke 12:32-34</div>
+                    <div class="scripture-text">"Fear not, little flock, for it is your Father's good pleasure to give you the kingdom. Sell your possessions, and give to the needy. Provide yourselves with moneybags that do not grow old, with a treasure in the heavens that does not fail, where no thief approaches and no moth destroys. For where your treasure is, there will your heart be also."</div>
+                </div>
+                <div class="activity-label">Activity</div>
+                <div class="activity-text">
+                    <strong>Give a meaningful donation with a grateful heart.</strong><br><br>
+                    Make a meaningful gift to the poor, needy, or widow. Give with a good attitude and a thankful heart, releasing your attachment to earthly wealth. As you sow generously, you store up heavenly treasure.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Download Section -->
+    <div style="background: var(--primary); color: #fff; padding: 60px 20px; text-align: center;">
+        <h2 style="margin-bottom: 20px; font-size: 2rem;">Download PDF Workbook</h2>
+        <p style="margin-bottom: 30px; font-size: 1.1rem;">Get the complete workbook for offline reading and sharing.</p>
+        <a href="/faith-workbook.pdf" class="cta-button" style="background: var(--gold); color: #fff;">Download PDF</a>
+    </div>
+
+    <!-- Footer -->
+    <footer>
+        <p>&copy; 2025 Faith That Moves Things Workbook</p>
+        <p>A guide to biblical prayer and personal transformation</p>
+    </footer>
+</body>
+</html>
