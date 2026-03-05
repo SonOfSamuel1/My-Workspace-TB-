@@ -1199,12 +1199,10 @@ def build_calendar_html(
         if (not _is_birthday_event(ev) or _is_within_days(ev, 90))
         and (ev.get("title") or "").strip().lower() not in _EXCLUDED_EVENT_TITLES
         and (ev.get("title") or "").strip().lower() not in _user_excluded
+        and ev.get("calendar_type") != _HABITS_BUILDING_CAL
         and (
-            ev.get("calendar_type") == _HABITS_BUILDING_CAL
-            or (
-                ev.get("recurring_event_id", "") not in _daily_weekly_ids
-                and (ev.get("title") or "").strip().lower() not in _daily_weekly_titles
-            )
+            ev.get("recurring_event_id", "") not in _daily_weekly_ids
+            and (ev.get("title") or "").strip().lower() not in _daily_weekly_titles
         )
     ]
 

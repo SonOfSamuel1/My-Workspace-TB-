@@ -1603,6 +1603,8 @@ def build_home_html(
             continue
         if _ev_title_lower in _user_excluded_home:
             continue
+        if event.get("calendar_type") == _HABITS_BUILDING_CAL:
+            continue
         if event.get("calendar_type") != _HABITS_BUILDING_CAL and (
             event.get("recurring_event_id", "") in _daily_weekly_ids
             or _ev_title_lower in _daily_weekly_titles
