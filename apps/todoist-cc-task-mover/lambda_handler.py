@@ -1,7 +1,11 @@
-"""AWS Lambda handler for Todoist CC Task Mover.
+"""AWS Lambda handler for Todoist Task Prefix Mover.
 
 Triggered by EventBridge daily at 4:00 AM EST.
-Moves tasks prefixed with 'cc-' or 'cc' from Inbox/Inbox 2 to the Claude Code project.
+Moves tasks with specific prefixes from Inbox/Inbox 2 to their target projects:
+- 'cc-' or 'cc ' → Claude Code
+- 'event prep:' → Event Prep
+- 'cal ' → Schedule Calendar Event
+- 'Take detailed notes:' → Take Detailed Notes
 """
 
 import json
@@ -58,7 +62,7 @@ def load_api_key_from_parameters() -> None:
 
 
 def cc_task_mover_handler(event: dict, context) -> dict:
-    """Lambda handler for the Todoist CC Task Mover.
+    """Lambda handler for the Todoist Task Prefix Mover.
 
     Args:
         event: Lambda event object from EventBridge
@@ -68,7 +72,7 @@ def cc_task_mover_handler(event: dict, context) -> dict:
         Dict with statusCode and body
     """
     logger.info("=" * 60)
-    logger.info("TODOIST CC TASK MOVER - Starting execution")
+    logger.info("TODOIST TASK PREFIX MOVER - Starting execution")
     logger.info(f"Event: {json.dumps(event)}")
     logger.info("=" * 60)
 
@@ -82,11 +86,11 @@ def cc_task_mover_handler(event: dict, context) -> dict:
 
         setup_logging()
 
-        logger.info("Running CC task mover...")
+        logger.info("Running task prefix mover...")
         results = move_cc_tasks(api_token=api_token)
 
         logger.info("=" * 60)
-        logger.info("CC task mover completed successfully")
+        logger.info("Task prefix mover completed successfully")
         logger.info(f"  Tasks scanned: {results['tasks_scanned']}")
         logger.info(f"  Tasks moved:   {results['tasks_moved']}")
         logger.info(f"  Sources:       {list(results['source_breakdown'].keys())}")
@@ -98,7 +102,7 @@ def cc_task_mover_handler(event: dict, context) -> dict:
             "statusCode": 200,
             "body": json.dumps(
                 {
-                    "message": "CC task mover completed successfully",
+                    "message": "Task prefix mover completed successfully",
                     "tasks_moved": results["tasks_moved"],
                     "tasks_scanned": results["tasks_scanned"],
                     "source_breakdown": results["source_breakdown"],
@@ -108,10 +112,10 @@ def cc_task_mover_handler(event: dict, context) -> dict:
         }
 
     except Exception as e:
-        logger.error(f"CC task mover failed: {str(e)}", exc_info=True)
+        logger.error(f"Task prefix mover failed: {str(e)}", exc_info=True)
         return {
             "statusCode": 500,
-            "body": json.dumps({"message": f"CC task mover failed: {str(e)}"}),
+            "body": json.dumps({"message": f"Task prefix mover failed: {str(e)}"}),
         }
 
 
