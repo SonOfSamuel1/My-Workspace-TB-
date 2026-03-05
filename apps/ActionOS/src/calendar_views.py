@@ -1327,7 +1327,7 @@ def build_calendar_html(
             f'<span class="section-badge" style="background:var({badge_bg});'
             f'color:var({badge_color});border:1px solid var({badge_border});">'
             f"{len(bucket)}</span>"
-            f"</div>" + checklist_html + extra_html + cards
+            f"</div>" + extra_html + cards
         )
 
     # Build calendar nav bar counts
