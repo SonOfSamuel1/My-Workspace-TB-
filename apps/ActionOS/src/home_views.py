@@ -1385,7 +1385,7 @@ def build_home_html(
         _card_idx[0] += 1
         return i
 
-    _today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    _today_str = datetime.now(_EASTERN).strftime("%Y-%m-%d")
 
     def _is_future_dated(task):
         """Return True if task has a due date strictly in the future."""
