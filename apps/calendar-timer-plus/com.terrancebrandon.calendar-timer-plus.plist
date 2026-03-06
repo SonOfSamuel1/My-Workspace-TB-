@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.terrancebrandon.calendar-timer-plus</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/bin/python3</string>
+        <string>/Users/terrancebrandon/Desktop/Code Projects (Official)/My Workspace/My-Workspace-TB-/My-Workspace-TB-/apps/calendar-timer-plus/get_next_event.py</string>
+        <string>--notify</string>
+        <string>--open</string>
+    </array>
+
+    <!-- Run every 15 minutes (900 seconds). Adjust as needed. -->
+    <key>StartInterval</key>
+    <integer>900</integer>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>StandardOutPath</key>
+    <string>/tmp/calendar-timer-plus.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>/tmp/calendar-timer-plus-error.log</string>
+</dict>
+</plist>
