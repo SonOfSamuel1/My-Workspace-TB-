@@ -87,14 +87,15 @@ def build_shell_html(
     iframes_html = ""
     for i, (tid, _label, url, preload) in enumerate(tabs):
         display = "" if i == 0 else "display:none;"
+        _bg_style = "background:#1a1a1a;color-scheme:dark;"
         if preload:
             iframes_html += (
-                f'<iframe id="frame-{tid}" src="{url}" style="{display}"'
+                f'<iframe id="frame-{tid}" src="{url}" style="{display}{_bg_style}"'
                 f' data-src="{url}"></iframe>'
             )
         else:
             iframes_html += (
-                f'<iframe id="frame-{tid}" srcdoc="{html.escape(_dark_srcdoc)}" style="{display}"'
+                f'<iframe id="frame-{tid}" srcdoc="{html.escape(_dark_srcdoc)}" style="{display}{_bg_style}"'
                 f' data-src="{url}"></iframe>'
             )
 
@@ -214,6 +215,13 @@ def build_shell_html(
         "font-size:12px;font-weight:700;padding:3px 10px;border-radius:12px;border:1px solid var(--ok-b);"
         "margin-left:10px;white-space:nowrap;}"
         ".due-today-badge.zero{background:var(--border);color:var(--text-2);border-color:var(--border);}"
+        ".next-pending-btn{background:var(--accent-bg);border:1.5px solid var(--accent);color:var(--accent);"
+        "font-size:13px;font-weight:600;padding:0 14px;border-radius:20px;cursor:pointer;"
+        "display:inline-flex;align-items:center;gap:5px;white-space:nowrap;min-height:44px;flex-shrink:0;}"
+        ".next-pending-btn:hover{opacity:0.75;}"
+        "#shell-next-label{background:rgba(0,0,0,0.25);border-radius:999px;"
+        "min-width:18px;height:18px;display:inline-flex;align-items:center;"
+        "justify-content:center;font-size:10px;font-weight:700;color:#fff;padding:0 4px;}"
         ".refresh-btn{background:var(--border);border:1px solid var(--border);color:var(--text-1);"
         "font-size:13px;font-weight:600;padding:6px 14px;border-radius:6px;cursor:pointer;flex-shrink:0;}"
         ".refresh-btn:hover{background:var(--border-h);}"
@@ -258,7 +266,7 @@ def build_shell_html(
         "background:var(--bg-s2);color:var(--text-1);}"
         ".main-content{flex:1;position:relative;overflow:hidden;background:var(--bg-base);}"
         ".main-content iframe{display:block;position:absolute;top:0;left:0;width:100%;height:100%;"
-        "border:none;background:var(--bg-base);}"
+        "border:none;background:var(--bg-base);color-scheme:dark;}"
         # Mobile section picker
         ".section-picker{display:none;align-items:center;gap:8px;background:var(--bg-s2);"
         "border:1px solid var(--border-h);border-radius:8px;padding:7px 12px 7px 14px;"
@@ -379,7 +387,7 @@ def build_shell_html(
         ".due-today-badge{margin-left:0;font-size:11px;padding:2px 8px;}"
         ".section-picker{display:flex;border:none;border-radius:20px;"
         "background:var(--bg-s1);border:1px solid var(--border);"
-        "height:40px;padding:0 14px;}"
+        "height:44px;padding:0 14px;}"
         ".refresh-text{display:none;}"
         ".refresh-btn{background:transparent;border:none;color:var(--text-2);padding:0;"
         "width:36px;height:36px;border-radius:50%;display:flex;align-items:center;"
@@ -387,7 +395,8 @@ def build_shell_html(
         ".refresh-btn:hover{background:var(--border);color:var(--text-1);}"
         ".header-actions{background:var(--bg-s1);border:1px solid var(--border);border-radius:20px;"
         "padding:2px;gap:2px;"
-        "height:40px;}"
+        "height:44px;}"
+        ".next-pending-btn{min-height:44px;border-radius:18px;}"
         ".notif-btn{border-radius:50%;}"
         ".sidebar{display:none!important;}"
         ".app-body{flex-direction:column;height:calc(100vh - 48px - 68px);}"
@@ -499,6 +508,7 @@ def build_shell_html(
         f'<span class="badge" id="section-picker-badge">{first_badge}</span>'
         f'<span class="section-picker-chevron">&#9660;</span>'
         f"</button>" + '<div class="header-actions">'
+        '<button class="next-pending-btn" id="shell-next-btn" onclick="nextPendingInShell()">&#8595; Next <span id="shell-next-label"></span></button>'
         '<button class="refresh-btn" onclick="refreshActive()">&#8635;<span class="refresh-text"> Refresh</span></button>'
         '<button class="notif-btn" id="notif-btn" onclick="requestNotifPermission()" title="Enable notifications" style="display:none">'
         '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
@@ -707,6 +717,9 @@ def build_shell_html(
         # Show calendar FAB only when calendar tab is active
         "var calFab=document.getElementById('cal-fab');"
         "if(calFab)calFab.style.display=tab==='calendar'?'flex':'none';"
+        # Show Next button only when home tab is active
+        "var nextBtn=document.getElementById('shell-next-btn');"
+        "if(nextBtn)nextBtn.style.display=tab==='home'?'inline-flex':'none';"
         "}"
         # Section picker
         "function toggleSectionPicker(){"
@@ -728,6 +741,21 @@ def build_shell_html(
         "var frame=document.getElementById('frame-'+activeTab);"
         "if(frame){frame.contentWindow.location.reload();}"
         "}"
+        # Next pending item in home iframe
+        "function nextPendingInShell(){"
+        "var frame=document.getElementById('frame-home');"
+        "if(!frame||!frame.contentWindow)return;"
+        "try{"
+        "var cw=frame.contentWindow;"
+        "var cards=cw._getPendingSections?cw._getPendingSections():[];"
+        "var total=cards.length;"
+        "if(!total)return;"
+        "if(cw.nextPendingItem)cw.nextPendingItem();"
+        "var idx=cw._pendingIdx||0;"
+        "var pos=idx===0?total:idx;"
+        "var lbl=document.getElementById('shell-next-label');"
+        "if(lbl)lbl.textContent=pos+'/'+total;"
+        "}catch(e){}}"
         # Quick-add task
         f"function doQuickAdd(){{"
         "var inp=document.getElementById('qa-input');"
@@ -929,6 +957,11 @@ def build_shell_html(
         "if(e.data.source===activeTab){"
         "var pb=document.getElementById('section-picker-badge');"
         "if(pb)pb.textContent=e.data.count;"
+        "}"
+        # Seed the Next button label when home reports its count
+        "if(e.data.source==='home'){"
+        "var nl=document.getElementById('shell-next-label');"
+        "if(nl&&!nl.textContent)nl.textContent='1/'+(e.data.count||'?');"
         "}"
         "}"
         "if(e.data&&(e.data.type==='markread'||e.data.type==='unstar'||e.data.type==='skip-inbox')){"

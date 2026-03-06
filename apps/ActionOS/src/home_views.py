@@ -7,11 +7,22 @@ collapsible accordion with review-state tracking.
 """
 
 import html
+import json
+import logging
 import re
 import urllib.parse
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional, Tuple
 from zoneinfo import ZoneInfo
+
+try:
+    import boto3
+    from botocore.exceptions import ClientError
+    HAS_BOTO3 = True
+except ImportError:
+    HAS_BOTO3 = False
+
+logger = logging.getLogger(__name__)
 
 _EASTERN = ZoneInfo("America/New_York")
 
@@ -1301,6 +1312,284 @@ def _build_home_nav_bar(section_counts: Dict[str, int]) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Jesus Teachings integration
+# ---------------------------------------------------------------------------
+
+def _parse_verse_parts(verse_text: str) -> Tuple[str, str]:
+    """
+    Split verse into (reference, body).
+    Returns: (reference_str, body_str)
+    """
+    if not verse_text:
+        return ("", "")
+
+    lines = verse_text.strip().splitlines()
+    ref_pattern = re.compile(
+        r"^(?:\d\s+)?[A-Z]\w+(\s\w+)?\s+\d+:\d+[\d\u2013\-,\s]*(\s*\([^)]+\))*$"
+    )
+
+    reference = ""
+    body_lines = lines
+
+    if lines and ref_pattern.match(lines[0].strip()):
+        reference = re.sub(r"\s*\([^)]+\)", "", lines[0].strip()).strip()
+        body_lines = lines[1:]
+
+    body = "\n".join(body_lines).strip()
+    body = body.strip("\u201c\u201d\u2018\u2019\"'")
+    body = body.strip()
+
+    return (reference, body)
+
+
+def _get_daily_jesus_teachings() -> Optional[List[Dict[str, Any]]]:
+    """
+    Fetch the 2 daily Jesus Teachings from S3 for the Use God Power section.
+    Returns list of teaching dicts with: title, verse_ref, verse_body, s3_key
+    Returns None if teachings cannot be fetched.
+    """
+    if not HAS_BOTO3:
+        logger.warning("boto3 not available, skipping Jesus Teachings")
+        return None
+
+    try:
+        s3 = boto3.client("s3", region_name="us-east-1")
+        bucket = "jt-teachings-notes"
+
+        # Load state.json to get current position
+        try:
+            response = s3.get_object(Bucket=bucket, Key="state.json")
+            state = json.loads(response["Body"].read().decode("utf-8"))
+        except ClientError as e:
+            logger.warning(f"Failed to load state.json: {e}")
+            return None
+
+        queue = state.get("queue", [])
+        position = state.get("position", 0)
+
+        if not queue or len(queue) < 2 or position < 0 or position + 2 > len(queue):
+            logger.warning(f"Invalid queue state: queue_len={len(queue)}, pos={position}")
+            return None
+
+        teaching_keys = [queue[position], queue[position + 1]]
+        teachings = []
+
+        for key in teaching_keys:
+            try:
+                response = s3.get_object(Bucket=bucket, Key=key)
+                content = response["Body"].read().decode("utf-8")
+
+                # Extract title from filename
+                filename = key.split("/")[-1].replace(".md", "")
+                if filename.startswith("JT- "):
+                    title = filename[4:]
+                elif filename.startswith("JT-"):
+                    title = filename[3:]
+                else:
+                    title = filename
+                title = title.strip()
+
+                # Extract verse using same logic as newsletter
+                verse_text = _extract_verse_from_content(content)
+                # Use the full verse text (no parsing) - display as-is
+                # verse_text includes both reference and body combined
+                verse_ref, verse_body = _parse_verse_parts(verse_text)
+                # If parsing yielded no body, use the full verse text
+                if not verse_body and verse_text:
+                    verse_body = verse_text
+
+                teachings.append({
+                    "title": title,
+                    "verse_ref": verse_ref if verse_ref else "Scripture",
+                    "verse_body": verse_body,
+                    "s3_key": key,
+                })
+            except ClientError as e:
+                logger.warning(f"Failed to read teaching {key}: {e}")
+                continue
+
+        return teachings if teachings else None
+
+    except Exception as e:
+        logger.error(f"Error fetching Jesus Teachings: {e}")
+        return None
+
+
+def _extract_verse_from_content(content: str) -> str:
+    """
+    Extract key verse text from teaching note content.
+    Returns first 500 chars of verse content after Key Verse heading.
+    """
+    # Look for Key Verse(s) / Key Scripture(s) / Scripture / Verse heading
+    patterns = [
+        r"#{1,2}\s+Key Verses?\s*\n(.*?)(?=\n#{1,2}\s|\Z)",
+        r"#{1,2}\s+Key Scriptures?\s*\n(.*?)(?=\n#{1,2}\s|\Z)",
+        r"#{1,2}\s+Scripture\s*\n(.*?)(?=\n#{1,2}\s|\Z)",
+        r"#{1,2}\s+Verse\s*\n(.*?)(?=\n#{1,2}\s|\Z)",
+    ]
+
+    for pattern in patterns:
+        match = re.search(pattern, content, re.DOTALL | re.IGNORECASE)
+        if match:
+            verse_text = match.group(1).strip()
+            # Clean obsidian syntax (wikilinks, etc)
+            verse_text = re.sub(r"\[\[([^\]]+)\]\]", r"\1", verse_text)
+            # Remove markdown formatting but keep basic structure
+            verse_text = re.sub(r"^#+\s+", "", verse_text, flags=re.MULTILINE)
+            # Return up to 30 lines or until we hit double newline (section break)
+            lines = []
+            for line in verse_text.split("\n"):
+                if line.strip() or lines:  # Start collecting after first non-empty
+                    lines.append(line)
+                    if len(lines) > 30:  # Limit to 30 lines
+                        break
+            return "\n".join(lines).strip()
+
+    # Fallback: look for Bible reference line at top of file
+    ref_pattern = re.compile(
+        r"^(?:\d\s+)?[A-Z]\w+(?:\s+\w+)?\s+\d+[:\d\u2013\-,\s]*(?:\([^)]+\))?"
+    )
+    lines = content.strip().splitlines()
+    for i, line in enumerate(lines[:100]):
+        if ref_pattern.match(line.strip()):
+            # Found reference, get next 20 lines
+            verse_lines = lines[i:min(i+20, len(lines))]
+            # Stop at next heading
+            result = []
+            for vline in verse_lines:
+                if vline.startswith("#") and result:
+                    break
+                result.append(vline)
+            return "\n".join(result).strip()
+
+    return ""
+
+
+# Logos Bible App uses OSIS book IDs in logosref://bible/BOOK.CHAPTER.VERSE format
+_BOOK_TO_OSIS = {
+    "genesis": "Gen", "exodus": "Exod", "leviticus": "Lev", "numbers": "Num",
+    "deuteronomy": "Deut", "joshua": "Josh", "judges": "Judg", "ruth": "Ruth",
+    "1 samuel": "1Sam", "2 samuel": "2Sam", "1 kings": "1Kgs", "2 kings": "2Kgs",
+    "1 chronicles": "1Chr", "2 chronicles": "2Chr", "ezra": "Ezra",
+    "nehemiah": "Neh", "esther": "Esth", "job": "Job", "psalms": "Ps",
+    "psalm": "Ps", "proverbs": "Prov", "ecclesiastes": "Eccl",
+    "song of solomon": "Song", "song of songs": "Song", "isaiah": "Isa",
+    "jeremiah": "Jer", "lamentations": "Lam", "ezekiel": "Ezek",
+    "daniel": "Dan", "hosea": "Hos", "joel": "Joel", "amos": "Amos",
+    "obadiah": "Obad", "jonah": "Jonah", "micah": "Mic", "nahum": "Nah",
+    "habakkuk": "Hab", "zephaniah": "Zeph", "haggai": "Hag",
+    "zechariah": "Zech", "malachi": "Mal", "matthew": "Matt", "mark": "Mark",
+    "luke": "Luke", "john": "John", "acts": "Acts", "romans": "Rom",
+    "1 corinthians": "1Cor", "2 corinthians": "2Cor", "galatians": "Gal",
+    "ephesians": "Eph", "philippians": "Phil", "colossians": "Col",
+    "1 thessalonians": "1Thess", "2 thessalonians": "2Thess",
+    "1 timothy": "1Tim", "2 timothy": "2Tim", "titus": "Titus",
+    "philemon": "Phlm", "hebrews": "Heb", "james": "Jas",
+    "1 peter": "1Pet", "2 peter": "2Pet", "1 john": "1John",
+    "2 john": "2John", "3 john": "3John", "jude": "Jude", "revelation": "Rev",
+}
+
+
+def _verse_ref_to_logos_url(ref: str) -> str:
+    """
+    Convert a scripture reference like "Luke 24:47" or "1 Corinthians 13:4-7"
+    to a ref.ly universal link that opens Logos Bible App on iOS.
+    Format: https://ref.ly/[OSIS_BOOK][CHAPTER].[VERSE]
+    e.g. Luke 24:47 -> https://ref.ly/Luke24.47
+    Returns empty string if parsing fails.
+    """
+    if not ref:
+        return ""
+    # Strip parenthetical translations like (ESV)
+    clean = re.sub(r"\s*\([^)]+\)", "", ref).strip()
+    # Match: optional leading digit + book name + chapter:verse
+    m = re.match(
+        r"^(\d\s+)?([A-Za-z][A-Za-z ]+?)\s+(\d+):(\d+)",
+        clean.strip()
+    )
+    if not m:
+        return ""
+    num_prefix = (m.group(1) or "").strip()
+    book_raw = m.group(2).strip()
+    chapter = m.group(3)
+    verse = m.group(4)
+    book_key = (f"{num_prefix} {book_raw}" if num_prefix else book_raw).lower().strip()
+    osis = _BOOK_TO_OSIS.get(book_key)
+    if not osis:
+        return ""
+    # ref.ly is Logos's official universal link — opens app on iOS, falls back to web
+    return f"https://ref.ly/{osis}{chapter}.{verse}"
+
+
+def _build_jesus_teachings_cards(teachings: List[Dict[str, Any]]) -> str:
+    """
+    Build HTML cards for daily Jesus Teachings with action buttons.
+    """
+    if not teachings:
+        return ""
+
+    cards = ""
+    for teaching in teachings:
+        title = teaching.get("title", "Teaching")
+        verse_ref = teaching.get("verse_ref", "")
+        verse_body = teaching.get("verse_body", "")
+        s3_key = teaching.get("s3_key", "")
+
+        # Create safe title for JavaScript
+        safe_title = title.replace("'", "\\'").replace('"', "&quot;")
+
+        # Build Obsidian link - construct the note path
+        # S3 key is like "JT- Teaching Title.md" → need to encode for Obsidian
+        # Vault path: "/Terrance (Primary Vault)/Permanent Notes/"
+        note_name = s3_key.replace(".md", "")
+        obsidian_vault = "Terrance (Primary Vault)"
+        obsidian_path = f"Permanent Notes/{note_name}"
+
+        # URL encode for obsidian:// protocol
+        vault_enc = urllib.parse.quote(obsidian_vault, safe='')
+        path_enc = urllib.parse.quote(obsidian_path, safe='')
+        obsidian_url = f"obsidian://open?vault={vault_enc}&file={path_enc}"
+
+        # Escape content for HTML
+        title_esc = html.escape(title)
+        verse_ref_esc = html.escape(verse_ref) if verse_ref else "Scripture"
+        verse_body_esc = html.escape(verse_body)
+        yv_url = _verse_ref_to_logos_url(verse_ref)
+        scrip_ref_html = (
+            '<a href="' + yv_url + '" target="_blank" rel="noopener" '
+            'style="text-decoration:none;color:inherit;cursor:pointer;" '
+            'title="Open in Logos Bible App">'
+            + verse_ref_esc + '</a>' if yv_url else verse_ref_esc
+        )
+
+        card_html = (
+            '<div class="gp-card">'
+            '<div class="gp-card-ref">Jesus Teach</div>'
+            '<div class="gp-card-title">' + title_esc + '</div>'
+            '<div class="gp-card-scripture-ref">' + scrip_ref_html + '</div>'
+            '<div class="gp-card-verse">' + verse_body_esc + '</div>'
+            '<div class="task-actions" style="margin-top:12px;">'
+            '<button class="complete-btn" onclick="doGpActivityComplete(this)">Complete</button>'
+            '<button class="schedule-btn" onclick="openScheduleModal(\'jt_' + html.escape(note_name.replace(" ", "_")) + '\',\'' + safe_title + '\')">'
+            '<svg class="schedule-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+            '<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/>'
+            '<line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>'
+            '<path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01M16 18h.01"/></svg>'
+            ' Schedule Work</button>'
+            '<button class="toggl-btn" onclick="event.stopPropagation();doTogglStart(this)" data-subject="' + safe_title + '">Track</button>'
+            '<a href="' + obsidian_url + '" target="_blank" rel="noopener" class="schedule-btn" style="text-decoration:none;">'
+            '<svg class="schedule-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+            '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>'
+            'Capture Reflections</a>'
+            '</div>'
+            '</div>'
+        )
+        cards += card_html
+
+    return cards
+
+
+# ---------------------------------------------------------------------------
 # Main builder
 # ---------------------------------------------------------------------------
 
@@ -1493,7 +1782,10 @@ def build_home_html(
         'Whatever I wish will be done for me, if it\u2019s aligned with Jesus\u2019 words and character, '
         'and I ask the Father for it.'
         '</div>'
-        '<div class="gp-card-scripture-ref">John 15:7</div>'
+        '<div class="gp-card-scripture-ref">'
+        '<a href="https://ref.ly/John15.7" target="_blank" rel="noopener" '
+        'style="text-decoration:none;color:inherit;" title="Open in Logos Bible App">'
+        'John 15:7</a></div>'
         '<div class="gp-card-verse">'
         '\u201cIf you abide in me, and my words abide in you, ask whatever you wish, '
         'and it will be done for you.\u201d'
@@ -1504,7 +1796,10 @@ def build_home_html(
         '<div class="gp-card-title">'
         'If I verbally command any mountain, barrier or challenge to be moved it will move.'
         '</div>'
-        '<div class="gp-card-scripture-ref">Matthew 17:20</div>'
+        '<div class="gp-card-scripture-ref">'
+        '<a href="https://ref.ly/Matt17.20" target="_blank" rel="noopener" '
+        'style="text-decoration:none;color:inherit;" title="Open in Logos Bible App">'
+        'Matthew 17:20</a></div>'
         '<div class="gp-card-verse">'
         '\u201cHe said to them, \u201cBecause of your little faith. For truly, I say to you, '
         'if you have faith like a grain of mustard seed, you will say to this mountain, '
@@ -1512,18 +1807,24 @@ def build_home_html(
         '</div>'
         '</div>'
     )
+    # Fetch daily Jesus Teachings
+    _jesus_teachings = _get_daily_jesus_teachings()
+    _jesus_teachings_html = _build_jesus_teachings_cards(_jesus_teachings) if _jesus_teachings else ""
+
     _view_all_card = (
         '<div class="gp-view-all-card" onclick="window.parent.postMessage({type:\'switchTab\',tab:\'godpower\'},\'*\')">'
         '<span>View all Power Scriptures &amp; Activities</span>'
         '<span class="gp-view-all-arrow">\u2192</span>'
         '</div>'
     )
+    # Card count: activity (0-1) + teachings (0-2) + remembers (2)
+    _teaching_count = len(_jesus_teachings) if _jesus_teachings else 0
     sections_html += _build_section_html(
         "godpower",
         "Use God Power",
-        _activity_card_html + _god_power_cards + _view_all_card,
+        _activity_card_html + _jesus_teachings_html + _god_power_cards + _view_all_card,
         0,
-        2 + (0 if _activity_done else 1),
+        (0 if _activity_done else 1) + _teaching_count + 2,
         collapsed=False,
         border_color="var(--warn)",
     )
@@ -1868,8 +2169,9 @@ def build_home_html(
     )
 
     return (
-        "<!DOCTYPE html><html><head>"
+        '<!DOCTYPE html><html style="background:#1a1a1a;color-scheme:dark light"><head>'
         '<meta charset="utf-8">'
+        '<meta name="color-scheme" content="dark light">'
         '<meta name="viewport" content="width=device-width,initial-scale=1">'
         '<meta http-equiv="Cache-Control" content="no-cache,no-store,must-revalidate">'
         '<link rel="preconnect" href="https://fonts.googleapis.com">'
@@ -1907,7 +2209,14 @@ def build_home_html(
         + ".top-bar{background:var(--bg-s0);border-bottom:1px solid var(--border);padding:14px 20px;"
         "display:flex;align-items:center;gap:12px;}"
         ".top-bar-title{color:var(--text-1);font-size:17px;font-weight:600;letter-spacing:-0.2px;}"
-        ".refresh-btn{margin-left:auto;background:var(--border);border:1px solid var(--border);"
+        ".next-pending-btn{margin-left:auto;background:var(--accent-bg);border:1.5px solid var(--accent);"
+        "color:var(--accent);font-size:13px;font-weight:600;padding:6px 14px;border-radius:6px;cursor:pointer;"
+        "display:inline-flex;align-items:center;gap:5px;white-space:nowrap;}"
+        ".next-pending-btn:hover{opacity:0.75;}"
+        ".next-pending-btn #next-pending-label{background:rgba(0,0,0,0.25);border-radius:999px;"
+        "min-width:20px;height:20px;display:inline-flex;align-items:center;"
+        "justify-content:center;font-size:11px;font-weight:700;color:#fff;padding:0 5px;}"
+        ".refresh-btn{background:var(--border);border:1px solid var(--border);"
         "color:var(--text-1);font-size:13px;font-weight:600;padding:6px 14px;border-radius:6px;cursor:pointer;}"
         ".refresh-btn:hover{background:var(--border-h);}"
         ".scroll-area{height:"
@@ -2275,6 +2584,7 @@ def build_home_html(
             if embed
             else '<div class="top-bar">'
             '<span class="top-bar-title">Home</span>'
+            '<button class="next-pending-btn" id="next-pending-btn" onclick="nextPendingItem()">&#8595; Next <span id="next-pending-label"></span></button>'
             '<button class="refresh-btn" onclick="location.reload()">&#8635; Refresh</button>'
             "</div>"
         )
@@ -2320,6 +2630,38 @@ def build_home_html(
         "function scrollToSec(key){"
         "var el=document.getElementById('sec-'+key);"
         "if(el){el.scrollIntoView({behavior:'smooth',block:'start'});}}"
+        # --- Next section cycling ---
+        "var _pendingIdx=0;"
+        "function _getPendingSections(){"
+        "return Array.from(document.querySelectorAll('.section-hdr'))"
+        ".filter(function(h){"
+        "var key=h.id.replace('sec-','');"
+        "var body=document.getElementById('body-'+key);"
+        "if(!body||body.style.display==='none')return false;"
+        "return Array.from(body.querySelectorAll('.task-card,.gp-card'))"
+        ".some(function(c){return parseFloat(c.style.opacity||'1')>0.5&&c.style.pointerEvents!=='none';});});}"
+        "function _updateNextLabel(){"
+        "var lbl=document.getElementById('next-pending-label');"
+        "if(!lbl)return;"
+        "var secs=_getPendingSections();"
+        "lbl.textContent=secs.length>0?(_pendingIdx%secs.length+1)+'/'+secs.length:'0';}"
+        "function nextPendingItem(){"
+        "var sa=document.querySelector('.scroll-area');"
+        "var secs=_getPendingSections();"
+        "if(!secs.length){"
+        "if(sa)sa.scrollTo({top:0,behavior:'smooth'});"
+        "_pendingIdx=0;return;}"
+        "_pendingIdx=_pendingIdx%secs.length;"
+        "var hdr=secs[_pendingIdx];"
+        "var key=hdr.id.replace('sec-','');"
+        "var body=document.getElementById('body-'+key);"
+        "var dashH=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--dash-h'))||56;"
+        "if(sa&&body){"
+        "var top=body.getBoundingClientRect().top-sa.getBoundingClientRect().top+sa.scrollTop-dashH-hdr.offsetHeight-4;"
+        "sa.scrollTo({top:Math.max(0,top),behavior:'smooth'});}"
+        "_pendingIdx=(_pendingIdx+1)%secs.length;"
+        "_updateNextLabel();}"
+        "(function(){_updateNextLabel();})();"
         # Set --dash-h so section headers stick just below the sticky bar
         "(function(){"
         "function _setDashH(){"
@@ -3094,7 +3436,10 @@ def build_godpower_view_html(function_url: str, godpower_state: dict = None) -> 
             '<div class="gp-card">'
             '<div class="gp-card-ref">Remember</div>'
             f'<div class="gp-card-title">{html.escape(title)}</div>'
-            f'<div class="gp-card-scripture-ref">{html.escape(ref)}</div>'
+            f'<div class="gp-card-scripture-ref">'
+            f'<a href="{_verse_ref_to_logos_url(ref)}" target="_blank" rel="noopener" '
+            f'style="text-decoration:none;color:inherit;" title="Open in Logos Bible App">'
+            f'{html.escape(ref)}</a></div>'
             f'<div class="gp-card-verse">{verse}</div>'
             '</div>'
         )
