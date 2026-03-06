@@ -2581,52 +2581,6 @@ def handle_action(event: dict) -> dict:
                     _save_home_reviewed_state(_home_st)
             except Exception:
                 pass
-            # Log each scheduled block as a Toggl time entry
-            try:
-                import base64 as _b64
-                import requests as _req2
-                _toggl_tok2 = os.environ.get("TOGGL_API_TOKEN", "")
-                if _toggl_tok2 and created:
-                    _sched_proj = (
-                        "Scheduled Committed" if "Commit" in task_labels
-                        else "Scheduled Best Case" if "Best Case" in task_labels
-                        else ""
-                    )
-                    _auth2 = _b64.b64encode(f"{_toggl_tok2}:api_token".encode()).decode()
-                    _th2 = {"Authorization": f"Basic {_auth2}", "Content-Type": "application/json"}
-                    _me2 = _req2.get("https://api.track.toggl.com/api/v9/me", headers=_th2, timeout=8)
-                    _ws2 = _me2.json().get("default_workspace_id") if _me2.ok else None
-                    _proj_id2 = None
-                    if _sched_proj and _ws2:
-                        for _p2 in _fetch_toggl_projects(_toggl_tok2):
-                            if _p2.get("name", "").lower() == _sched_proj.lower():
-                                _proj_id2 = _p2["id"]
-                                break
-                    if _ws2:
-                        for _ev in created:
-                            _ev_start = _ev.get("start", {}).get("dateTime", "")
-                            _ev_end = _ev.get("end", {}).get("dateTime", "")
-                            if not _ev_start or not _ev_end:
-                                continue
-                            _ds = datetime.fromisoformat(_ev_start).astimezone(timezone.utc)
-                            _de = datetime.fromisoformat(_ev_end).astimezone(timezone.utc)
-                            _dur = int((_de - _ds).total_seconds())
-                            _tbody2 = {
-                                "description": task_title,
-                                "workspace_id": int(_ws2),
-                                "start": _ds.strftime("%Y-%m-%dT%H:%M:%SZ"),
-                                "stop": _de.strftime("%Y-%m-%dT%H:%M:%SZ"),
-                                "duration": _dur,
-                                "created_with": "actionos",
-                            }
-                            if _proj_id2:
-                                _tbody2["project_id"] = _proj_id2
-                            _req2.post(
-                                f"https://api.track.toggl.com/api/v9/workspaces/{_ws2}/time_entries",
-                                headers=_th2, json=_tbody2, timeout=10,
-                            ).raise_for_status()
-            except Exception as _te:
-                logger.warning(f"schedule_action toggl log failed: {_te}")
             return {
                 "statusCode": 200,
                 "headers": {
