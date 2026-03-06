@@ -402,6 +402,7 @@ def build_shell_html(
         ".main-content{flex:1;height:100%;}"
         ".quick-add-bar{display:none;}"
         ".qa-fab{display:flex;bottom:88px;}"
+        ".next-fab{display:flex;}"
         "}"
         # Bottom navigation bar (Todoist floating pill style)
         ".bottom-nav{display:flex;position:fixed;bottom:20px;left:16px;right:auto;"
@@ -721,10 +722,10 @@ def build_shell_html(
         # Show calendar FAB only when calendar tab is active
         "var calFab=document.getElementById('cal-fab');"
         "if(calFab)calFab.style.display=tab==='calendar'?'flex':'none';"
-        # Show Next FAB on home and calendar tabs; lift above cal-fab on calendar
+        # Show Next FAB on all tabs; lift above cal-fab on calendar
         "var nextFab=document.getElementById('next-fab');"
         "if(nextFab){"
-        "nextFab.style.display=(tab==='home'||tab==='calendar')?'flex':'none';"
+        "nextFab.style.display='flex';"
         "nextFab.style.bottom=tab==='calendar'?'224px':'156px';}"
         "var nextLbl=document.getElementById('shell-next-label');"
         "if(nextLbl)nextLbl.textContent='';"
