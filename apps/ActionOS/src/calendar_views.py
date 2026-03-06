@@ -1680,14 +1680,16 @@ def build_calendar_html(
         # Sticky header: view toggle + section nav bar together (no gap)
         '<div class="cal-sticky-top">'
         '<div class="view-toggle">'
-        '<button class="view-toggle-btn active" id="btn-events" onclick="switchView(\'events\')">Events</button>'
-        '<button class="view-toggle-btn" id="btn-7days" onclick="switchView(\'7days\')">Next 7 Days</button>'
-        '<button class="view-toggle-btn" id="btn-lay-life-down" onclick="switchView(\'lay-life-down\')">Lay Life Down</button>'
+        '<button class="view-toggle-btn active" id="btn-7days" onclick="switchView(\'7days\')">Next 7 Days</button>'
+        '<button class="view-toggle-btn" id="btn-events" onclick="switchView(\'events\')">Upcoming Events</button>'
+        '<button class="view-toggle-btn" id="btn-lay-life-down" onclick="switchView(\'lay-life-down\')">Lifestyle Design</button>'
         "</div>"
         + _build_cal_nav_bar(_cal_nav_counts)
         + "</div>"
-        # Events view (default)
-        '<div id="view-events"><div class="task-list">'
+        # Next-7-days view (default)
+        '<div id="view-7days">' + seven_day_html + "</div>"
+        # Upcoming Events view (hidden by default)
+        '<div id="view-events" style="display:none"><div class="task-list">'
         # Section 1: Not Reviewed
         + (
             f'<div class="section-hdr" id="cal-sec-not-reviewed">'
@@ -1700,10 +1702,8 @@ def build_calendar_html(
         )
         # Categorized reviewed sections
         + reviewed_sections_html + "</div></div>"
-        # Next-7-days view (hidden by default)
-        '<div id="view-7days">' + seven_day_html + "</div>"
-        # Lay Life Down view (hidden by default)
-        '<div id="view-lay-life-down">' + lld_html + "</div>"
+        # Lifestyle Design view (hidden by default)
+        '<div id="view-lay-life-down" style="display:none">' + lld_html + "</div>"
         "</div>"
         # Event detail modal
         '<div class="ev-modal-overlay" id="ev-modal" onclick="if(event.target===this)closeEventDetail()">'
@@ -1838,7 +1838,33 @@ def build_calendar_html(
         "}else{"
         "evts.style.display='block';be.classList.add('active');"
         "if(sn)sn.style.display='';"
-        "}}" + post_message_js + "function _fadeRemoveCard(c){"
+        "}}"
+        # Next button cycling — same pattern as home tab
+        "var _pendingIdx=0;"
+        "function _getPendingSections(){"
+        "var v7=document.getElementById('view-7days');"
+        "var vl=document.getElementById('view-lay-life-down');"
+        "if(v7&&v7.style.display!=='none'){"
+        "return Array.from(document.querySelectorAll('.sd-day')).filter(function(d){"
+        "return d.querySelector('.task-card')!==null;});}"
+        "else if(vl&&vl.style.display!=='none'){"
+        "return Array.from(document.querySelectorAll('.lld-cal-hdr'));}"
+        "else{"
+        "return Array.from(document.querySelectorAll('.section-hdr')).filter(function(h){"
+        "return h.offsetParent!==null;});}}"
+        "function nextPendingItem(){"
+        "var sa=document.querySelector('.scroll-area');"
+        "var secs=_getPendingSections();"
+        "if(!secs.length){if(sa)sa.scrollTo({top:0,behavior:'smooth'});_pendingIdx=0;return;}"
+        "_pendingIdx=_pendingIdx%secs.length;"
+        "var target=secs[_pendingIdx];"
+        "var sticky=document.querySelector('.cal-sticky-top');"
+        "var stickyH=sticky?sticky.offsetHeight:100;"
+        "if(sa&&target){"
+        "var top=target.getBoundingClientRect().top-sa.getBoundingClientRect().top+sa.scrollTop-stickyH-4;"
+        "sa.scrollTo({top:Math.max(0,top),behavior:'smooth'});}"
+        "_pendingIdx=(_pendingIdx+1)%secs.length;}"
+        + post_message_js + "function _fadeRemoveCard(c){"
         "c.style.transition='opacity 0.3s ease';"
         "c.style.opacity='0';"
         "setTimeout(function(){c.remove();},300);}"

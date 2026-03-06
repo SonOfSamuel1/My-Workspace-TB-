@@ -717,9 +717,11 @@ def build_shell_html(
         # Show calendar FAB only when calendar tab is active
         "var calFab=document.getElementById('cal-fab');"
         "if(calFab)calFab.style.display=tab==='calendar'?'flex':'none';"
-        # Show Next button only when home tab is active
+        # Show Next button on home and calendar tabs
         "var nextBtn=document.getElementById('shell-next-btn');"
-        "if(nextBtn)nextBtn.style.display=tab==='home'?'inline-flex':'none';"
+        "if(nextBtn)nextBtn.style.display=(tab==='home'||tab==='calendar')?'inline-flex':'none';"
+        "var nextLbl=document.getElementById('shell-next-label');"
+        "if(nextLbl)nextLbl.textContent='';"
         "}"
         # Section picker
         "function toggleSectionPicker(){"
@@ -741,9 +743,10 @@ def build_shell_html(
         "var frame=document.getElementById('frame-'+activeTab);"
         "if(frame){frame.contentWindow.location.reload();}"
         "}"
-        # Next pending item in home iframe
+        # Next pending item — works for home and calendar tabs
         "function nextPendingInShell(){"
-        "var frame=document.getElementById('frame-home');"
+        "var tab=typeof activeTab!=='undefined'?activeTab:'home';"
+        "var frame=document.getElementById('frame-'+tab);"
         "if(!frame||!frame.contentWindow)return;"
         "try{"
         "var cw=frame.contentWindow;"
