@@ -215,13 +215,13 @@ def build_shell_html(
         "font-size:12px;font-weight:700;padding:3px 10px;border-radius:12px;border:1px solid var(--ok-b);"
         "margin-left:10px;white-space:nowrap;}"
         ".due-today-badge.zero{background:var(--border);color:var(--text-2);border-color:var(--border);}"
-        ".next-pending-btn{background:var(--accent-bg);border:1.5px solid var(--accent);color:var(--accent);"
-        "font-size:13px;font-weight:600;padding:0 14px;border-radius:20px;cursor:pointer;"
-        "display:inline-flex;align-items:center;gap:5px;white-space:nowrap;min-height:44px;flex-shrink:0;}"
-        ".next-pending-btn:hover{opacity:0.75;}"
-        "#shell-next-label{background:rgba(0,0,0,0.25);border-radius:999px;"
-        "min-width:18px;height:18px;display:inline-flex;align-items:center;"
-        "justify-content:center;font-size:10px;font-weight:700;color:#fff;padding:0 4px;}"
+        ".next-fab{display:none;position:fixed;bottom:156px;right:20px;width:56px;height:56px;"
+        "border-radius:50%;background:var(--bg-s2);color:var(--accent);"
+        "border:2px solid var(--accent);cursor:pointer;align-items:center;justify-content:center;"
+        "box-shadow:0 2px 8px rgba(0,0,0,.25);z-index:1000;touch-action:manipulation;"
+        "flex-direction:column;gap:1px;}"
+        ".next-fab:active{opacity:0.75;}"
+        ".next-fab-count{font-size:10px;font-weight:700;line-height:1;color:var(--accent-l);}"
         ".refresh-btn{background:var(--border);border:1px solid var(--border);color:var(--text-1);"
         "font-size:13px;font-weight:600;padding:6px 14px;border-radius:6px;cursor:pointer;flex-shrink:0;}"
         ".refresh-btn:hover{background:var(--border-h);}"
@@ -396,7 +396,6 @@ def build_shell_html(
         ".header-actions{background:var(--bg-s1);border:1px solid var(--border);border-radius:20px;"
         "padding:2px;gap:2px;"
         "height:44px;}"
-        ".next-pending-btn{min-height:44px;border-radius:18px;}"
         ".notif-btn{border-radius:50%;}"
         ".sidebar{display:none!important;}"
         ".app-body{flex-direction:column;height:calc(100vh - 48px - 68px);}"
@@ -508,7 +507,6 @@ def build_shell_html(
         f'<span class="badge" id="section-picker-badge">{first_badge}</span>'
         f'<span class="section-picker-chevron">&#9660;</span>'
         f"</button>" + '<div class="header-actions">'
-        '<button class="next-pending-btn" id="shell-next-btn" onclick="nextPendingInShell()">&#8595; Next <span id="shell-next-label"></span></button>'
         '<button class="refresh-btn" onclick="refreshActive()">&#8635;<span class="refresh-text"> Refresh</span></button>'
         '<button class="notif-btn" id="notif-btn" onclick="requestNotifPermission()" title="Enable notifications" style="display:none">'
         '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
@@ -552,6 +550,12 @@ def build_shell_html(
         '<line x1="3" y1="10" x2="21" y2="10"/>'
         '<line x1="12" y1="14" x2="12" y2="18"/><line x1="10" y1="16" x2="14" y2="16"/>'
         "</svg></a>"
+        '<button class="next-fab" id="next-fab" onclick="nextPendingInShell()">'
+        '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">'
+        '<polyline points="6 9 12 15 18 9"/>'
+        "</svg>"
+        '<span class="next-fab-count" id="shell-next-label"></span>'
+        "</button>"
         '<button class="qa-fab" id="qa-fab" onclick="window.location.href=\'todoist://addtask\'">'
         '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">'
         '<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>'
@@ -717,9 +721,11 @@ def build_shell_html(
         # Show calendar FAB only when calendar tab is active
         "var calFab=document.getElementById('cal-fab');"
         "if(calFab)calFab.style.display=tab==='calendar'?'flex':'none';"
-        # Show Next button on home and calendar tabs
-        "var nextBtn=document.getElementById('shell-next-btn');"
-        "if(nextBtn)nextBtn.style.display=(tab==='home'||tab==='calendar')?'inline-flex':'none';"
+        # Show Next FAB on home and calendar tabs; lift above cal-fab on calendar
+        "var nextFab=document.getElementById('next-fab');"
+        "if(nextFab){"
+        "nextFab.style.display=(tab==='home'||tab==='calendar')?'flex':'none';"
+        "nextFab.style.bottom=tab==='calendar'?'224px':'156px';}"
         "var nextLbl=document.getElementById('shell-next-label');"
         "if(nextLbl)nextLbl.textContent='';"
         "}"
