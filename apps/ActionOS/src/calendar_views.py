@@ -1615,7 +1615,7 @@ def build_calendar_html(
         "background:var(--bg-s1);color:var(--text-2);cursor:pointer;transition:all .15s;}"
         ".view-toggle-btn:hover{background:var(--bg-s2);color:var(--text-1);}"
         ".view-toggle-btn.active{background:var(--accent);color:#fff;border-color:var(--accent);}"
-        "#view-events{display:block;}#view-7days{display:none;}#view-lay-life-down{display:none;}"
+        "#view-7days{display:block;}#view-events{display:none;}#view-lay-life-down{display:none;}"
         ".lld-container{max-width:700px;margin:0 auto;padding:8px 16px 24px;}"
         ".lld-cal-section{margin-bottom:24px;}"
         ".lld-cal-hdr{display:flex;align-items:center;justify-content:space-between;"
