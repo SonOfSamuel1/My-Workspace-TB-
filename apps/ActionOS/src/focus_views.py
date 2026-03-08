@@ -42,7 +42,14 @@ _DILIGENT_PROJECTS = [
 ]
 
 
-def build_focus_html(toggl_local: dict, function_url: str = "", action_token: str = "") -> str:
+def build_focus_html(
+    toggl_local: dict,
+    function_url: str = "",
+    action_token: str = "",
+    toggl_daily_total_secs: int = 0,
+    diligent_work_secs: int = 0,
+    committed_cal_secs: int = 0,
+) -> str:
     """Build the Focus tab HTML from toggl_local state."""
     from zoneinfo import ZoneInfo
     _today_et = datetime.now(ZoneInfo("America/New_York")).date().isoformat()
@@ -195,7 +202,7 @@ def build_focus_html(toggl_local: dict, function_url: str = "", action_token: st
         ".fs-stat{background:var(--bg-s1);border:1px solid var(--border);border-radius:10px;"
         "padding:12px;text-align:center;}"
         ".fs-stat-val{font-size:20px;font-weight:700;color:var(--text-1);}"
-        ".fs-stat-lbl{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;"
+        ".fs-stat-lbl{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;"
         "color:var(--text-2);margin-top:3px;}"
         # Active timer card
         ".fs-active-card{background:var(--ok-bg);border:1px solid var(--ok-b);border-radius:12px;"
@@ -225,8 +232,8 @@ def build_focus_html(toggl_local: dict, function_url: str = "", action_token: st
         ".fsr-dur{font-size:14px;font-weight:700;color:var(--accent);"
         "flex-shrink:0;font-variant-numeric:tabular-nums;}"
         ".fsr-active .fsr-dur{color:var(--ok);}"
-        ".fsr-proj{display:inline-block;margin-top:3px;font-size:10px;font-weight:600;"
-        "padding:2px 7px;border-radius:4px;cursor:pointer;"
+        ".fsr-proj{display:inline-block;margin-top:3px;font-size:12px;font-weight:600;"
+        "padding:10px 14px;min-height:44px;border-radius:4px;cursor:pointer;"
         "background:var(--bg-s2);border:1px solid var(--border);color:var(--text-2);"
         "transition:border-color .15s,color .15s;}"
         ".fsr-proj:hover{border-color:var(--accent);color:var(--accent);}"
@@ -249,21 +256,23 @@ def build_focus_html(toggl_local: dict, function_url: str = "", action_token: st
         "<span>6h</span>"
         "</div>"
         "</div>"
-        # Stats
-        '<div class="fs-stats">'
-        '<div class="fs-stat">'
-        f'<div class="fs-stat-val" id="stat-sessions">{len(completed_sessions) + (1 if active_iso else 0)}</div>'
-        '<div class="fs-stat-lbl">Sessions</div>'
-        "</div>"
-        '<div class="fs-stat">'
-        f'<div class="fs-stat-val" id="stat-avg">{_fmt_secs(avg_secs) if avg_secs else "—"}</div>'
-        '<div class="fs-stat-lbl">Avg Length</div>'
-        "</div>"
-        '<div class="fs-stat">'
-        f'<div class="fs-stat-val" id="stat-remain">{_fmt_secs(remaining_secs) if not goal_reached else "✓"}</div>'
-        '<div class="fs-stat-lbl">Remaining</div>'
-        "</div>"
-        "</div>"
+        # Stats row — total tracked / committed / diligent work
+        + (
+            f'<div class="fs-stats">'
+            f'<div class="fs-stat">'
+            f'<div class="fs-stat-val">{_fmt_secs(toggl_daily_total_secs) if toggl_daily_total_secs else "—"}</div>'
+            f'<div class="fs-stat-lbl">Total Tracked</div>'
+            f"</div>"
+            f'<div class="fs-stat">'
+            f'<div class="fs-stat-val">{_fmt_secs(committed_cal_secs) if committed_cal_secs else "—"}</div>'
+            f'<div class="fs-stat-lbl">Committed</div>'
+            f"</div>"
+            f'<div class="fs-stat">'
+            f'<div class="fs-stat-val" id="stat-diligent">{_fmt_secs(diligent_work_secs) if diligent_work_secs else "—"}</div>'
+            f'<div class="fs-stat-lbl">Diligent Work</div>'
+            f"</div>"
+            f"</div>"
+        )
         # Active timer card (hidden if none)
         + (
             '<div class="fs-active-card" id="fs-active-card">'

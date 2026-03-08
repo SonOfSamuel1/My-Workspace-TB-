@@ -1562,6 +1562,20 @@ def build_web_html(
         ".then(function(d){setTimeout(function(){closeScheduleModal();},800);})"
         ".catch(function(){setTimeout(function(){closeScheduleModal();},800);});"
         "});});"
+        "function _scrollToSec(id){"
+        "var el=document.getElementById(id);if(!el)return;"
+        "var pane=document.querySelector('.left-pane');if(!pane)return;"
+        "var elRect=el.getBoundingClientRect();var paneRect=pane.getBoundingClientRect();"
+        "pane.scrollTo({top:pane.scrollTop+(elRect.top-paneRect.top),behavior:'smooth'});}"
+        "var _pendingIdx=0;"
+        "function _getPendingSections(){"
+        "return['sec-today','sec-recent'].filter(function(id){return!!document.getElementById(id);});}"
+        "function nextPendingItem(){"
+        "var secs=_getPendingSections();"
+        "if(!secs.length){_pendingIdx=0;return;}"
+        "_pendingIdx=_pendingIdx%secs.length;"
+        "_scrollToSec(secs[_pendingIdx]);"
+        "_pendingIdx=(_pendingIdx+1)%secs.length;}"
         "</script>"
     )
 
@@ -1820,7 +1834,7 @@ def build_web_html(
         '<div id="ptr-indicator"><div id="ptr-spinner"></div></div>'
         '<div style="max-width:700px;margin:0 auto;min-height:100%;">'
         '<div style="padding:0 16px;">'
-        '<div class="section-hdr" style="color:var(--text-2);">'
+        '<div id="sec-today" class="section-hdr" style="color:var(--text-2);">'
         "<span>" + today.upper() + "</span>"
         '<span class="section-badge" id="item-count">' + str(count) + "</span>"
         "</div>"
@@ -1840,7 +1854,7 @@ def build_web_html(
         + (
             lambda _rc: (
                 '<div style="padding:0 16px 16px;">'
-                '<div class="section-hdr" style="color:var(--text-2);margin-top:4px;">'
+                '<div id="sec-recent" class="section-hdr" style="color:var(--text-2);margin-top:4px;">'
                 "<span>RECENT MAIL &mdash; PAST 7 DAYS</span>"
                 '<span class="section-badge">' + str(len(_rc.split('<div class="email-card"')) - 1) + "</span>"
                 "</div>"

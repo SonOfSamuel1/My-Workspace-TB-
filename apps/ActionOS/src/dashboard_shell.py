@@ -750,7 +750,7 @@ def build_shell_html(
         "var frame=document.getElementById('frame-'+activeTab);"
         "if(frame){frame.contentWindow.location.reload();}"
         "}"
-        # Next pending item — works for home and calendar tabs
+        # Next pending item — cycles pending sections on home/calendar; scrolls on all other tabs
         "function nextPendingInShell(){"
         "var tab=typeof activeTab!=='undefined'?activeTab:'home';"
         "var frame=document.getElementById('frame-'+tab);"
@@ -759,12 +759,17 @@ def build_shell_html(
         "var cw=frame.contentWindow;"
         "var cards=cw._getPendingSections?cw._getPendingSections():[];"
         "var total=cards.length;"
-        "if(!total)return;"
+        "if(total){"
         "if(cw.nextPendingItem)cw.nextPendingItem();"
         "var idx=cw._pendingIdx||0;"
         "var pos=idx===0?total:idx;"
         "var lbl=document.getElementById('shell-next-label');"
         "if(lbl)lbl.textContent=pos+'/'+total;"
+        "}else{"
+        "var doc=cw.document;"
+        "var sa=doc.querySelector('.scroll-area')||doc.querySelector('.left-pane')||doc.scrollingElement||doc.body;"
+        "if(sa&&sa.scrollHeight>sa.clientHeight){sa.scrollBy({top:sa.clientHeight*0.8,behavior:'smooth'});}"
+        "}"
         "}catch(e){}}"
         # Quick-add task
         f"function doQuickAdd(){{"
