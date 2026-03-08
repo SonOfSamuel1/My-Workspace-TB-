@@ -1620,6 +1620,7 @@ def build_home_html(
     all_calendar_events: List[Dict[str, Any]] = None,
     godpower_state: dict = None,
     committed_action_titles: set = None,
+    tomorrow_committed_action_titles: set = None,
 ) -> str:
     """Build the Home aggregated view HTML."""
     projects_by_id = _build_projects_by_id(projects)
@@ -1677,6 +1678,7 @@ def build_home_html(
         return i
 
     _today_str = datetime.now(_EASTERN).strftime("%Y-%m-%d")
+    _tomorrow_str = (datetime.now(_EASTERN) + timedelta(days=1)).strftime("%Y-%m-%d")
 
     def _is_future_dated(task):
         """Return True if task has a due date strictly in the future."""
@@ -1701,7 +1703,13 @@ def build_home_html(
             idx = next_idx()
             _work_scheduled = None
             if key in ("commit", "bestcase") and committed_action_titles is not None:
-                _work_scheduled = (task.get("content") or "").strip().lower() in committed_action_titles
+                _title_lower = (task.get("content") or "").strip().lower()
+                _due_obj = task.get("due")
+                _due_date = (_due_obj.get("date", "") or "")[:10] if _due_obj else ""
+                if _due_date == _tomorrow_str and tomorrow_committed_action_titles is not None:
+                    _work_scheduled = _title_lower in tomorrow_committed_action_titles
+                else:
+                    _work_scheduled = _title_lower in committed_action_titles
             card = _build_task_card(
                 task,
                 key,
@@ -2770,9 +2778,20 @@ def build_home_html(
         "}).catch(function(){});}"
         # --- Set Due Date ---
         "function doSetDueDate(taskId,date,input){"
+        "var card=input.closest('.task-card');"
         "fetch(_homeUrl+'?action=due_date&task_id='+encodeURIComponent(taskId)+'&date='+encodeURIComponent(date))"
         ".then(function(r){return r.json();}).then(function(d){"
-        "if(d.ok){input.style.borderColor=cv('--ok-b');setTimeout(function(){input.style.borderColor='';},1500);}"
+        "if(d.ok){"
+        "input.style.borderColor=cv('--ok-b');setTimeout(function(){input.style.borderColor='';},1500);"
+        "if(card){"
+        "var today=new Date();today.setHours(0,0,0,0);"
+        "var picked=date?new Date(date+'T00:00:00'):null;"
+        "var sec=card.dataset.section;"
+        "if(picked&&picked>today&&!card.classList.contains('reviewed-card')){"
+        "_updateBadge(sec);"
+        "card.style.transition='opacity 0.3s';card.style.opacity='0';"
+        "setTimeout(function(){card.remove();},320);}}"
+        "}"
         "}).catch(function(){});}"
         # --- Set Due Date via meta badge ---
         "function doSetDueDateMeta(taskId,date,input){"
@@ -2786,7 +2805,8 @@ def build_home_html(
         "var today=new Date();today.setHours(0,0,0,0);"
         "var picked=date?new Date(date+'T00:00:00'):null;"
         "var sec=card.dataset.section;"
-        "if((sec==='commit'||sec==='bestcase')&&picked&&picked>today){"
+        "if(picked&&picked>today){"
+        "if(!card.classList.contains('reviewed-card')){_updateBadge(sec);}"
         "card.style.transition='opacity 0.3s';card.style.opacity='0';"
         "setTimeout(function(){card.remove();},320);}"
         "}"

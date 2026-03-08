@@ -209,12 +209,13 @@ class CalendarService:
                 return cal["id"]
         return self.create_calendar(summary)
 
-    def get_today_events_from_calendar(self, calendar_id: str) -> List[Dict[str, Any]]:
-        """Fetch all events for today from a specific calendar, including scheduled_work events."""
+    def get_today_events_from_calendar(self, calendar_id: str, offset_days: int = 0) -> List[Dict[str, Any]]:
+        """Fetch all events for today (or offset_days from today) from a specific calendar."""
         now = datetime.now(timezone.utc)
         local_now = now.astimezone(_EASTERN_TZ)
-        today_start = local_now.replace(hour=0, minute=0, second=0, microsecond=0)
-        today_end = local_now.replace(hour=23, minute=59, second=59, microsecond=0)
+        target = local_now + timedelta(days=offset_days)
+        today_start = target.replace(hour=0, minute=0, second=0, microsecond=0)
+        today_end = target.replace(hour=23, minute=59, second=59, microsecond=0)
         try:
             result = (
                 self.service.events()
