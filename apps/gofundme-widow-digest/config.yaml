@@ -32,7 +32,7 @@ gofundme_widow_digest:
     # Project to create the digest task in (fetched from Parameter Store)
     project_name: "Giving"
     # Labels to apply to the created task
-    labels: ["widow-assist", "gofundme"]
+    labels: ["widow-assist", "gofundme", "Best Case"]
     # Priority (1=normal, 4=urgent)
     priority: 2
 
