@@ -30,9 +30,7 @@ CALENDAR_IDS = {
     # Habits calendar IDs are created on first use and stored in calendar state
     "my_habits_existing": "",
     "my_habits_building": "",
-    # committed_action calendar ID is dynamic — stored in calendar state (S3), NOT hardcoded here
-    # brandon_family_unique: shared family calendar — ID provided by user
-    "brandon_family_unique": "",
+    "committed_action": "c_18ada04c5fb972db33101899a7d1b0a17d6ce535361f0030e6f74bd35380e8c0@group.calendar.google.com",
 }
 
 _CALENDAR_DAY_OVERRIDES = {
