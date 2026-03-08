@@ -1200,7 +1200,18 @@ def _fetch_todoist_projects(todoist_token: str) -> list:
         return []
 
 
+# Toggl caches — projects rarely change (cache 30 min), entries refresh every 2 min
+_toggl_projects_cache: dict = {"data": [], "ts": 0}
+_toggl_entries_cache: dict = {"data": [], "ts": 0}
+_TOGGL_PROJECTS_TTL = 1800  # 30 minutes
+_TOGGL_ENTRIES_TTL = 120    # 2 minutes
+
+
 def _fetch_toggl_projects(toggl_token: str) -> list:
+    import time as _t
+    now = _t.time()
+    if _toggl_projects_cache["data"] and (now - _toggl_projects_cache["ts"]) < _TOGGL_PROJECTS_TTL:
+        return _toggl_projects_cache["data"]
     try:
         import base64 as _b64
 
@@ -1213,7 +1224,7 @@ def _fetch_toggl_projects(toggl_token: str) -> list:
         _me_r.raise_for_status()
         _wid = _me_r.json().get("default_workspace_id")
         if not _wid:
-            return []
+            return _toggl_projects_cache["data"]  # return stale if available
         # Step 2: fetch projects from the workspace endpoint (reliable)
         _pr = _req.get(
             f"https://api.track.toggl.com/api/v9/workspaces/{_wid}/projects",
@@ -1221,14 +1232,17 @@ def _fetch_toggl_projects(toggl_token: str) -> list:
             timeout=15,
         )
         _pr.raise_for_status()
-        return [
+        result = [
             {"id": p.get("id"), "name": p.get("name", ""), "workspace_id": _wid}
             for p in (_pr.json() or [])
             if p.get("active", True)
         ]
+        _toggl_projects_cache["data"] = result
+        _toggl_projects_cache["ts"] = now
+        return result
     except Exception as e:
         logger.warning(f"Could not fetch Toggl projects: {e}")
-        return []
+        return _toggl_projects_cache["data"]  # return stale on error
 
 
 def _fetch_toggl_time_entries(toggl_token: str) -> dict:
@@ -1379,6 +1393,69 @@ def _fetch_toggl_daily_total_seconds(toggl_token: str) -> int:
     except Exception as e:
         logger.warning(f"Could not fetch Toggl daily total: {e}")
         return 0
+
+
+def _fetch_toggl_today_entries(toggl_token: str) -> list:
+    """Fetch today's Toggl time entries with project names for Focus view display."""
+    import time as _tc
+    _now_c = _tc.time()
+    if _toggl_entries_cache["data"] and (_now_c - _toggl_entries_cache["ts"]) < _TOGGL_ENTRIES_TTL:
+        return _toggl_entries_cache["data"]
+    try:
+        import base64 as _b64
+        import time as _time
+
+        import requests as _req
+        from zoneinfo import ZoneInfo
+
+        _eastern = ZoneInfo("America/New_York")
+        _today_str = datetime.now(_eastern).date().isoformat()
+        _auth = _b64.b64encode(f"{toggl_token}:api_token".encode()).decode()
+        _th = {"Authorization": f"Basic {_auth}", "Content-Type": "application/json"}
+        _mr = _req.get(
+            "https://api.track.toggl.com/api/v9/me/time_entries",
+            headers=_th,
+            timeout=15,
+        )
+        _mr.raise_for_status()
+        entries = _mr.json()
+        now_ts = _time.time()
+
+        # Build project id -> name map
+        project_names = {
+            p.get("id"): p.get("name", "")
+            for p in _fetch_toggl_projects(toggl_token)
+        }
+
+        result = []
+        for entry in entries:
+            start = entry.get("start", "")
+            if not start:
+                continue
+            try:
+                start_dt = datetime.fromisoformat(start.replace("Z", "+00:00"))
+                if start_dt.astimezone(_eastern).date().isoformat() != _today_str:
+                    continue
+            except Exception:
+                continue
+            dur = entry.get("duration", 0)
+            if dur < 0:
+                dur = max(0, int(now_ts + dur))
+            result.append({
+                "description": entry.get("description", "") or "Untitled",
+                "start": start,
+                "duration_secs": dur,
+                "project_name": project_names.get(entry.get("project_id"), ""),
+                "is_running": entry.get("duration", 0) < 0,
+                "entry_id": entry.get("id", ""),
+            })
+        result.sort(key=lambda e: e["start"])
+        _toggl_entries_cache["data"] = result
+        _toggl_entries_cache["ts"] = _tc.time()
+        return result
+    except Exception as e:
+        logger.warning(f"Could not fetch Toggl today entries: {e}")
+        return _toggl_entries_cache["data"]  # return stale on error
 
 
 def _reconcile_toggl_local(toggl_token: str) -> None:
@@ -1876,22 +1953,32 @@ def handle_action(event: dict) -> dict:
                 _tl_state = _load_home_reviewed_state()
                 _tl_data = _tl_state.get("toggl_local") or {}
 
-                # Toggl stats from local S3 state
-                _f_toggl_total, _f_diligent = _compute_toggl_stats_from_local(_tl_data)
+                # Fetch Toggl entries from API (used for display + stats)
+                _toggl_entries = []
+                if _toggl_tok:
+                    _toggl_entries = _fetch_toggl_today_entries(_toggl_tok)
 
-                # Committed calendar
+                # Compute stats from fetched entries (no extra API calls)
+                _f_toggl_total = sum(e.get("duration_secs", 0) for e in _toggl_entries)
+                _f_diligent = sum(
+                    e.get("duration_secs", 0) for e in _toggl_entries
+                    if e.get("project_name", "") in _DILIGENT_PROJECT_NAMES
+                    or "love" in (e.get("project_name", "") or "").lower()
+                )
+
+                # Committed calendar events (raw list for display + total secs)
                 _cal_state_f = _load_calendar_state()
                 _ca_cal_id_f = _cal_state_f.get("committed_action_calendar_id", "")
                 _f_committed_cal = 0
+                _committed_events = []
                 if _ca_cal_id_f:
                     try:
                         _cal_svc_f = _CalSvc(
                             os.environ["CALENDAR_CREDENTIALS_JSON"],
                             os.environ["CALENDAR_TOKEN_JSON"],
                         )
-                        _f_committed_cal = _compute_committed_cal_secs(
-                            _cal_svc_f.get_today_events_from_calendar(_ca_cal_id_f)
-                        )
+                        _committed_events = _cal_svc_f.get_today_events_from_calendar(_ca_cal_id_f)
+                        _f_committed_cal = _compute_committed_cal_secs(_committed_events)
                     except Exception as _ce:
                         logger.warning(f"Focus committed cal failed: {_ce}")
 
@@ -1902,6 +1989,8 @@ def handle_action(event: dict) -> dict:
                     toggl_daily_total_secs=_f_toggl_total,
                     diligent_work_secs=_f_diligent,
                     committed_cal_secs=_f_committed_cal,
+                    toggl_entries=_toggl_entries,
+                    committed_events=_committed_events,
                 )
                 return {
                     "statusCode": 200,
@@ -3385,6 +3474,13 @@ def handle_action(event: dict) -> dict:
     elif action == "toggl_update_entry_project":
         # Update the Toggl project on a session entry and store project_name locally.
         # Accepts: project_name (required), entry_id (optional), start_iso (fallback lookup)
+        body_str = event.get("body", "")
+        if event.get("isBase64Encoded"):
+            body_str = base64.b64decode(body_str).decode("utf-8")
+        try:
+            post_data = json.loads(body_str) if body_str else {}
+        except Exception:
+            post_data = {}
         _up_project_name = post_data.get("project_name", "") or params.get("project_name", "")
         _up_entry_id = post_data.get("entry_id") or params.get("entry_id")
         _up_start_iso = post_data.get("start_iso", "") or params.get("start_iso", "")
@@ -3458,8 +3554,9 @@ def handle_action(event: dict) -> dict:
             except Exception as _ue:
                 logger.warning(f"toggl_update_entry_project local save failed: {_ue}")
 
-            # Invalidate home cache so Performance widget refreshes
+            # Invalidate caches so updated project shows immediately
             _view_html_cache.pop("home", None)
+            _toggl_entries_cache["ts"] = 0
 
             return _ok_json()
         except Exception as _upe:

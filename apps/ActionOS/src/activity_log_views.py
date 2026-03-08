@@ -89,6 +89,10 @@ def _normalize_entries(raw: list) -> list:
     return result
 
 
+_activity_log_cache: dict = {"data": [], "ts": 0}
+_ACTIVITY_LOG_TTL = 300  # 5 minutes
+
+
 def fetch_toggl_entries(toggl_token: str) -> list:
     """Fetch Toggl time entries using two passes to ensure full coverage.
 
@@ -96,7 +100,12 @@ def fetch_toggl_entries(toggl_token: str) -> list:
     Pass 2: no date range (Toggl returns ~9 days newest-first) to guarantee
             the most recent entries are always captured.
     Both results are merged by id so there are no duplicates.
+    Cached for 5 minutes to stay within 30 req/hr Toggl rate limit.
     """
+    import time as _t
+    now = _t.time()
+    if _activity_log_cache["data"] and (now - _activity_log_cache["ts"]) < _ACTIVITY_LOG_TTL:
+        return _activity_log_cache["data"]
     try:
         import base64
         from datetime import timedelta
@@ -131,9 +140,12 @@ def fetch_toggl_entries(toggl_token: str) -> list:
         for e in entries2:
             if e.get("id"):
                 by_id[e["id"]] = e
-        return list(by_id.values())
+        result = list(by_id.values())
+        _activity_log_cache["data"] = result
+        _activity_log_cache["ts"] = _t.time()
+        return result
     except Exception:
-        return []
+        return _activity_log_cache["data"]  # return stale on error
 
 
 def merge_entries(saved: list, fresh: list) -> list:

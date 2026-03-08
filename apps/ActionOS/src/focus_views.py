@@ -49,6 +49,8 @@ def build_focus_html(
     toggl_daily_total_secs: int = 0,
     diligent_work_secs: int = 0,
     committed_cal_secs: int = 0,
+    toggl_entries: list | None = None,
+    committed_events: list | None = None,
 ) -> str:
     """Build the Focus tab HTML from toggl_local state."""
     from zoneinfo import ZoneInfo
@@ -98,9 +100,20 @@ def build_focus_html(
             pass
 
     total_secs = completed_secs + active_elapsed
-    pct = min(100, round(total_secs / _DAILY_GOAL_SECS * 100))
-    remaining_secs = max(0, _DAILY_GOAL_SECS - total_secs)
-    goal_reached = total_secs >= _DAILY_GOAL_SECS
+
+    # Dynamic goal = committed calendar time + Scripture Study / *Love* logged entries
+    _scripture_love_secs = 0
+    for te in (toggl_entries or []):
+        _pn = te.get("project_name") or ""
+        if _pn == "Scripture Study" or "love" in _pn.lower():
+            _scripture_love_secs += te.get("duration_secs", 0)
+    _dynamic_goal_secs = committed_cal_secs + _scripture_love_secs
+    # Use dynamic goal if any committed/scripture/love data exists, otherwise fall back to 6h
+    goal_secs = _dynamic_goal_secs if _dynamic_goal_secs > 0 else _DAILY_GOAL_SECS
+
+    pct = min(100, round(total_secs / goal_secs * 100)) if goal_secs > 0 else 0
+    remaining_secs = max(0, goal_secs - total_secs)
+    goal_reached = total_secs >= goal_secs
 
     # Stats
     completed_sessions = [s for s in sessions if s.get("duration_secs") is not None]
@@ -157,6 +170,98 @@ def build_focus_html(
 
     if not session_rows:
         session_rows = '<div class="fs-empty">No sessions tracked today. Start a timer from the Home tab.</div>'
+
+    # Split Toggl API entries into diligent vs other
+    _toggl_entries = toggl_entries or []
+    _diligent_entries = []
+    _other_entries = []
+    for te in _toggl_entries:
+        _pname = te.get("project_name") or ""
+        if _pname in _DILIGENT_PROJECTS or "love" in _pname.lower():
+            _diligent_entries.append(te)
+        else:
+            _other_entries.append(te)
+
+    def _build_entry_rows(entries: list) -> str:
+        rows = ""
+        for te in reversed(entries):
+            _te_dur = te.get("duration_secs", 0)
+            _te_running = te.get("is_running", False)
+            _te_dur_display = "LIVE" if _te_running else _fmt_secs(_te_dur)
+            _te_start = _fmt_time(te.get("start", ""))
+            _te_desc = te.get("description") or "Untitled"
+            _te_proj = te.get("project_name") or ""
+            _te_entry_id = te.get("entry_id", "")
+            _te_start_iso = te.get("start", "")
+            _te_active_class = " fsr-active" if _te_running else ""
+            _te_proj_html = (
+                f'<span class="fsr-proj" onclick="event.stopPropagation();openProjPicker(this)" '
+                f'data-entry-id="{_te_entry_id}" data-start-iso="{_te_start_iso}">'
+                + (_te_proj if _te_proj else "Set project")
+                + "</span>"
+            )
+            _te_live_badge = '<span class="fsr-live-badge">LIVE</span>' if _te_running else ""
+            rows += (
+                f'<div class="fsr{_te_active_class}">'
+                f'<div class="fsr-left">'
+                f'<span class="fsr-desc">{_te_desc}</span>'
+                f'<span class="fsr-meta">{_te_start}{_te_live_badge}</span>'
+                f'{_te_proj_html}'
+                f"</div>"
+                f'<span class="fsr-dur">{_te_dur_display}</span>'
+                f"</div>"
+            )
+        return rows
+
+    diligent_entry_rows = _build_entry_rows(_diligent_entries)
+    if not diligent_entry_rows:
+        diligent_entry_rows = '<div class="fs-empty">No diligent work logged today.</div>'
+
+    other_entry_rows = _build_entry_rows(_other_entries)
+    if not other_entry_rows:
+        other_entry_rows = '<div class="fs-empty">No other work logged today.</div>'
+
+    # Build committed calendar event rows
+    committed_rows = ""
+    _cal_events = committed_events or []
+    _filtered_events = []
+    for ev in _cal_events:
+        if ev.get("is_all_day"):
+            continue
+        _ev_start = ev.get("start", "")
+        _ev_end = ev.get("end", "")
+        if not _ev_start or not _ev_end:
+            continue
+        try:
+            from zoneinfo import ZoneInfo as _ZI2
+            _s_dt = datetime.fromisoformat(_ev_start.replace("Z", "+00:00"))
+            if _s_dt.astimezone(_ZI2("America/New_York")).date().isoformat() != _today_et:
+                continue
+            _e_dt = datetime.fromisoformat(_ev_end.replace("Z", "+00:00"))
+            _ev_dur = max(0, int((_e_dt - _s_dt).total_seconds()))
+            _filtered_events.append({
+                "summary": ev.get("summary") or ev.get("title") or "Untitled",
+                "start": _ev_start,
+                "duration_secs": _ev_dur,
+            })
+        except Exception:
+            continue
+    _filtered_events.sort(key=lambda e: e["start"])
+    for ce in _filtered_events:
+        _ce_start = _fmt_time(ce["start"])
+        _ce_dur = _fmt_secs(ce["duration_secs"])
+        _ce_desc = ce["summary"]
+        committed_rows += (
+            f'<div class="fsr fsr-cal">'
+            f'<div class="fsr-left">'
+            f'<span class="fsr-desc">{_ce_desc}</span>'
+            f'<span class="fsr-meta">{_ce_start}</span>'
+            f"</div>"
+            f'<span class="fsr-dur fsr-dur-cal">{_ce_dur}</span>'
+            f"</div>"
+        )
+    if not committed_rows:
+        committed_rows = '<div class="fs-empty">No committed actions scheduled today.</div>'
 
     goal_text = "Goal reached!" if goal_reached else f"{_fmt_secs(remaining_secs)} to go"
     fill_color = "var(--ok)" if goal_reached else "var(--accent)"
@@ -238,6 +343,10 @@ def build_focus_html(
         "transition:border-color .15s,color .15s;}"
         ".fsr-proj:hover{border-color:var(--accent);color:var(--accent);}"
         ".fs-empty{font-size:14px;color:var(--text-2);text-align:center;padding:32px 0;}"
+".fsr-cal{border-left:3px solid var(--accent);}"
+".fsr-dur-cal{color:var(--text-2);}"
+".fsr-proj-ro{display:inline-block;margin-top:3px;font-size:12px;font-weight:600;"
+"padding:2px 6px;border-radius:4px;background:var(--bg-s2);color:var(--text-2);}"
         "</style></head><body>"
         # Hero
         '<div class="fs-hero">'
@@ -252,8 +361,8 @@ def build_focus_html(
         "</div>"
         '<div class="fs-bar-footer">'
         "<span>0h</span>"
-        f'<span id="fs-pct">{pct}% of 6h goal</span>'
-        "<span>6h</span>"
+        f'<span id="fs-pct">{pct}% of {_fmt_secs(goal_secs)} goal</span>'
+        f"<span>{_fmt_secs(goal_secs)}</span>"
         "</div>"
         "</div>"
         # Stats row — total tracked / committed / diligent work
@@ -285,17 +394,29 @@ def build_focus_html(
             if active_iso else
             '<div id="fs-active-card" style="display:none"></div>'
         )
-        # Sessions list
+        # Diligent Work (from Toggl API — diligent projects only)
         + '<div class="fs-sessions-header">'
-        '<div class="fs-label">Sessions</div>'
-        f'<div class="fs-sessions-count">{len(sessions)} today</div>'
+        '<div class="fs-label">Diligent Work</div>'
+        f'<div class="fs-sessions-count">{len(_diligent_entries)} today</div>'
         "</div>"
-        + session_rows
+        + diligent_entry_rows
+        # Other Work (from Toggl API — non-diligent projects)
+        + '<div class="fs-sessions-header" style="margin-top:20px;">'
+        '<div class="fs-label">Other Work</div>'
+        f'<div class="fs-sessions-count">{len(_other_entries)} today</div>'
+        "</div>"
+        + other_entry_rows
+        # Committed Actions (from Google Calendar)
+        + '<div class="fs-sessions-header" style="margin-top:20px;">'
+        '<div class="fs-label">Committed Actions</div>'
+        f'<div class="fs-sessions-count">{len(_filtered_events)} scheduled</div>'
+        "</div>"
+        + committed_rows
         # JS for live updates
         + "<script>"
         f"var _tlSessions={sessions_json};"
         f"var _tlActiveIso={active_iso_json};"
-        "var _GOAL=21600;"
+        f"var _GOAL={goal_secs};"
         "function _fmtSecs(s){"
         "var h=Math.floor(s/3600),m=Math.floor((s%3600)/60);"
         "return h>0?h+'h '+String(m).padStart(2,'0')+'m':m+'m';}"
@@ -313,7 +434,7 @@ def build_focus_html(
         # Update bar
         "var pct=Math.min(100,Math.round(total/_GOAL*100));"
         "var bar=document.getElementById('fs-bar');if(bar)bar.style.width=pct+'%';"
-        "var pctEl=document.getElementById('fs-pct');if(pctEl)pctEl.textContent=pct+'% of 6h goal';"
+        "var pctEl=document.getElementById('fs-pct');if(pctEl){var gh=Math.floor(_GOAL/3600),gm=Math.floor((_GOAL%3600)/60);var gl=gh>0?gh+'h '+String(gm).padStart(2,'0')+'m':gm+'m';pctEl.textContent=pct+'% of '+gl+' goal';}"
         # Update remaining
         "var rem=document.getElementById('stat-remain');"
         "if(rem){var r=Math.max(0,_GOAL-total);rem.textContent=r===0?'\\u2713':_fmtSecs(r);}"
