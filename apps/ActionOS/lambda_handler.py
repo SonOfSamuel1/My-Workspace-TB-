@@ -878,62 +878,20 @@ def _build_home_html_uncached(
     cal_state = _load_calendar_state()
     godpower_state = _load_godpower_state()
 
-    _toggl_tok = _os.environ.get("TOGGL_API_TOKEN", "")
-    toggl_time_totals = _fetch_toggl_time_entries(_toggl_tok) if _toggl_tok else {}
-    toggl_daily_total_secs = (
-        _fetch_toggl_daily_total_seconds(_toggl_tok) if _toggl_tok else 0
+    # Toggl stats from local S3 state (no external API needed)
+    toggl_time_totals = {}
+    toggl_daily_total_secs, diligent_work_secs = _compute_toggl_stats_from_local(
+        home_state.get("toggl_local") or {}
     )
-    diligent_work_secs = (
-        _fetch_toggl_diligent_work_secs(_toggl_tok) if _toggl_tok else 0
-    )
-
-    if not toggl_daily_total_secs:
-        try:
-            from zoneinfo import ZoneInfo as _ZI
-            _today_et = datetime.now(_ZI("America/New_York")).date().isoformat()
-            _tl = home_state.get("toggl_local") or {}
-            if _tl.get("date") == _today_et:
-                _completed = _tl.get("completed_secs") or 0
-                _in_progress = 0
-                _active_iso = _tl.get("active_start_iso")
-                if _active_iso:
-                    try:
-                        _start_dt = datetime.fromisoformat(_active_iso)
-                        if _start_dt.tzinfo is None:
-                            _start_dt = _start_dt.replace(tzinfo=timezone.utc)
-                        _in_progress = min(
-                            max(0, int((datetime.now(timezone.utc) - _start_dt).total_seconds())),
-                            28800,  # cap at 8h to handle stale active sessions
-                        )
-                    except Exception:
-                        pass
-                toggl_daily_total_secs = _completed + _in_progress
-        except Exception as _e:
-            logger.warning(f"toggl_local fallback read failed: {_e}")
 
     # Compute committed calendar total for today using the dynamic calendar ID from state
     _ca_cal_id = cal_state.get("committed_action_calendar_id", "")
     committed_cal_secs = 0
     if _ca_cal_id:
         try:
-            from zoneinfo import ZoneInfo as _ZI
-            _today_et = datetime.now(_ZI("America/New_York")).date().isoformat()
-            for ev in cal.get_today_events_from_calendar(_ca_cal_id):
-                if ev.get("is_all_day"):
-                    continue
-                start_str = ev.get("start", "")
-                end_str = ev.get("end", "")
-                if not start_str or not end_str:
-                    continue
-                try:
-                    s_dt = datetime.fromisoformat(start_str.replace("Z", "+00:00"))
-                    if s_dt.astimezone(_ZI("America/New_York")).date().isoformat() != _today_et:
-                        continue
-                    e_dt = datetime.fromisoformat(end_str.replace("Z", "+00:00"))
-                    dur = max(0, int((e_dt - s_dt).total_seconds()))
-                    committed_cal_secs += dur
-                except Exception:
-                    continue
+            committed_cal_secs = _compute_committed_cal_secs(
+                cal.get_today_events_from_calendar(_ca_cal_id)
+            )
         except Exception as _e:
             logger.warning(f"committed calendar total failed: {_e}")
 
@@ -1129,6 +1087,105 @@ def _save_activity_log_state(state: dict) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Toggl local-state helpers (used when Toggl API is unavailable)
+# ---------------------------------------------------------------------------
+
+
+def _compute_toggl_stats_from_local(toggl_local: dict) -> tuple:
+    """Compute (total_tracked_secs, diligent_secs) from toggl_local S3 state.
+
+    Primary source when the Toggl API plan does not allow REST access (402).
+    Covers all sessions started/stopped via ActionOS for today.
+    """
+    try:
+        from zoneinfo import ZoneInfo as _ZI
+
+        tl = toggl_local or {}
+        _today_et = datetime.now(_ZI("America/New_York")).date().isoformat()
+        if tl.get("date") != _today_et:
+            return 0, 0
+
+        completed = tl.get("completed_secs") or 0
+        active_iso = tl.get("active_start_iso")
+        active_elapsed = 0
+        if active_iso:
+            try:
+                sd = datetime.fromisoformat(active_iso)
+                if sd.tzinfo is None:
+                    sd = sd.replace(tzinfo=timezone.utc)
+                active_elapsed = min(
+                    max(0, int((datetime.now(timezone.utc) - sd).total_seconds())),
+                    28800,
+                )
+            except Exception:
+                pass
+
+        total = completed + active_elapsed
+
+        # Diligent work: sum sessions whose project_name is in the diligent set
+        diligent = 0
+        for s in (tl.get("sessions") or []):
+            pname = s.get("project_name") or ""
+            if not (pname in _DILIGENT_PROJECT_NAMES or "love" in pname.lower()):
+                continue
+            dur = s.get("duration_secs")
+            if dur is None:
+                # Active session — use elapsed since start_iso
+                s_iso = s.get("start_iso")
+                if s_iso:
+                    try:
+                        sd2 = datetime.fromisoformat(s_iso.replace("Z", "+00:00"))
+                        if sd2.tzinfo is None:
+                            sd2 = sd2.replace(tzinfo=timezone.utc)
+                        diligent += min(
+                            max(0, int((datetime.now(timezone.utc) - sd2).total_seconds())),
+                            28800,
+                        )
+                    except Exception:
+                        pass
+            elif dur > 0:
+                diligent += dur
+
+        return total, diligent
+    except Exception as _e:
+        logger.warning(f"_compute_toggl_stats_from_local failed: {_e}")
+        return 0, 0
+
+
+# ---------------------------------------------------------------------------
+# Calendar helpers
+# ---------------------------------------------------------------------------
+
+
+def _compute_committed_cal_secs(calendar_events: list) -> int:
+    """Return total seconds of committed-action calendar events for today (Eastern)."""
+    try:
+        from zoneinfo import ZoneInfo as _ZI
+
+        _today_et = datetime.now(_ZI("America/New_York")).date().isoformat()
+        total = 0
+        for ev in calendar_events:
+            if ev.get("is_all_day"):
+                continue
+            start_str = ev.get("start", "")
+            end_str = ev.get("end", "")
+            if not start_str or not end_str:
+                continue
+            try:
+                s_dt = datetime.fromisoformat(start_str.replace("Z", "+00:00"))
+                if s_dt.astimezone(_ZI("America/New_York")).date().isoformat() != _today_et:
+                    continue
+                e_dt = datetime.fromisoformat(end_str.replace("Z", "+00:00"))
+                total += max(0, int((e_dt - s_dt).total_seconds()))
+            except Exception:
+                continue
+        return total
+    except Exception as _e:
+        logger.warning(f"_compute_committed_cal_secs failed: {_e}")
+        return 0
+
+
+# ---------------------------------------------------------------------------
 # Todoist helpers
 # ---------------------------------------------------------------------------
 
@@ -1151,16 +1208,22 @@ def _fetch_toggl_projects(toggl_token: str) -> list:
 
         _auth = _b64.b64encode(f"{toggl_token}:api_token".encode()).decode()
         _th = {"Authorization": f"Basic {_auth}", "Content-Type": "application/json"}
-        _mr = _req.get(
-            "https://api.track.toggl.com/api/v9/me?with_related_data=true",
+        # Step 1: get workspace id from /me (no with_related_data — projects list is unreliable there)
+        _me_r = _req.get("https://api.track.toggl.com/api/v9/me", headers=_th, timeout=15)
+        _me_r.raise_for_status()
+        _wid = _me_r.json().get("default_workspace_id")
+        if not _wid:
+            return []
+        # Step 2: fetch projects from the workspace endpoint (reliable)
+        _pr = _req.get(
+            f"https://api.track.toggl.com/api/v9/workspaces/{_wid}/projects",
             headers=_th,
+            timeout=15,
         )
-        _mr.raise_for_status()
-        _md = _mr.json()
-        _wid = _md.get("default_workspace_id")
+        _pr.raise_for_status()
         return [
             {"id": p.get("id"), "name": p.get("name", ""), "workspace_id": _wid}
-            for p in _md.get("projects", [])
+            for p in (_pr.json() or [])
             if p.get("active", True)
         ]
     except Exception as e:
@@ -1224,17 +1287,11 @@ def _fetch_toggl_diligent_work_secs(toggl_token: str) -> int:
         _auth = _b64.b64encode(f"{toggl_token}:api_token".encode()).decode()
         _th = {"Authorization": f"Basic {_auth}", "Content-Type": "application/json"}
 
-        # Fetch projects to build id -> name map
-        _pr = _req.get(
-            "https://api.track.toggl.com/api/v9/me?with_related_data=true",
-            headers=_th,
-            timeout=15,
-        )
-        _pr.raise_for_status()
-        _pd = _pr.json()
-        project_names = {}
-        for p in _pd.get("projects", []):
-            project_names[p.get("id")] = p.get("name", "")
+        # Fetch projects to build id -> name map (uses workspace endpoint — reliable)
+        project_names = {
+            p.get("id"): p.get("name", "")
+            for p in _fetch_toggl_projects(toggl_token)
+        }
 
         # Fetch time entries
         _mr = _req.get(
@@ -1811,11 +1868,41 @@ def handle_action(event: dict) -> dict:
 
         elif view == "focus":
             try:
+                from calendar_service import CalendarService as _CalSvc
                 from focus_views import build_focus_html
-                _reconcile_toggl_local(os.environ.get("TOGGL_API_TOKEN", ""))
+
+                _toggl_tok = os.environ.get("TOGGL_API_TOKEN", "")
+                _reconcile_toggl_local(_toggl_tok)
                 _tl_state = _load_home_reviewed_state()
                 _tl_data = _tl_state.get("toggl_local") or {}
-                body = build_focus_html(_tl_data, function_url=function_url, action_token=expected)
+
+                # Toggl stats from local S3 state
+                _f_toggl_total, _f_diligent = _compute_toggl_stats_from_local(_tl_data)
+
+                # Committed calendar
+                _cal_state_f = _load_calendar_state()
+                _ca_cal_id_f = _cal_state_f.get("committed_action_calendar_id", "")
+                _f_committed_cal = 0
+                if _ca_cal_id_f:
+                    try:
+                        _cal_svc_f = _CalSvc(
+                            os.environ["CALENDAR_CREDENTIALS_JSON"],
+                            os.environ["CALENDAR_TOKEN_JSON"],
+                        )
+                        _f_committed_cal = _compute_committed_cal_secs(
+                            _cal_svc_f.get_today_events_from_calendar(_ca_cal_id_f)
+                        )
+                    except Exception as _ce:
+                        logger.warning(f"Focus committed cal failed: {_ce}")
+
+                body = build_focus_html(
+                    _tl_data,
+                    function_url=function_url,
+                    action_token=expected,
+                    toggl_daily_total_secs=_f_toggl_total,
+                    diligent_work_secs=_f_diligent,
+                    committed_cal_secs=_f_committed_cal,
+                )
                 return {
                     "statusCode": 200,
                     "headers": _html_headers,
@@ -3203,32 +3290,30 @@ def handle_action(event: dict) -> dict:
             return _ok_json({"duration": local_duration})
 
     elif action == "toggl_current":
-        # Return the currently running Toggl timer (description + start), or null.
+        # Return the currently running Toggl timer from local state.
+        # (Toggl API v9 /me/time_entries/current requires a paid plan — use toggl_local instead)
         try:
-            import base64 as _b64
-
-            import requests as _req
-
-            toggl_token = os.environ.get("TOGGL_API_TOKEN", "")
-            if not toggl_token:
-                return _ok_json({"description": None})
-            _auth = _b64.b64encode(f"{toggl_token}:api_token".encode()).decode()
-            _th = {"Authorization": f"Basic {_auth}", "Content-Type": "application/json"}
-            _cur_r = _req.get(
-                "https://api.track.toggl.com/api/v9/me/time_entries/current",
-                headers=_th,
-                timeout=8,
-            )
-            _cur_r.raise_for_status()
-            entry = _cur_r.json()
-            if entry and entry.get("id"):
+            from zoneinfo import ZoneInfo as _ZI
+            _today_et = datetime.now(_ZI("America/New_York")).date().isoformat()
+            _tl_st = _load_home_reviewed_state()
+            _tl = _tl_st.get("toggl_local") or {}
+            active_iso = _tl.get("active_start_iso") if _tl.get("date") == _today_et else None
+            if active_iso:
+                # Find the description of the active session
+                _desc = ""
+                for _s in reversed(_tl.get("sessions") or []):
+                    if _s.get("duration_secs") is None:
+                        _desc = _s.get("description") or ""
+                        break
                 start_unix = 0
                 try:
-                    start_dt = datetime.fromisoformat(entry["start"].replace("Z", "+00:00"))
-                    start_unix = int(start_dt.timestamp())
+                    _sd = datetime.fromisoformat(active_iso)
+                    if _sd.tzinfo is None:
+                        _sd = _sd.replace(tzinfo=timezone.utc)
+                    start_unix = int(_sd.timestamp())
                 except Exception:
                     pass
-                return _ok_json({"description": entry.get("description", ""), "start_unix": start_unix})
+                return _ok_json({"description": _desc, "start_unix": start_unix})
             return _ok_json({"description": None})
         except Exception as _e:
             logger.warning(f"toggl_current failed: {_e}")
