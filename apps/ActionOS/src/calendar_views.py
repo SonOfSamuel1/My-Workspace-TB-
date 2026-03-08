@@ -77,6 +77,7 @@ _FONT = (
 )
 
 _CAL_TYPE_LABELS = {
+    "primary": "Personal",
     "family": "Family",
     "medical": "Medical",
     "birthdays": "Birthday",
@@ -88,9 +89,12 @@ _CAL_TYPE_LABELS = {
     "serve_least_of_these": "Serve Least of These",
     "my_habits_existing": "My Habits \u2013 Existing",
     "my_habits_building": "My Habits \u2013 Building",
+    "committed_action": "Committed Action",
+    "brandon_family_unique": "Brandon Family",
 }
 
 _CAL_TYPE_COLORS = {
+    "primary": "#64748b",
     "family": "#818cf8",
     "medical": "#22c55e",
     "birthdays": "#eab308",
@@ -102,6 +106,8 @@ _CAL_TYPE_COLORS = {
     "serve_least_of_these": "#f97316",
     "my_habits_existing": "#10b981",
     "my_habits_building": "#3b82f6",
+    "committed_action": "#8b5cf6",
+    "brandon_family_unique": "#f43f5e",
 }
 
 
@@ -524,6 +530,11 @@ def _build_event_card(
         travel_indicator = ""
         travel_time_btn = ""
 
+    # Pending invite badge
+    pending_invite_badge = ""
+    if event.get("response_status") == "needsAction":
+        pending_invite_badge = '<span class="pending-invite-badge">Pending Invite</span>'
+
     # Badge-row indicators (appear under title)
     _indicator_label = "Reminder to Text Scheduled" if is_birthday else "Event Action"
     todoist_indicator = ""
@@ -741,6 +752,7 @@ def _build_event_card(
         f'<div class="task-title">{title}</div>'
         f'<div class="badge-row">'
         f'<span class="cal-type-badge" style="background:{cal_color}">{cal_label}</span>'
+        f"{pending_invite_badge}"
         f"{todoist_indicator}"
         f"{prep_indicator}"
         f"{travel_indicator}"
@@ -1442,6 +1454,9 @@ def build_calendar_html(
         ".badge-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:4px;}"
         ".cal-type-badge{font-size:10px;font-weight:700;color:#fff;"
         "padding:2px 7px;border-radius:6px;white-space:nowrap;flex-shrink:0;}"
+        ".pending-invite-badge{font-size:10px;font-weight:700;"
+        "background:#1e1b4b;color:#a5b4fc;"
+        "padding:2px 7px;border-radius:6px;white-space:nowrap;}"
         ".todoist-indicator{font-size:10px;font-weight:600;text-decoration:none;"
         "background:var(--ok-bg,#16382a);color:var(--ok,#22c55e);"
         "padding:2px 7px;border-radius:6px;white-space:nowrap;}"

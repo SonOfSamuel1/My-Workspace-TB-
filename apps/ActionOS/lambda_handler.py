@@ -2288,6 +2288,17 @@ def handle_action(event: dict) -> dict:
                         events.extend(_mhb_events)
                     except Exception as _mhb_fetch_err:
                         logger.warning(f"Could not fetch My Habits- Building events: {_mhb_fetch_err}")
+                # Fetch Committed Action calendar events
+                _ca_cal_id = state.get("committed_action_calendar_id", "")
+                if _ca_cal_id:
+                    try:
+                        _ca_events = cal.get_events_for_types(
+                            ["committed_action"], days=90,
+                            extra_ids={"committed_action": _ca_cal_id}
+                        )
+                        events.extend(_ca_events)
+                    except Exception as _ca_fetch_err:
+                        logger.warning(f"Could not fetch Committed Action events: {_ca_fetch_err}")
                 projects = _fetch_todoist_projects(todoist_token)
                 checklists = _load_checklists()
                 # Fetch Fishing for Men Todoist project tasks + all tasks for matching

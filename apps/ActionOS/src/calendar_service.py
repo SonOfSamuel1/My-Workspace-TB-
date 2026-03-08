@@ -31,6 +31,8 @@ CALENDAR_IDS = {
     "my_habits_existing": "",
     "my_habits_building": "",
     # committed_action calendar ID is dynamic — stored in calendar state (S3), NOT hardcoded here
+    # brandon_family_unique: shared family calendar — ID provided by user
+    "brandon_family_unique": "",
 }
 
 _CALENDAR_DAY_OVERRIDES = {
@@ -130,6 +132,13 @@ class CalendarService:
                 start_val = start.get("dateTime") or start.get("date", "")
                 end_val = end.get("dateTime") or end.get("date", "")
 
+                # Capture self response status for meeting invite detection
+                response_status = ""
+                for att in item.get("attendees", []):
+                    if att.get("self"):
+                        response_status = att.get("responseStatus", "")
+                        break
+
                 cal_events.append(
                     {
                         "id": event_id,
@@ -142,6 +151,7 @@ class CalendarService:
                         "html_link": item.get("htmlLink", ""),
                         "calendar_type": cal_type,
                         "recurring_event_id": item.get("recurringEventId", ""),
+                        "response_status": response_status,
                     }
                 )
             return cal_events
