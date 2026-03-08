@@ -898,6 +898,7 @@ def _build_home_html_uncached(
     # Build set of task titles that have committed action events scheduled today
     # Used to show "Work Scheduled" / "Work Not Scheduled" badges on cards
     committed_action_titles: set = set()
+    tomorrow_committed_action_titles: set = set()
     _cals_to_check = list({_ca_cal_id, "primary"} - {""})
     for _check_id in _cals_to_check:
         try:
@@ -905,6 +906,13 @@ def _build_home_html_uncached(
                 _t = _ev.get("title", "")
                 if _t.upper().startswith("COMMIT:"):
                     committed_action_titles.add(_t[_t.index(":") + 1:].strip().lower())
+        except Exception:
+            pass
+        try:
+            for _ev in cal.get_today_events_from_calendar(_check_id, offset_days=1):
+                _t = _ev.get("title", "")
+                if _t.upper().startswith("COMMIT:"):
+                    tomorrow_committed_action_titles.add(_t[_t.index(":") + 1:].strip().lower())
         except Exception:
             pass
 
@@ -944,6 +952,8 @@ def _build_home_html_uncached(
         function_url=function_url,
         action_token=action_token,
         embed=True,
+        email_actions_url=function_url,
+        email_actions_token=action_token,
         toggl_time_totals=toggl_time_totals,
         toggl_daily_total_secs=toggl_daily_total_secs,
         diligent_work_secs=diligent_work_secs,
@@ -951,6 +961,7 @@ def _build_home_html_uncached(
         todoist_tasks=all_todoist_tasks,
         godpower_state=godpower_state,
         committed_action_titles=committed_action_titles,
+        tomorrow_committed_action_titles=tomorrow_committed_action_titles,
     )
 
 
