@@ -457,7 +457,7 @@ def _build_task_card(
     # Schedule button
     schedule_btn = (
         f'<button class="schedule-btn" '
-        f"onclick=\"event.stopPropagation();openScheduleModal('{task_id}')\">"
+        f"onclick=\"event.stopPropagation();openScheduleModal('{task_id}','','{section}')\">"
         '<svg class="schedule-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01M16 18h.01"/></svg>'
         " Schedule Work</button>"
     )
@@ -1254,11 +1254,11 @@ def _build_section_html(
     # Badge: "N <badge_label>" (warn) only — hide when fully reviewed
     if needs_review_count > 0:
         badge_html = (
-            f'<span class="section-badge section-needs-badge" id="sbadge-{key}">'
+            f'<span class="section-badge section-needs-badge" id="sbadge-{key}" data-badge-label="{badge_label}">'
             f"{needs_review_count} {badge_label}</span>"
         )
     else:
-        badge_html = f'<span class="section-badge section-needs-badge" id="sbadge-{key}" style="display:none;"></span>'
+        badge_html = f'<span class="section-badge section-needs-badge" id="sbadge-{key}" data-badge-label="{badge_label}" style="display:none;"></span>'
 
     if not cards_html:
         return ""
@@ -2680,7 +2680,8 @@ def build_home_html(
         "var badge=document.getElementById('sbadge-'+section);"
         "if(badge){var cur=parseInt(badge.textContent)||0;"
         "var nxt=Math.max(0,cur-1);"
-        "if(nxt>0){badge.textContent=nxt+' NEEDS REVIEW';badge.style.display='';}"
+        "var lbl=badge.getAttribute('data-badge-label')||'NEEDS REVIEW';"
+        "if(nxt>0){badge.textContent=nxt+' '+lbl;badge.style.display='';}"
         "else{badge.style.display='none';}}  "
         "if(typeof homeCount!=='undefined'){homeCount=Math.max(0,homeCount-1);"
         "if(typeof postHomeCount==='function')postHomeCount();}}"
@@ -3294,16 +3295,16 @@ def build_home_html(
         "node.parentNode.replaceChild(frag,node);"
         "}}});});}linkifyTitles();"
         # Schedule modal JS
-        "var _schedTaskId=null,_schedMins=0,_schedTitle='';"
-        "function openScheduleModal(taskId,title){"
-        "_schedTaskId=taskId;_schedMins=0;_schedTitle=title||'';"
+        "var _schedTaskId=null,_schedMins=0,_schedTitle='',_schedSection='';"
+        "function openScheduleModal(taskId,title,section){"
+        "_schedTaskId=taskId;_schedMins=0;_schedTitle=title||'';_schedSection=section||'';"
         "document.querySelectorAll('.duration-opt').forEach(function(b){"
         "b.classList.remove('selected');b.disabled=false;b.textContent=b.getAttribute('data-label')||b.textContent;});"
         "document.getElementById('schedule-overlay').classList.add('open');"
         "}"
         "function closeScheduleModal(){"
         "document.getElementById('schedule-overlay').classList.remove('open');"
-        "_schedTaskId=null;_schedMins=0;_schedTitle='';"
+        "_schedTaskId=null;_schedMins=0;_schedTitle='';_schedSection='';"
         "}"
         "document.querySelectorAll('.duration-opt').forEach(function(b){"
         "b.setAttribute('data-label',b.textContent);"
@@ -3319,6 +3320,7 @@ def build_home_html(
         ".then(function(d){"
         "setTimeout(function(){closeScheduleModal();},800);"
         "if(d.ok&&_schedTaskId){"
+        "if(_schedSection){_updateBadge(_schedSection);}"
         "var card=document.querySelector('[data-task-id=\"'+_schedTaskId+'\"]');"
         "if(card){"
         "var wrap=card.querySelector('.task-schedule-badge');"
