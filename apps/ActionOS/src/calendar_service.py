@@ -436,8 +436,10 @@ class CalendarService:
         duration_minutes: int,
         calendar_id: str = "primary",
     ) -> List[Dict[str, Any]]:
-        """Create consecutive 30-min calendar blocks starting at the next half-hour slot.
+        """Create consecutive 30-min calendar blocks at the next free time slot.
 
+        Queries freebusy to avoid overlapping existing events. Finds the first
+        30-min-aligned window where all blocks fit without conflict.
         For example, 60 min → 2 blocks at T and T+30; 120 min → 4 blocks.
         Returns a list of created event dicts.
         """
@@ -469,6 +471,50 @@ class CalendarService:
         min_start = local_now + timedelta(minutes=30)
         while start < min_start:
             start += timedelta(minutes=30)
+
+        # Query freebusy to avoid scheduling over existing events
+        search_window_hours = 48
+        time_max = start + timedelta(hours=search_window_hours)
+        try:
+            freebusy_result = self.service.freebusy().query(body={
+                "timeMin": start.isoformat(),
+                "timeMax": time_max.isoformat(),
+                "items": [{"id": calendar_id}],
+            }).execute()
+            raw_busy = freebusy_result.get("calendars", {}).get(calendar_id, {}).get("busy", [])
+            busy = []
+            for period in raw_busy:
+                b_start = datetime.fromisoformat(period["start"].replace("Z", "+00:00"))
+                b_end = datetime.fromisoformat(period["end"].replace("Z", "+00:00"))
+                busy.append((b_start, b_end))
+        except Exception as e:
+            logger.warning(f"Could not fetch freebusy info, scheduling without overlap check: {e}")
+            busy = []
+
+        # Find the first 30-min-aligned slot where all blocks fit without conflict
+        candidate = start
+        max_search = start + timedelta(hours=search_window_hours)
+        while candidate < max_search:
+            slot_end = candidate + timedelta(minutes=30 * num_events)
+            conflict = False
+            for b_start, b_end in busy:
+                if b_start < slot_end and b_end > candidate:
+                    conflict = True
+                    # Advance candidate past this busy period, aligned to 30-min boundary
+                    b_end_local = b_end.astimezone(local_tz)
+                    b_end_minute = b_end_local.minute
+                    if b_end_minute == 0:
+                        candidate = b_end_local.replace(second=0, microsecond=0)
+                    elif b_end_minute <= 30:
+                        candidate = b_end_local.replace(minute=30, second=0, microsecond=0)
+                    else:
+                        candidate = (b_end_local + timedelta(hours=1)).replace(
+                            minute=0, second=0, microsecond=0
+                        )
+                    break
+            if not conflict:
+                start = candidate
+                break
 
         created = []
         for i in range(num_events):
